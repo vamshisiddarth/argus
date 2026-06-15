@@ -49,7 +49,7 @@ jobs:
           cache: pip
 
       - name: Install dev tools
-        run: pip install black ruff mypy
+        run: pip install black ruff mypy types-PyYAML types-python-dateutil
 
       - name: Check formatting (black)
         run: black --check --diff .
