@@ -1,45 +1,92 @@
 # AWS Lambda Deployment
 
-Argus runs as a Lambda function triggered by EventBridge Scheduler on a weekly schedule.
+Argus runs as a Lambda function triggered by EventBridge on a weekly schedule.
+Deployment uses [AWS SAM](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html),
+which packages and uploads the code automatically — no manual S3 setup needed.
+
+**Prerequisites**
+
+- [AWS SAM CLI](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html) installed
+- AWS credentials configured (`aws configure` or environment variables)
+- AWS Resource Explorer enabled with an **aggregator index** in your primary region
+
+---
 
 ## Single account
 
-### One-click deploy
+```bash
+cd deploy/aws/single-account
+sam build
+sam deploy --guided
+```
 
-[![Launch Stack](https://s3.amazonaws.com/cloudformation-examples/cloudformation-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/create/review?templateURL=https://raw.githubusercontent.com/vamshisiddarth/argus/main/deploy/aws/single-account.yaml)
+`sam deploy --guided` prompts for all parameters and saves them to `samconfig.toml`.
+Subsequent deploys are just `sam deploy`.
 
-### CLI deploy
+Or use the Makefile shortcut from the repo root:
 
 ```bash
-aws cloudformation deploy \
-  --template-file deploy/aws/single-account.yaml \
-  --stack-name Argus \
-  --capabilities CAPABILITY_IAM \
-  --parameter-overrides \
-      SlackWebhookUrl=https://hooks.slack.com/services/T.../B.../... \
-      PrimaryRegion=us-east-1
+make deploy-aws
 ```
+
+### Parameters
+
+| Parameter | Required | Default | Description |
+|-----------|----------|---------|-------------|
+| `SlackWebhookUrl` | Yes | — | Slack incoming webhook URL |
+| `PrimaryRegion` | No | `us-east-1` | Must match your Resource Explorer aggregator region |
+| `IgnoreRegions` | No | _(empty)_ | Comma-separated regions to skip |
+| `AiProvider` | No | `bedrock` | `bedrock` \| `anthropic` |
+| `AnthropicApiKey` | When `AiProvider=anthropic` | — | Anthropic API key |
+| `BedrockModelId` | No | `anthropic.claude-sonnet-4-6` | Bedrock model ID |
+| `Schedule` | No | `cron(0 9 ? * MON *)` | EventBridge schedule (default: Mondays 9am UTC) |
+| `DryRun` | No | `false` | `true` logs the Slack payload instead of posting |
+| `LambdaMemoryMB` | No | `512` | Increase for large accounts that time out |
 
 ### What gets created
 
 | Resource | Purpose |
 |----------|---------|
-| Lambda function | Runs the scan weekly |
+| Lambda function | Runs the scan on schedule |
 | EventBridge rule | Triggers Lambda every Monday at 9am UTC |
 | IAM execution role | Read-only access to Resource Explorer, CloudWatch, Cost Explorer, CloudTrail, Bedrock |
-| Resource Explorer index | Aggregator index for cross-region resource discovery |
+| S3 bucket | Stores full JSON reports (90-day retention) |
 
-## Parameters
+---
 
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `SlackWebhookUrl` | Yes | — | Slack incoming webhook URL |
-| `PrimaryRegion` | No | `us-east-1` | AWS region for the scan |
-| `IgnoreRegions` | No | _(empty)_ | Comma-separated regions to skip |
-| `AIProvider` | No | `bedrock` | `bedrock` \| `anthropic` |
-| `AnthropicApiKey` | When `AIProvider=anthropic` | — | Anthropic API key |
-| `Schedule` | No | `cron(0 9 ? * MON *)` | EventBridge schedule expression |
-| `ReportS3Bucket` | No | _(empty)_ | S3 bucket for full JSON report |
+## Multi-account
+
+### Hub account (runs Argus)
+
+```bash
+cd deploy/aws/multi-account/hub
+sam build
+sam deploy --guided
+```
+
+Or:
+
+```bash
+make deploy-aws-multi
+```
+
+Note the `HubRoleArn` output — you'll need it for the spoke deployments.
+
+### Spoke accounts (one per target account)
+
+No SAM needed — spoke accounts only get an IAM role:
+
+```bash
+aws cloudformation deploy \
+  --template-file deploy/aws/multi-account/spoke-role.yaml \
+  --stack-name Argus-Spoke \
+  --capabilities CAPABILITY_IAM \
+  --parameter-overrides HubAccountId=<hub-account-id>
+```
+
+The spoke role is read-only and only trusts the hub Lambda role to assume it.
+
+---
 
 ## Triggering a manual scan
 
@@ -58,11 +105,9 @@ aws logs tail /aws/lambda/Argus --follow
 
 ## Updating
 
-Redeploy with the same stack name — CloudFormation handles the update:
-
 ```bash
-aws cloudformation deploy \
-  --template-file deploy/aws/single-account.yaml \
-  --stack-name Argus \
-  --capabilities CAPABILITY_IAM
+cd deploy/aws/single-account
+sam build && sam deploy
 ```
+
+SAM detects what changed and shows a changeset before applying.

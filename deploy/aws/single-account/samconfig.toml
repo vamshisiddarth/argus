@@ -1,0 +1,22 @@
+# SAM configuration — saved after first `sam deploy --guided`
+# Edit parameter_overrides below, then run: sam deploy
+
+version = 0.1
+
+[default.build.parameters]
+cached = true
+parallel = true
+
+[default.deploy.parameters]
+stack_name         = "argus"
+region             = "us-east-1"
+capabilities       = "CAPABILITY_IAM CAPABILITY_NAMED_IAM"
+confirm_changeset  = true
+resolve_s3         = true   # SAM manages the staging bucket automatically
+
+parameter_overrides = [
+  "SlackWebhookUrl=https://hooks.slack.com/services/REPLACE_ME",
+  "AiProvider=bedrock",
+  "PrimaryRegion=us-east-1",
+  "DryRun=false",
+]

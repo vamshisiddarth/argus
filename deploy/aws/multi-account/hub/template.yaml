@@ -1,0 +1,215 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Argus — multi-account hub deployment.
+  Deploy this in the account that will RUN Argus (the hub).
+  Then deploy spoke-role.yaml in every account you want to SCAN.
+  Docs: https://github.com/vamshisiddarth/argus
+
+# ---------------------------------------------------------------------------
+# Parameters
+# ---------------------------------------------------------------------------
+Parameters:
+
+  SlackWebhookUrl:
+    Type: String
+    NoEcho: true
+    Description: Slack incoming webhook URL. Create one at api.slack.com/apps.
+
+  AccountsConfig:
+    Type: String
+    Description: >
+      JSON array of spoke accounts to scan. Each entry needs id, name, role_arn.
+      Example:
+        [{"id":"111122223333","name":"dev","role_arn":"arn:aws:iam::111122223333:role/ArgusSpokeRole"},
+         {"id":"444455556666","name":"prod","role_arn":"arn:aws:iam::444455556666:role/ArgusSpokeRole"}]
+
+  SpokeRoleName:
+    Type: String
+    Default: ArgusSpokeRole
+    Description: >
+      Name of the IAM role deployed in each spoke account via spoke-role.yaml.
+      Must match exactly.
+
+  IgnoreRegions:
+    Type: String
+    Default: ""
+    Description: >
+      Comma-separated list of AWS regions to EXCLUDE from scans in all accounts.
+      Leave empty to scan every region automatically (recommended).
+
+  PrimaryRegion:
+    Type: String
+    Default: us-east-1
+    Description: AWS region for the hub Lambda boto3 session and Bedrock invocations.
+
+  Schedule:
+    Type: String
+    Default: "cron(0 9 ? * MON *)"
+    Description: EventBridge cron expression for the weekly scan.
+
+  AiProvider:
+    Type: String
+    Default: bedrock
+    AllowedValues: [bedrock, anthropic]
+    Description: >
+      AI provider — bedrock (default, uses IAM role) or anthropic (requires AnthropicApiKey).
+
+  BedrockModelId:
+    Type: String
+    Default: anthropic.claude-sonnet-4-6
+
+  BedrockRegion:
+    Type: String
+    Default: us-east-1
+
+  AnthropicApiKey:
+    Type: String
+    Default: ""
+    NoEcho: true
+
+  DryRun:
+    Type: String
+    Default: "false"
+    AllowedValues: ["true", "false"]
+
+  LambdaMemoryMB:
+    Type: Number
+    Default: 512
+    AllowedValues: [256, 512, 1024, 2048]
+
+  LambdaTimeoutSeconds:
+    Type: Number
+    Default: 900
+
+# ---------------------------------------------------------------------------
+# Conditions
+# ---------------------------------------------------------------------------
+Conditions:
+  UseAnthropicKey: !Not [!Equals [!Ref AnthropicApiKey, ""]]
+
+# ---------------------------------------------------------------------------
+# Globals
+# ---------------------------------------------------------------------------
+Globals:
+  Function:
+    Runtime: python3.13
+    Architectures: [x86_64]
+    MemorySize: !Ref LambdaMemoryMB
+    Timeout: !Ref LambdaTimeoutSeconds
+
+# ---------------------------------------------------------------------------
+# Resources
+# ---------------------------------------------------------------------------
+Resources:
+
+  # --- S3 bucket for report storage ---
+  ReportBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "argus-reports-${AWS::AccountId}-${AWS::Region}"
+      LifecycleConfiguration:
+        Rules:
+          - Id: ExpireOldReports
+            Status: Enabled
+            ExpirationInDays: 90
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  # --- IAM role for the hub Lambda ---
+  ArgusHubRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "ArgusHubRole-${AWS::Region}"
+      Description: Hub Lambda execution role — assumes spoke roles in target accounts.
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: ArgusHubPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+
+              - Sid: AssumeSpokenRoles
+                Effect: Allow
+                Action:
+                  - sts:AssumeRole
+                Resource: !Sub "arn:aws:iam::*:role/${SpokeRoleName}"
+
+              - Sid: Bedrock
+                Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                Resource: !Sub "arn:aws:bedrock:${BedrockRegion}::foundation-model/${BedrockModelId}"
+
+              - Sid: S3Reports
+                Effect: Allow
+                Action:
+                  - s3:PutObject
+                Resource: !Sub "${ReportBucket.Arn}/reports/*"
+
+              - Sid: StsGetCallerIdentity
+                Effect: Allow
+                Action:
+                  - sts:GetCallerIdentity
+                Resource: "*"
+
+  # --- Lambda function ---
+  ArgusFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: Argus
+      Description: AI-powered idle resource scanner (multi-account mode).
+      Handler: entrypoints.aws_lambda.handler
+      Role: !GetAtt ArgusHubRole.Arn
+      CodeUri: ../../../../
+      Events:
+        WeeklyScan:
+          Type: Schedule
+          Properties:
+            Schedule: !Ref Schedule
+            Name: ArgusWeeklyScan
+            Description: Triggers Argus Lambda on a weekly schedule.
+            Enabled: true
+      Environment:
+        Variables:
+          IGNORE_REGIONS: !Ref IgnoreRegions
+          PRIMARY_REGION: !Ref PrimaryRegion
+          DRY_RUN: !Ref DryRun
+          AI_PROVIDER: !Ref AiProvider
+          BEDROCK_MODEL_ID: !Ref BedrockModelId
+          BEDROCK_REGION: !Ref BedrockRegion
+          SLACK_WEBHOOK_URL: !Ref SlackWebhookUrl
+          REPORT_S3_BUCKET: !Ref ReportBucket
+          ACCOUNTS_MODE: multi
+          ACCOUNTS_CONFIG: !Ref AccountsConfig
+          ANTHROPIC_API_KEY: !If [UseAnthropicKey, !Ref AnthropicApiKey, ""]
+
+# ---------------------------------------------------------------------------
+# Outputs
+# ---------------------------------------------------------------------------
+Outputs:
+
+  HubRoleArn:
+    Value: !GetAtt ArgusHubRole.Arn
+    Description: >
+      ARN of the hub Lambda execution role.
+      Use this as HubRoleArn when deploying spoke-role.yaml in each target account.
+
+  LambdaFunctionArn:
+    Value: !GetAtt ArgusFunction.Arn
+    Description: Argus Lambda function ARN.
+
+  ReportBucketName:
+    Value: !Ref ReportBucket
+    Description: S3 bucket where full JSON reports are stored.

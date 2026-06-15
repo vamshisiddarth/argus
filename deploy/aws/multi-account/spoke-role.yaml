@@ -4,7 +4,7 @@ Description: >
   Deploy this in every AWS account you want Argus to scan.
   This creates a single read-only IAM role that the hub Lambda assumes via STS.
   No Lambda, no S3, no EventBridge — just one IAM role.
-  Docs: https://github.com/your-org/argus
+  Docs: https://github.com/vamshisiddarth/argus
 
 # ---------------------------------------------------------------------------
 # Parameters

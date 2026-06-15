@@ -134,40 +134,36 @@ python main.py --cloud aws --run-now [options]
 
 ## Deploy to AWS Lambda
 
-### Single account — one-click
+Uses [AWS SAM](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html) — handles packaging and upload automatically. No S3 bucket needed.
 
-[![Launch Stack](https://s3.amazonaws.com/cloudformation-examples/cloudformation-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/create/review?templateURL=https://raw.githubusercontent.com/vamshisiddarth/argus/main/deploy/aws/single-account.yaml)
-
-Or deploy manually:
+### Single account
 
 ```bash
-aws cloudformation deploy \
-  --template-file deploy/aws/single-account.yaml \
-  --stack-name Argus \
-  --capabilities CAPABILITY_IAM \
-  --parameter-overrides \
-      SlackWebhookUrl=https://hooks.slack.com/services/... \
-      PrimaryRegion=us-east-1
+make deploy-aws
+# or manually:
+cd deploy/aws/single-account
+sam build && sam deploy --guided
 ```
 
-The template creates:
-- Lambda function (runs weekly via EventBridge Scheduler)
+`sam deploy --guided` walks you through parameters (Slack webhook, region, AI provider) and saves them to `samconfig.toml` for future deploys. Subsequent deploys are just `sam deploy`.
+
+The stack creates:
+- Lambda function (runs weekly via EventBridge)
 - IAM role with least-privilege read-only permissions
-- Resource Explorer aggregator index (if not already present)
+- S3 bucket for full JSON report storage (90-day retention)
 
 ### Multi-account
 
-Deploy the hub in the account that will run Argus:
+**Hub account** (runs Argus):
 
 ```bash
-aws cloudformation deploy \
-  --template-file deploy/aws/multi-account/hub.yaml \
-  --stack-name Argus-Hub \
-  --capabilities CAPABILITY_IAM \
-  --parameter-overrides SlackWebhookUrl=https://hooks.slack.com/services/...
+make deploy-aws-multi
+# or manually:
+cd deploy/aws/multi-account/hub
+sam build && sam deploy --guided
 ```
 
-Then deploy the spoke role in each target account:
+**Each spoke account** (read-only IAM role only — no Lambda):
 
 ```bash
 aws cloudformation deploy \
@@ -177,7 +173,7 @@ aws cloudformation deploy \
   --parameter-overrides HubAccountId=<hub-account-id>
 ```
 
-Create `accounts.yaml` (see `accounts.yaml.example`) and set `ACCOUNTS_CONFIG` in the Lambda environment.
+The hub stack output includes the `HubRoleArn` — use it as the `HubRoleArn` parameter for spoke deployments.
 
 ---
 

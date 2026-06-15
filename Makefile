@@ -1,4 +1,4 @@
-.PHONY: setup test lint fmt scan-aws scan-gcp scan-azure docs
+.PHONY: setup test lint fmt scan-aws scan-gcp scan-azure docs deploy-aws deploy-aws-multi
 
 setup:
 	python -m venv .venv
@@ -25,6 +25,12 @@ scan-gcp:
 
 scan-azure:
 	python main.py --cloud azure --run-now --dry-run
+
+deploy-aws:
+	cd deploy/aws/single-account && sam build && sam deploy --guided
+
+deploy-aws-multi:
+	cd deploy/aws/multi-account/hub && sam build && sam deploy --guided
 
 docs:
 	mkdocs serve
