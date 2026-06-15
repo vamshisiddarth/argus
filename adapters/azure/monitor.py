@@ -285,7 +285,7 @@ def _discover_metrics(
     try:
         definitions = client.list_metric_definitions(resource_uri=resource_id)
         for defn in definitions:
-            metric_name: str = defn.name
+            metric_name: str = defn.name or ""
             # Pick aggregation based on metric name heuristics
             agg = (
                 "Total"

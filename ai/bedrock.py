@@ -76,7 +76,7 @@ class BedrockProvider(AIProvider):
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _call_with_retry(self, kwargs: dict[str, Any]) -> dict[str, Any]:
+    def _call_with_retry(self, kwargs: dict[str, Any]) -> Any:
         delay = _BASE_DELAY
         for attempt in range(MAX_RETRIES):
             try:

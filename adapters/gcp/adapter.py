@@ -26,12 +26,13 @@ class GCPAdapter(CloudAdapter):
         project_id: str | None = None,
         bq_billing_table: str | None = None,
     ) -> None:
-        self._project_id = project_id or os.environ.get("GCP_PROJECT_ID", "")
-        if not self._project_id:
+        resolved = project_id or os.environ.get("GCP_PROJECT_ID", "")
+        if not resolved:
             raise EnvironmentError(
                 "GCP_PROJECT_ID is not set. "
                 "Pass project_id= or export GCP_PROJECT_ID."
             )
+        self._project_id: str = resolved
         self._bq_billing_table = bq_billing_table or os.environ.get("BILLING_BQ_TABLE")
 
     def list_resources(self, ignore_regions: list[str] | None = None) -> list[Resource]:

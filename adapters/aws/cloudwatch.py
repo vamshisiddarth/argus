@@ -300,7 +300,7 @@ def get_metrics(
     end_time = datetime.now(tz=timezone.utc)
     start_time = end_time - timedelta(days=days)
 
-    queries = [
+    queries: list[Any] = [
         {
             "Id": f"m{i}",
             "MetricStat": {
@@ -373,6 +373,7 @@ def _enrich_instance_details(
       instance_count   — Redshift / OpenSearch cluster node count
     """
     region = _region_from_arn(resource_id)
+    resp: Any  # declared here so mypy doesn't infer a narrow type from first assignment
     try:
         match resource_type:
             case "AWS::EC2::Instance":
@@ -517,7 +518,7 @@ def _enrich_instance_details(
 
 
 def _parse_results(
-    results: list[dict[str, Any]],
+    results: list[Any],
     metric_defs: list[tuple[str, str, str, str]],
     resource_id: str,
     resource_type: str,

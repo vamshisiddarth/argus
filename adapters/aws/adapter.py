@@ -26,8 +26,10 @@ class AWSAdapter(CloudAdapter):
         aggregator_region: str | None = None,
     ) -> None:
         self._session = session
-        self._aggregator_region = aggregator_region or os.environ.get(
-            "RESOURCE_EXPLORER_REGION", "us-east-1"
+        self._aggregator_region: str = (
+            aggregator_region
+            or os.environ.get("RESOURCE_EXPLORER_REGION")
+            or "us-east-1"
         )
 
     def list_resources(self, ignore_regions: list[str] | None = None) -> list[Resource]:

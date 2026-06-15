@@ -38,7 +38,7 @@ def get_cost(
     resolved_table = bq_table or os.environ.get("BILLING_BQ_TABLE", _DEFAULT_TABLE)
 
     try:
-        return _query_bigquery(project_id, resource_ids, days, resolved_table)
+        return _query_bigquery(project_id, resource_ids, days, resolved_table or "")
     except Exception as exc:
         logger.warning(
             "gcp_billing_query_failed",
@@ -61,7 +61,7 @@ def _query_bigquery(
     days: int,
     bq_table: str,
 ) -> dict[str, float]:
-    from google.cloud import bigquery  # type: ignore[import-untyped]
+    from google.cloud import bigquery  # type: ignore[import-untyped,attr-defined]
 
     client = bigquery.Client(project=project_id)
     end_date = datetime.now(tz=timezone.utc).date()

@@ -37,3 +37,6 @@ htmlcov/
 
 # MkDocs build output
 site/
+
+# SAM — generated after sam deploy --guided (may contain webhook URLs)
+samconfig.toml

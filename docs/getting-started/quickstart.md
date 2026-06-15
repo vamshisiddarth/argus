@@ -7,8 +7,14 @@ Scan your AWS account from your laptop in under 5 minutes.
 ```bash
 git clone https://github.com/vamshisiddarth/argus.git
 cd argus
+make setup
+```
+
+Or manually (install only what you need):
+
+```bash
 python3.13 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements/aws.txt   # or gcp.txt / azure.txt
 ```
 
 ## :material-tune: 2. Configure
