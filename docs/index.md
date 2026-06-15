@@ -16,7 +16,7 @@ over-provisioned resources to right-size, with specific actions and estimated sa
 
 <div class="hero-buttons" markdown>
 [Get Started](getting-started/index.md){ .md-button .md-button--primary }
-[View on GitHub](https://github.com/vamshisiddarthgaddam/argus){ .md-button }
+[View on GitHub](https://github.com/vamshisiddarth/argus){ .md-button }
 </div>
 
 <div class="cloud-badges" markdown>
@@ -144,7 +144,7 @@ Argus found $1,412.85/month in waste across 6 resources
 === "Local scan (5 minutes)"
 
     ```bash
-    git clone https://github.com/vamshisiddarthgaddam/argus.git
+    git clone https://github.com/vamshisiddarth/argus.git
     cd argus
     python -m venv .venv && source .venv/bin/activate
     pip install -r requirements.txt

@@ -6,7 +6,7 @@
 
 Argus finds idle and wasted cloud resources — stopped EC2 instances, unattached EBS volumes, orphaned Elastic IPs, underutilized RDS databases — and delivers a prioritized, AI-reasoned report to Slack every week.
 
-[![CI](https://github.com/vamshisiddarthgaddam/argus/actions/workflows/ci.yml/badge.svg)](https://github.com/vamshisiddarthgaddam/argus/actions/workflows/ci.yml)
+[![CI](https://github.com/vamshisiddarth/argus/actions/workflows/ci.yml/badge.svg)](https://github.com/vamshisiddarth/argus/actions/workflows/ci.yml)
 [![Python 3.13+](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -74,7 +74,7 @@ LOW   eipalloc-xyz  Elastic IP         $3.65/mo   Unassociated since creation
 ### 1. Clone and install
 
 ```bash
-git clone https://github.com/vamshisiddarthgaddam/argus.git
+git clone https://github.com/vamshisiddarth/argus.git
 cd argus
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt

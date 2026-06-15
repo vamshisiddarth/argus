@@ -131,7 +131,7 @@ nav:
 extra:
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/vamshisiddarthgaddam/argus
+      link: https://github.com/vamshisiddarth/argus
       name: Argus on GitHub
   generator: false   # hide "Made with Material" footer
 

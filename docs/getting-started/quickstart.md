@@ -5,7 +5,7 @@ Scan your AWS account from your laptop in under 5 minutes.
 ## :material-source-repository: 1. Clone and install
 
 ```bash
-git clone https://github.com/vamshisiddarthgaddam/argus.git
+git clone https://github.com/vamshisiddarth/argus.git
 cd argus
 python3.13 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt

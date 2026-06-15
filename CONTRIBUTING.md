@@ -18,7 +18,7 @@ Thanks for your interest in contributing. This document explains how to set up a
 ## Development setup
 
 ```bash
-git clone https://github.com/vamshisiddarthgaddam/argus.git
+git clone https://github.com/vamshisiddarth/argus.git
 cd argus
 
 python3.13 -m venv .venv

@@ -8,7 +8,7 @@
 ## Install
 
 ```bash
-git clone https://github.com/vamshisiddarthgaddam/argus.git
+git clone https://github.com/vamshisiddarth/argus.git
 cd argus
 python3.13 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
