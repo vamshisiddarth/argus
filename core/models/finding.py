@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Literal
 
@@ -17,13 +17,13 @@ class ResourceFinding:
     """
 
     resource_id: str
-    resource_type: str          # e.g. "AWS::EC2::Instance", "AWS::RDS::DBInstance"
-    cloud: Cloud                # "aws" | "gcp" | "azure"
+    resource_type: str  # e.g. "AWS::EC2::Instance", "AWS::RDS::DBInstance"
+    cloud: Cloud  # "aws" | "gcp" | "azure"
     region: str
     estimated_monthly_cost: float  # USD
-    waste_reason: str           # AI-written: why this resource is idle/wasteful
-    recommendation: str         # AI-written: specific action to take
-    priority: Priority          # AI-assigned based on cost + confidence
+    waste_reason: str  # AI-written: why this resource is idle/wasteful
+    recommendation: str  # AI-written: specific action to take
+    priority: Priority  # AI-assigned based on cost + confidence
     metrics_summary: dict[str, Any]  # key signals used to reach this conclusion
     tags: dict[str, str]
     scan_time: datetime
@@ -43,7 +43,9 @@ class ResourceFinding:
             "priority": self.priority,
             "metrics_summary": self.metrics_summary,
             "tags": self.tags,
-            "last_activity": self.last_activity.isoformat() if self.last_activity else None,
+            "last_activity": (
+                self.last_activity.isoformat() if self.last_activity else None
+            ),
             "scan_time": self.scan_time.isoformat(),
         }
 

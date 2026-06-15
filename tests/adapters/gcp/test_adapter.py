@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -19,7 +19,9 @@ class TestGCPAdapterDelegation:
         adapter = _make_adapter()
         expected = [Resource(SAMPLE_ID, SAMPLE_TYPE, "gcp", "us-central1")]
 
-        with patch("adapters.gcp.adapter.asset_inventory.list_resources", return_value=expected) as mock_fn:
+        with patch(
+            "adapters.gcp.adapter.asset_inventory.list_resources", return_value=expected
+        ) as mock_fn:
             result = adapter.list_resources()
 
         mock_fn.assert_called_once_with(project_id="my-proj", ignore_regions=None)
@@ -29,7 +31,9 @@ class TestGCPAdapterDelegation:
         adapter = _make_adapter()
         expected = MetricSummary(SAMPLE_ID, SAMPLE_TYPE, 14, {"cpu": 0.5})
 
-        with patch("adapters.gcp.adapter.cloud_monitoring.get_metrics", return_value=expected) as mock_fn:
+        with patch(
+            "adapters.gcp.adapter.cloud_monitoring.get_metrics", return_value=expected
+        ) as mock_fn:
             result = adapter.get_metrics(SAMPLE_ID, SAMPLE_TYPE, days=14)
 
         mock_fn.assert_called_once_with(
@@ -44,7 +48,9 @@ class TestGCPAdapterDelegation:
         adapter = _make_adapter()
         expected = {SAMPLE_ID: 55.00}
 
-        with patch("adapters.gcp.adapter.billing.get_cost", return_value=expected) as mock_fn:
+        with patch(
+            "adapters.gcp.adapter.billing.get_cost", return_value=expected
+        ) as mock_fn:
             result = adapter.get_cost([SAMPLE_ID], days=30)
 
         mock_fn.assert_called_once_with(
@@ -59,7 +65,10 @@ class TestGCPAdapterDelegation:
         adapter = _make_adapter()
         expected = datetime(2026, 5, 1, tzinfo=timezone.utc)
 
-        with patch("adapters.gcp.adapter.cloud_logging.get_last_activity", return_value=expected) as mock_fn:
+        with patch(
+            "adapters.gcp.adapter.cloud_logging.get_last_activity",
+            return_value=expected,
+        ) as mock_fn:
             result = adapter.get_last_activity(SAMPLE_ID, SAMPLE_TYPE)
 
         mock_fn.assert_called_once_with(

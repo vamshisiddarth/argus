@@ -15,26 +15,26 @@ logger = logging.getLogger(__name__)
 SCANNED_ASSET_TYPES: list[str] = [
     "compute.googleapis.com/Instance",
     "compute.googleapis.com/Disk",
-    "compute.googleapis.com/Address",         # static IPs
+    "compute.googleapis.com/Address",  # static IPs
     "compute.googleapis.com/ForwardingRule",
     "compute.googleapis.com/BackendService",
-    "sql.googleapis.com/Instance",             # Cloud SQL
-    "container.googleapis.com/Cluster",        # GKE
-    "run.googleapis.com/Service",              # Cloud Run
+    "sql.googleapis.com/Instance",  # Cloud SQL
+    "container.googleapis.com/Cluster",  # GKE
+    "run.googleapis.com/Service",  # Cloud Run
     "cloudfunctions.googleapis.com/Function",  # Cloud Functions
     "storage.googleapis.com/Bucket",
     "bigquery.googleapis.com/Dataset",
     "bigquery.googleapis.com/Table",
-    "redis.googleapis.com/Instance",           # Memorystore Redis
+    "redis.googleapis.com/Instance",  # Memorystore Redis
     "spanner.googleapis.com/Instance",
     "bigtable.googleapis.com/Instance",
     "pubsub.googleapis.com/Topic",
     "pubsub.googleapis.com/Subscription",
     "dataflow.googleapis.com/Job",
     "dataproc.googleapis.com/Cluster",
-    "aiplatform.googleapis.com/Endpoint",      # Vertex AI
-    "composer.googleapis.com/Environment",     # Cloud Composer (Airflow)
-    "notebooks.googleapis.com/Instance",       # Vertex AI Workbench
+    "aiplatform.googleapis.com/Endpoint",  # Vertex AI
+    "composer.googleapis.com/Environment",  # Cloud Composer (Airflow)
+    "notebooks.googleapis.com/Instance",  # Vertex AI Workbench
 ]
 
 

@@ -4,6 +4,8 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+import os as _os
+
 import boto3
 from botocore.exceptions import ClientError
 
@@ -142,7 +144,12 @@ _METRICS: dict[str, list[tuple[str, str, str, str]]] = {
     ],
     # ── EMR Cluster ───────────────────────────────────────────────────────────
     "AWS::EMR::Cluster": [
-        ("YARNMemoryAvailablePercentage", "AWS/ElasticMapReduce", "Average", "JobFlowId"),
+        (
+            "YARNMemoryAvailablePercentage",
+            "AWS/ElasticMapReduce",
+            "Average",
+            "JobFlowId",
+        ),
         ("ContainerPendingRatio", "AWS/ElasticMapReduce", "Average", "JobFlowId"),
         ("AppsRunning", "AWS/ElasticMapReduce", "Average", "JobFlowId"),
     ],
@@ -250,7 +257,6 @@ _METRICS: dict[str, list[tuple[str, str, str, str]]] = {
 
 _PERIOD_SECONDS = 86400  # daily granularity — one data point per day
 
-import os as _os
 # Default lookback for metric queries. 90 days covers quarterly usage patterns and
 # aligns with the CloudTrail lookback window so both signals share the same horizon.
 # At daily granularity CloudWatch retains data for 455 days, so 90 days is safe.
@@ -380,9 +386,8 @@ def _enrich_instance_details(
                     # vCPU count helps the AI understand the scale of the machine
                     cpu_opts = inst.get("CpuOptions", {})
                     if cpu_opts:
-                        metrics["vcpus"] = (
-                            cpu_opts.get("CoreCount", 1)
-                            * cpu_opts.get("ThreadsPerCore", 1)
+                        metrics["vcpus"] = cpu_opts.get("CoreCount", 1) * cpu_opts.get(
+                            "ThreadsPerCore", 1
                         )
 
             case "AWS::RDS::DBInstance":
@@ -393,7 +398,9 @@ def _enrich_instance_details(
                 if instances:
                     db = instances[0]
                     metrics["instance_type"] = db.get("DBInstanceClass")
-                    metrics["engine"] = f"{db.get('Engine')} {db.get('EngineVersion', '')}".strip()
+                    metrics["engine"] = (
+                        f"{db.get('Engine')} {db.get('EngineVersion', '')}".strip()
+                    )
                     metrics["storage_gb"] = db.get("AllocatedStorage")
                     metrics["multi_az"] = db.get("MultiAZ", False)
 
@@ -410,14 +417,18 @@ def _enrich_instance_details(
                     metrics["instance_count"] = len(cluster.get("DBClusterMembers", []))
                     # Fetch instance class from the writer instance
                     members = cluster.get("DBClusterMembers", [])
-                    writer = next((m for m in members if m.get("IsClusterWriter")), None)
+                    writer = next(
+                        (m for m in members if m.get("IsClusterWriter")), None
+                    )
                     if writer:
                         inst_resp = rds.describe_db_instances(
                             DBInstanceIdentifier=writer["DBInstanceIdentifier"]
                         )
                         inst_list = inst_resp.get("DBInstances", [])
                         if inst_list:
-                            metrics["instance_type"] = inst_list[0].get("DBInstanceClass")
+                            metrics["instance_type"] = inst_list[0].get(
+                                "DBInstanceClass"
+                            )
 
             case "AWS::ElastiCache::CacheCluster":
                 ec = session.client("elasticache", region_name=region)
@@ -428,7 +439,9 @@ def _enrich_instance_details(
                     c = clusters[0]
                     metrics["instance_type"] = c.get("CacheNodeType")
                     metrics["num_cache_nodes"] = c.get("NumCacheNodes")
-                    metrics["engine"] = f"{c.get('Engine')} {c.get('EngineVersion', '')}".strip()
+                    metrics["engine"] = (
+                        f"{c.get('Engine')} {c.get('EngineVersion', '')}".strip()
+                    )
 
             case "AWS::ElastiCache::ReplicationGroup":
                 ec = session.client("elasticache", region_name=region)
@@ -461,15 +474,17 @@ def _enrich_instance_details(
                 if config:
                     metrics["instance_type"] = config.get("InstanceType")
                     metrics["instance_count"] = config.get("InstanceCount")
-                    metrics["dedicated_master"] = config.get("DedicatedMasterEnabled", False)
+                    metrics["dedicated_master"] = config.get(
+                        "DedicatedMasterEnabled", False
+                    )
 
             case "AWS::Lambda::Function":
                 lam = session.client("lambda", region_name=region)
                 func_name = resource_id.split(":")[-1]
                 resp = lam.get_function_configuration(FunctionName=func_name)
                 metrics["memory_mb"] = resp.get("MemorySize")
-                metrics["ephemeral_storage_mb"] = (
-                    resp.get("EphemeralStorage", {}).get("Size")
+                metrics["ephemeral_storage_mb"] = resp.get("EphemeralStorage", {}).get(
+                    "Size"
                 )
                 metrics["runtime"] = resp.get("Runtime")
 
@@ -477,11 +492,15 @@ def _enrich_instance_details(
                 dms = session.client("dms", region_name=region)
                 # DMS uses the ARN as the filter
                 resp = dms.describe_replication_instances(
-                    Filters=[{"Name": "replication-instance-arn", "Values": [resource_id]}]
+                    Filters=[
+                        {"Name": "replication-instance-arn", "Values": [resource_id]}
+                    ]
                 )
                 instances = resp.get("ReplicationInstances", [])
                 if instances:
-                    metrics["instance_type"] = instances[0].get("ReplicationInstanceClass")
+                    metrics["instance_type"] = instances[0].get(
+                        "ReplicationInstanceClass"
+                    )
                     metrics["storage_gb"] = instances[0].get("AllocatedStorage")
 
     except ClientError as exc:
@@ -561,7 +580,13 @@ def _discover_metrics(
                             "Sum"
                             if any(
                                 kw in metric_name.lower()
-                                for kw in ("count", "bytes", "records", "invocations", "requests")
+                                for kw in (
+                                    "count",
+                                    "bytes",
+                                    "records",
+                                    "invocations",
+                                    "requests",
+                                )
                             )
                             else "Average"
                         )
@@ -607,7 +632,7 @@ def _dimension_value(arn: str, resource_type: str) -> str:
             return resource_part.split("/")[-1]
         case "AWS::StepFunctions::StateMachine":
             # dimension is the full ARN for Step Functions
-            return resource_id
+            return arn
         case "AWS::MSK::Cluster":
             # arn:aws:kafka:region:account:cluster/name/uuid -> name
             if "cluster/" in resource_part:
@@ -618,7 +643,9 @@ def _dimension_value(arn: str, resource_type: str) -> str:
         case "AWS::Glue::Job":
             # arn:aws:glue:region:account:job/name
             return resource_part.split("/")[-1]
-        case "AWS::RDS::DBCluster" | "AWS::Neptune::DBCluster" | "AWS::DocDB::DBCluster":
+        case (
+            "AWS::RDS::DBCluster" | "AWS::Neptune::DBCluster" | "AWS::DocDB::DBCluster"
+        ):
             # arn:...:cluster:name
             return resource_part.split(":")[-1]
         case "AWS::ElastiCache::ReplicationGroup":

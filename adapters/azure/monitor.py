@@ -248,11 +248,7 @@ def _parse_response(
 
         for ts in metric.timeseries:
             for data_point in ts.data:
-                val = (
-                    data_point.total
-                    if agg_type == "Total"
-                    else data_point.average
-                )
+                val = data_point.total if agg_type == "Total" else data_point.average
                 if val is not None:
                     values.append(val)
 

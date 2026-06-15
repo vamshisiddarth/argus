@@ -1,7 +1,6 @@
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
-import pytest
 from botocore.exceptions import ClientError
 
 from adapters.aws.cloudtrail import _resource_name_from_arn, get_last_activity
@@ -38,7 +37,9 @@ class TestResourceNameHelper:
 class TestGetLastActivity:
     def test_returns_event_time_when_activity_found(self):
         event_time = datetime(2026, 4, 15, 10, 30, 0, tzinfo=timezone.utc)
-        session, _ = _make_session(events=[{"EventTime": event_time, "EventName": "StopInstances"}])
+        session, _ = _make_session(
+            events=[{"EventTime": event_time, "EventName": "StopInstances"}]
+        )
 
         result = get_last_activity(
             session,

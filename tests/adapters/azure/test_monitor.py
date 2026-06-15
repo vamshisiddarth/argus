@@ -1,13 +1,14 @@
 from unittest.mock import MagicMock, patch
 
 from adapters.azure.monitor import get_metrics
-from adapters.base import MetricSummary
 
 SAMPLE_ID = "/subscriptions/sub1/resourceGroups/rg1/providers/Microsoft.Compute/virtualMachines/vm1"
 SAMPLE_TYPE = "microsoft.compute/virtualmachines"
 
 
-def _make_metric_response(metric_name: str, values: list[float], agg: str = "average") -> MagicMock:
+def _make_metric_response(
+    metric_name: str, values: list[float], agg: str = "average"
+) -> MagicMock:
     data_points = []
     for v in values:
         dp = MagicMock()
@@ -78,6 +79,7 @@ class TestGetMetrics:
 
     def test_handles_api_error_gracefully(self):
         from azure.core.exceptions import HttpResponseError
+
         with patch("adapters.azure.monitor.MetricsQueryClient") as mock_cls:
             with patch("adapters.azure.monitor.DefaultAzureCredential"):
                 mock_client = MagicMock()

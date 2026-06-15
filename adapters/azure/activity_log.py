@@ -36,6 +36,7 @@ def get_last_activity(
 
     # Log Analytics workspace for the subscription — set via env var.
     import os
+
     workspace_id = os.environ.get("AZURE_LOG_ANALYTICS_WORKSPACE_ID", "")
 
     if not workspace_id:
@@ -82,6 +83,7 @@ def get_last_activity(
             event_time = row[0]
             if isinstance(event_time, str):
                 from dateutil.parser import parse
+
                 event_time = parse(event_time)
             if event_time and event_time.tzinfo is None:
                 event_time = event_time.replace(tzinfo=timezone.utc)
@@ -133,8 +135,10 @@ def _fallback_from_activity_log_api(
 
     # Filter out read-only operations
     write_events = [
-        e for e in events
-        if e.operation_name and not str(e.operation_name.value or "").lower().endswith("/read")
+        e
+        for e in events
+        if e.operation_name
+        and not str(e.operation_name.value or "").lower().endswith("/read")
     ]
 
     if not write_events:

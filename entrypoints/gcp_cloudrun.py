@@ -17,6 +17,7 @@ Environment variables:
   DRY_RUN                     "true" to skip Slack post (default: false)
   LOG_LEVEL                   DEBUG | INFO | WARNING | ERROR (default: INFO)
 """
+
 from __future__ import annotations
 
 import logging
@@ -40,9 +41,7 @@ def main() -> None:
     """Entry point for the Cloud Run Job. Runs once and exits."""
     cloud = "gcp"
     ignore_regions = [
-        r.strip()
-        for r in os.environ.get("IGNORE_REGIONS", "").split(",")
-        if r.strip()
+        r.strip() for r in os.environ.get("IGNORE_REGIONS", "").split(",") if r.strip()
     ]
 
     project_id = os.environ.get("GCP_PROJECT_ID", "").strip()
@@ -52,7 +51,9 @@ def main() -> None:
 
     logger.info(
         "scan_start cloud=%s project=%s ignore_regions=%s",
-        cloud, project_id, ignore_regions,
+        cloud,
+        project_id,
+        ignore_regions,
     )
 
     ai_provider = _build_ai_provider(project_id)
@@ -87,8 +88,10 @@ def _build_ai_provider(project_id: str):
     provider_name = os.environ.get("AI_PROVIDER", "vertexai").lower()
     if provider_name == "anthropic":
         from ai.anthropic import AnthropicProvider
+
         return AnthropicProvider()
     from ai.vertexai import VertexAIProvider
+
     return VertexAIProvider(
         project=os.environ.get("VERTEXAI_PROJECT", project_id),
         location=os.environ.get("VERTEXAI_LOCATION", "us-central1"),

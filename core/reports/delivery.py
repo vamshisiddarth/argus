@@ -27,12 +27,18 @@ def post_to_slack(
     Raises SlackDeliveryError if Slack returns a non-OK response.
     """
     resolved_url = webhook_url or os.environ.get("SLACK_WEBHOOK_URL", "")
-    resolved_dry_run = dry_run if dry_run is not None else os.environ.get("DRY_RUN", "").lower() == "true"
+    resolved_dry_run = (
+        dry_run
+        if dry_run is not None
+        else os.environ.get("DRY_RUN", "").lower() == "true"
+    )
 
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
 
     if resolved_dry_run:
-        logger.info("[DRY RUN] Slack payload (not sent):\n%s", json.dumps(payload, indent=2))
+        logger.info(
+            "[DRY RUN] Slack payload (not sent):\n%s", json.dumps(payload, indent=2)
+        )
         return
 
     if not resolved_url:
@@ -60,8 +66,6 @@ def post_to_slack(
         ) from exc
 
     if response_text.strip() != "ok":
-        raise SlackDeliveryError(
-            f"Unexpected Slack response: {response_text!r}"
-        )
+        raise SlackDeliveryError(f"Unexpected Slack response: {response_text!r}")
 
     logger.info("Slack report delivered successfully.")

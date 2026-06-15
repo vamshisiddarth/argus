@@ -1,10 +1,14 @@
 import json
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
-from adapters.aws.resource_explorer import _parse_tags, _parse_resource, _is_billable, list_resources
-from adapters.base import Resource
+from adapters.aws.resource_explorer import (
+    _parse_tags,
+    _parse_resource,
+    _is_billable,
+    list_resources,
+)
 
 
 def _make_raw_resource(
@@ -19,9 +23,7 @@ def _make_raw_resource(
         "ResourceType": resource_type,
         "Region": region,
         "Service": "ec2",
-        "Properties": [
-            {"Name": "tags", "Data": json.dumps(tag_list)}
-        ],
+        "Properties": [{"Name": "tags", "Data": json.dumps(tag_list)}],
     }
 
 
@@ -62,7 +64,15 @@ class TestIsBillable:
 class TestParseTagsHelper:
     def test_parses_tags_correctly(self):
         properties = [
-            {"Name": "tags", "Data": json.dumps([{"Key": "Name", "Value": "web-01"}, {"Key": "Env", "Value": "prod"}])}
+            {
+                "Name": "tags",
+                "Data": json.dumps(
+                    [
+                        {"Key": "Name", "Value": "web-01"},
+                        {"Key": "Env", "Value": "prod"},
+                    ]
+                ),
+            }
         ]
         assert _parse_tags(properties) == {"Name": "web-01", "Env": "prod"}
 
@@ -79,7 +89,10 @@ class TestParseResourceHelper:
         result = _parse_resource(raw)
 
         assert result is not None
-        assert result.resource_id == "arn:aws:ec2:us-east-1:123456789012:instance/i-0abc123"
+        assert (
+            result.resource_id
+            == "arn:aws:ec2:us-east-1:123456789012:instance/i-0abc123"
+        )
         assert result.resource_type == "AWS::EC2::Instance"
         assert result.cloud == "aws"
         assert result.region == "us-east-1"
@@ -87,7 +100,12 @@ class TestParseResourceHelper:
         assert result.tags == {"Name": "my-server", "Env": "staging"}
 
     def test_returns_none_for_missing_arn(self):
-        assert _parse_resource({"ResourceType": "AWS::EC2::Instance", "Region": "us-east-1"}) is None
+        assert (
+            _parse_resource(
+                {"ResourceType": "AWS::EC2::Instance", "Region": "us-east-1"}
+            )
+            is None
+        )
 
     def test_name_is_none_when_no_name_tag(self):
         raw = _make_raw_resource(tags={"Env": "prod"})
@@ -109,10 +127,14 @@ class TestListResources:
     def test_returns_all_resources_across_pages(self):
         pages = [
             {"Resources": [_make_raw_resource(region="us-east-1")]},
-            {"Resources": [_make_raw_resource(
-                arn="arn:aws:ec2:us-west-2:123:instance/i-0def456",
-                region="us-west-2",
-            )]},
+            {
+                "Resources": [
+                    _make_raw_resource(
+                        arn="arn:aws:ec2:us-west-2:123:instance/i-0def456",
+                        region="us-west-2",
+                    )
+                ]
+            },
         ]
         session, _ = self._make_mock_session(pages)
         results = list_resources(session, ignore_regions=[])
@@ -197,6 +219,7 @@ class TestListResources:
 
     def test_raises_permission_error_on_access_denied(self):
         from botocore.exceptions import ClientError
+
         mock_client = MagicMock()
         mock_paginator = MagicMock()
         mock_paginator.paginate.side_effect = ClientError(

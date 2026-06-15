@@ -33,7 +33,9 @@ def get_session(
     role_arn = account["role_arn"]
     account_name = account.get("name", account.get("id", "unknown"))
 
-    logger.info("auth_assuming_role", extra={"account": account_name, "role_arn": role_arn})
+    logger.info(
+        "auth_assuming_role", extra={"account": account_name, "role_arn": role_arn}
+    )
 
     try:
         sts = boto3.client("sts", region_name=region)

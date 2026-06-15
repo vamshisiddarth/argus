@@ -97,12 +97,8 @@ def _query_batch(
         ),
         dataset=QueryDataset(
             granularity="None",
-            aggregation={
-                "totalCost": {"name": "PreTaxCost", "function": "Sum"}
-            },
-            grouping=[
-                QueryGrouping(type="Dimension", name="ResourceId")
-            ],
+            aggregation={"totalCost": {"name": "PreTaxCost", "function": "Sum"}},
+            grouping=[QueryGrouping(type="Dimension", name="ResourceId")],
             filter=QueryFilter(
                 dimensions=QueryComparisonExpression(
                     name="ResourceId",
@@ -116,7 +112,7 @@ def _query_batch(
     result = client.query.usage(scope=scope, parameters=query)
 
     # Result rows: [cost, currency, resourceId]
-    for row in (result.rows or []):
+    for row in result.rows or []:
         if len(row) >= 3:
             amount = float(row[0])
             resource_id: str = str(row[2])

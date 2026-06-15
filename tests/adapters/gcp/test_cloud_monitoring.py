@@ -1,9 +1,7 @@
 from unittest.mock import MagicMock, patch
 
-import pytest
 
 from adapters.gcp.cloud_monitoring import _resource_filter, get_metrics
-from adapters.base import MetricSummary
 
 
 def _make_time_series(double_values: list[float]) -> list[MagicMock]:
@@ -33,15 +31,21 @@ class TestResourceFilter:
         assert 'database_id="my-db"' in f
 
     def test_unknown_type_returns_empty(self):
-        assert _resource_filter("//unknown/resource/name", "unknown.type/Resource") == ""
+        assert (
+            _resource_filter("//unknown/resource/name", "unknown.type/Resource") == ""
+        )
 
 
 class TestGetMetrics:
     def test_returns_metric_data_for_known_type(self):
-        with patch("adapters.gcp.cloud_monitoring.monitoring_v3.MetricServiceClient") as mock_cls:
+        with patch(
+            "adapters.gcp.cloud_monitoring.monitoring_v3.MetricServiceClient"
+        ) as mock_cls:
             mock_client = MagicMock()
             mock_cls.return_value = mock_client
-            mock_client.list_time_series.return_value = _make_time_series([10.0, 20.0, 30.0])
+            mock_client.list_time_series.return_value = _make_time_series(
+                [10.0, 20.0, 30.0]
+            )
 
             summary = get_metrics(
                 project_id="my-proj",
@@ -55,7 +59,9 @@ class TestGetMetrics:
         assert len(summary.metrics) > 0
 
     def test_returns_has_data_false_when_no_points(self):
-        with patch("adapters.gcp.cloud_monitoring.monitoring_v3.MetricServiceClient") as mock_cls:
+        with patch(
+            "adapters.gcp.cloud_monitoring.monitoring_v3.MetricServiceClient"
+        ) as mock_cls:
             mock_client = MagicMock()
             mock_cls.return_value = mock_client
             mock_client.list_time_series.return_value = []
@@ -70,7 +76,9 @@ class TestGetMetrics:
         assert summary.has_data is False
 
     def test_returns_has_data_false_for_unknown_type_with_no_discovered_metrics(self):
-        with patch("adapters.gcp.cloud_monitoring.monitoring_v3.MetricServiceClient") as mock_cls:
+        with patch(
+            "adapters.gcp.cloud_monitoring.monitoring_v3.MetricServiceClient"
+        ) as mock_cls:
             mock_client = MagicMock()
             mock_cls.return_value = mock_client
             mock_client.list_metric_descriptors.return_value = []
@@ -87,10 +95,15 @@ class TestGetMetrics:
 
     def test_handles_api_error_gracefully(self):
         from google.api_core.exceptions import GoogleAPICallError
-        with patch("adapters.gcp.cloud_monitoring.monitoring_v3.MetricServiceClient") as mock_cls:
+
+        with patch(
+            "adapters.gcp.cloud_monitoring.monitoring_v3.MetricServiceClient"
+        ) as mock_cls:
             mock_client = MagicMock()
             mock_cls.return_value = mock_client
-            mock_client.list_time_series.side_effect = GoogleAPICallError("quota exceeded")
+            mock_client.list_time_series.side_effect = GoogleAPICallError(
+                "quota exceeded"
+            )
 
             summary = get_metrics(
                 project_id="my-proj",

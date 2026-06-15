@@ -16,6 +16,7 @@ Environment variables (set in Azure Function App Configuration):
   DRY_RUN                         "true" to skip Slack post (default: false)
   LOG_LEVEL                       DEBUG | INFO | WARNING | ERROR (default: INFO)
 """
+
 from __future__ import annotations
 
 import logging
@@ -42,9 +43,7 @@ def main(mytimer) -> None:
 
     cloud = "azure"
     ignore_regions = [
-        r.strip()
-        for r in os.environ.get("IGNORE_REGIONS", "").split(",")
-        if r.strip()
+        r.strip() for r in os.environ.get("IGNORE_REGIONS", "").split(",") if r.strip()
     ]
 
     subscription_ids_raw = os.environ.get("AZURE_SUBSCRIPTION_IDS", "").strip()
@@ -56,7 +55,9 @@ def main(mytimer) -> None:
 
     logger.info(
         "scan_start cloud=%s subscriptions=%s ignore_regions=%s",
-        cloud, subscription_ids, ignore_regions,
+        cloud,
+        subscription_ids,
+        ignore_regions,
     )
 
     ai_provider = _build_ai_provider()
@@ -91,6 +92,8 @@ def _build_ai_provider():
     provider_name = os.environ.get("AI_PROVIDER", "azure_openai").lower()
     if provider_name == "anthropic":
         from ai.anthropic import AnthropicProvider
+
         return AnthropicProvider()
     from ai.azure_openai import AzureOpenAIProvider
+
     return AzureOpenAIProvider()

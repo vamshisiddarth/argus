@@ -151,7 +151,11 @@ def get_metrics(
         except GoogleAPICallError as exc:
             logger.warning(
                 "cloud_monitoring_failed",
-                extra={"resource_id": resource_id, "metric": metric_type, "error": str(exc)},
+                extra={
+                    "resource_id": resource_id,
+                    "metric": metric_type,
+                    "error": str(exc),
+                },
             )
             metrics[metric_type] = None
             continue
@@ -191,7 +195,9 @@ def _discover_metrics(
 
     # Derive a Cloud Monitoring monitored resource type prefix from the asset type.
     # e.g. "compute.googleapis.com/SomeNewThing" -> filter on "compute.googleapis.com"
-    service_prefix = resource_type.split("/")[0] if "/" in resource_type else resource_type
+    service_prefix = (
+        resource_type.split("/")[0] if "/" in resource_type else resource_type
+    )
 
     request = monitoring_v3.ListMetricDescriptorsRequest(
         name=project_name,

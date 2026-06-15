@@ -40,9 +40,13 @@ def _csv_list(key: str, default: str = "") -> list[str]:
 @dataclass(frozen=True)
 class AWSConfig:
     profile: str | None = field(default_factory=lambda: os.getenv("AWS_PROFILE"))
-    primary_region: str = field(default_factory=lambda: os.getenv("AWS_REGION", "us-east-1"))
+    primary_region: str = field(
+        default_factory=lambda: os.getenv("AWS_REGION", "us-east-1")
+    )
     scan_regions: list[str] = field(
-        default_factory=lambda: _csv_list("AWS_SCAN_REGIONS", os.getenv("AWS_REGION", "us-east-1"))
+        default_factory=lambda: _csv_list(
+            "AWS_SCAN_REGIONS", os.getenv("AWS_REGION", "us-east-1")
+        )
     )
 
 
@@ -68,8 +72,12 @@ class BedrockConfig:
             "BEDROCK_MODEL_ID", "anthropic.claude-sonnet-4-6"
         )
     )
-    region: str = field(default_factory=lambda: os.getenv("BEDROCK_REGION", "us-east-1"))
-    max_tokens: int = field(default_factory=lambda: int(os.getenv("BEDROCK_MAX_TOKENS", "2048")))
+    region: str = field(
+        default_factory=lambda: os.getenv("BEDROCK_REGION", "us-east-1")
+    )
+    max_tokens: int = field(
+        default_factory=lambda: int(os.getenv("BEDROCK_MAX_TOKENS", "2048"))
+    )
     temperature: float = field(
         default_factory=lambda: float(os.getenv("BEDROCK_TEMPERATURE", "0.3"))
     )
@@ -105,7 +113,9 @@ class ThresholdConfig:
 # ---------------------------------------------------------------------------
 @dataclass(frozen=True)
 class EmailConfig:
-    smtp_host: str = field(default_factory=lambda: os.getenv("SMTP_HOST", "smtp.gmail.com"))
+    smtp_host: str = field(
+        default_factory=lambda: os.getenv("SMTP_HOST", "smtp.gmail.com")
+    )
     smtp_port: int = field(default_factory=lambda: int(os.getenv("SMTP_PORT", "587")))
     use_tls: bool = field(
         default_factory=lambda: os.getenv("SMTP_USE_TLS", "true").lower() == "true"
@@ -115,7 +125,9 @@ class EmailConfig:
     from_address: str = field(
         default_factory=lambda: os.getenv("REPORT_EMAIL_FROM", "argus@localhost")
     )
-    to_addresses: list[str] = field(default_factory=lambda: _csv_list("REPORT_EMAIL_TO"))
+    to_addresses: list[str] = field(
+        default_factory=lambda: _csv_list("REPORT_EMAIL_TO")
+    )
 
     @property
     def is_configured(self) -> bool:
@@ -127,7 +139,9 @@ class EmailConfig:
 # ---------------------------------------------------------------------------
 @dataclass(frozen=True)
 class SlackConfig:
-    webhook_url: str | None = field(default_factory=lambda: os.getenv("SLACK_WEBHOOK_URL"))
+    webhook_url: str | None = field(
+        default_factory=lambda: os.getenv("SLACK_WEBHOOK_URL")
+    )
     channel: str | None = field(default_factory=lambda: os.getenv("SLACK_CHANNEL"))
 
     @property
@@ -154,7 +168,9 @@ class ReportConfig:
     output_dir: Path = field(
         default_factory=lambda: Path(os.getenv("REPORT_OUTPUT_DIR", "./reports_output"))
     )
-    s3_bucket: str | None = field(default_factory=lambda: os.getenv("REPORT_S3_BUCKET") or None)
+    s3_bucket: str | None = field(
+        default_factory=lambda: os.getenv("REPORT_S3_BUCKET") or None
+    )
     s3_prefix: str = field(
         default_factory=lambda: os.getenv("REPORT_S3_PREFIX", "argus/reports/")
     )

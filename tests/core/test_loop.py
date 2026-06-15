@@ -4,10 +4,8 @@ from unittest.mock import MagicMock
 import pytest
 
 from adapters.base import CloudAdapter, MetricSummary, Resource
-from ai.base import AIProvider, AIResponse, Message, Tool, ToolCall, ToolResult
+from ai.base import AIProvider, AIResponse, ToolCall
 from core.agent.loop import AgentLoop, MAX_ITERATIONS, _compress_resource
-from core.models.finding import ResourceFinding
-
 
 IGNORE_REGIONS: list[str] = []
 ACCOUNTS = [{"id": "123456789012", "name": "test-account"}]
@@ -15,6 +13,7 @@ ACCOUNTS = [{"id": "123456789012", "name": "test-account"}]
 # ------------------------------------------------------------------
 # Minimal fakes (no external dependencies)
 # ------------------------------------------------------------------
+
 
 class FakeCloudAdapter(CloudAdapter):
     """Returns predictable data; never calls real AWS."""
@@ -45,7 +44,9 @@ class FakeCloudAdapter(CloudAdapter):
         return datetime(2026, 4, 1, tzinfo=timezone.utc)
 
 
-def _make_tool_use_response(tool_name: str, tool_id: str, arguments: dict) -> AIResponse:
+def _make_tool_use_response(
+    tool_name: str, tool_id: str, arguments: dict
+) -> AIResponse:
     return AIResponse(
         stop_reason="tool_use",
         text=None,
@@ -74,6 +75,7 @@ def _make_submit_response(findings: list, summary: str) -> AIResponse:
 # Tests
 # ------------------------------------------------------------------
 
+
 class TestAgentLoopHappyPath:
     def test_returns_findings_and_summary(self):
         finding_data = {
@@ -92,12 +94,16 @@ class TestAgentLoopHappyPath:
 
         fake_ai = MagicMock(spec=AIProvider)
         fake_ai.chat.side_effect = [
-            _make_tool_use_response("list_resources", "toolu_1", {"ignore_regions": []}),
+            _make_tool_use_response(
+                "list_resources", "toolu_1", {"ignore_regions": []}
+            ),
             _make_submit_response([finding_data], summary),
         ]
 
         loop = AgentLoop(ai_provider=fake_ai, cloud_adapter=FakeCloudAdapter())
-        findings, exec_summary = loop.run(cloud="aws", ignore_regions=IGNORE_REGIONS, accounts=ACCOUNTS)
+        findings, exec_summary = loop.run(
+            cloud="aws", ignore_regions=IGNORE_REGIONS, accounts=ACCOUNTS
+        )
 
         assert len(findings) == 1
         assert findings[0].resource_id == "nat-0abc123"
@@ -110,18 +116,26 @@ class TestAgentLoopHappyPath:
             {
                 "resource_id": "cheap-001",
                 "resource_type": "AWS::EC2::Volume",
-                "cloud": "aws", "region": "us-east-1",
+                "cloud": "aws",
+                "region": "us-east-1",
                 "estimated_monthly_cost": 5.0,
-                "waste_reason": "unattached", "recommendation": "delete",
-                "priority": "low", "metrics_summary": {}, "tags": {},
+                "waste_reason": "unattached",
+                "recommendation": "delete",
+                "priority": "low",
+                "metrics_summary": {},
+                "tags": {},
             },
             {
                 "resource_id": "expensive-001",
                 "resource_type": "AWS::EC2::NatGateway",
-                "cloud": "aws", "region": "us-east-1",
+                "cloud": "aws",
+                "region": "us-east-1",
                 "estimated_monthly_cost": 94.0,
-                "waste_reason": "no traffic", "recommendation": "delete",
-                "priority": "high", "metrics_summary": {}, "tags": {},
+                "waste_reason": "no traffic",
+                "recommendation": "delete",
+                "priority": "high",
+                "metrics_summary": {},
+                "tags": {},
             },
         ]
 
@@ -129,7 +143,9 @@ class TestAgentLoopHappyPath:
         fake_ai.chat.return_value = _make_submit_response(raw, "Two findings.")
 
         loop = AgentLoop(ai_provider=fake_ai, cloud_adapter=FakeCloudAdapter())
-        findings, _ = loop.run(cloud="aws", ignore_regions=IGNORE_REGIONS, accounts=ACCOUNTS)
+        findings, _ = loop.run(
+            cloud="aws", ignore_regions=IGNORE_REGIONS, accounts=ACCOUNTS
+        )
 
         assert findings[0].resource_id == "expensive-001"
         assert findings[1].resource_id == "cheap-001"
@@ -144,7 +160,9 @@ class TestAgentLoopHappyPath:
 
         fake_ai = MagicMock(spec=AIProvider)
         fake_ai.chat.side_effect = [
-            _make_tool_use_response("list_resources", "toolu_1", {"ignore_regions": []}),
+            _make_tool_use_response(
+                "list_resources", "toolu_1", {"ignore_regions": []}
+            ),
             _make_submit_response([], "No findings."),
         ]
 
@@ -166,8 +184,9 @@ class TestAgentLoopHappyPath:
         fake_ai = MagicMock(spec=AIProvider)
         fake_ai.chat.side_effect = [
             _make_tool_use_response(
-                "get_cost", "toolu_2",
-                {"resource_ids": ["nat-0abc123", "alb-xyz"], "days": 30}
+                "get_cost",
+                "toolu_2",
+                {"resource_ids": ["nat-0abc123", "alb-xyz"], "days": 30},
             ),
             _make_submit_response([], "No findings."),
         ]
@@ -185,10 +204,14 @@ class TestAgentLoopHappyPath:
 
     def test_empty_findings_when_nothing_idle(self):
         fake_ai = MagicMock(spec=AIProvider)
-        fake_ai.chat.return_value = _make_submit_response([], "No idle resources found.")
+        fake_ai.chat.return_value = _make_submit_response(
+            [], "No idle resources found."
+        )
 
         loop = AgentLoop(ai_provider=fake_ai, cloud_adapter=FakeCloudAdapter())
-        findings, summary = loop.run(cloud="aws", ignore_regions=IGNORE_REGIONS, accounts=ACCOUNTS)
+        findings, summary = loop.run(
+            cloud="aws", ignore_regions=IGNORE_REGIONS, accounts=ACCOUNTS
+        )
 
         assert findings == []
         assert "No idle" in summary
@@ -204,7 +227,9 @@ class TestAgentLoopEdgeCases:
         )
 
         loop = AgentLoop(ai_provider=fake_ai, cloud_adapter=FakeCloudAdapter())
-        findings, summary = loop.run(cloud="aws", ignore_regions=IGNORE_REGIONS, accounts=ACCOUNTS)
+        findings, summary = loop.run(
+            cloud="aws", ignore_regions=IGNORE_REGIONS, accounts=ACCOUNTS
+        )
 
         assert findings == []
         assert "could not" in summary
@@ -218,7 +243,9 @@ class TestAgentLoopEdgeCases:
 
         loop = AgentLoop(ai_provider=fake_ai, cloud_adapter=FakeCloudAdapter())
         # Should not raise — error is passed back to AI as a tool result
-        findings, _ = loop.run(cloud="aws", ignore_regions=IGNORE_REGIONS, accounts=ACCOUNTS)
+        findings, _ = loop.run(
+            cloud="aws", ignore_regions=IGNORE_REGIONS, accounts=ACCOUNTS
+        )
         assert findings == []
 
     def test_max_iterations_raises(self):

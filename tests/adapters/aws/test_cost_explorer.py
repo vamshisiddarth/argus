@@ -34,10 +34,18 @@ def _make_session(response=None, error_code=None, error_message="error"):
 
 class TestGetCost:
     def test_returns_cost_per_resource(self):
-        response = _make_ce_response([
-            {"Keys": ["i-0abc123"], "Metrics": {"UnblendedCost": {"Amount": "15.23", "Unit": "USD"}}},
-            {"Keys": ["nat-0def456"], "Metrics": {"UnblendedCost": {"Amount": "94.10", "Unit": "USD"}}},
-        ])
+        response = _make_ce_response(
+            [
+                {
+                    "Keys": ["i-0abc123"],
+                    "Metrics": {"UnblendedCost": {"Amount": "15.23", "Unit": "USD"}},
+                },
+                {
+                    "Keys": ["nat-0def456"],
+                    "Metrics": {"UnblendedCost": {"Amount": "94.10", "Unit": "USD"}},
+                },
+            ]
+        )
         session, _ = _make_session(response=response)
         costs = get_cost(session, resource_ids=["i-0abc123", "nat-0def456"])
 
@@ -45,9 +53,14 @@ class TestGetCost:
         assert costs["nat-0def456"] == pytest.approx(94.10)
 
     def test_returns_zero_for_resources_with_no_cost_data(self):
-        response = _make_ce_response([
-            {"Keys": ["i-0abc123"], "Metrics": {"UnblendedCost": {"Amount": "10.00", "Unit": "USD"}}},
-        ])
+        response = _make_ce_response(
+            [
+                {
+                    "Keys": ["i-0abc123"],
+                    "Metrics": {"UnblendedCost": {"Amount": "10.00", "Unit": "USD"}},
+                },
+            ]
+        )
         session, _ = _make_session(response=response)
         costs = get_cost(session, resource_ids=["i-0abc123", "vol-orphan"])
 

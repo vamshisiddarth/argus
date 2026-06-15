@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -40,7 +40,10 @@ class TestAzureAdapterDelegation:
         adapter = _make_adapter()
         expected = [Resource(RID, RTYPE, "azure", "eastus")]
 
-        with patch("adapters.azure.adapter.resource_graph.list_resources", return_value=expected) as mock_fn:
+        with patch(
+            "adapters.azure.adapter.resource_graph.list_resources",
+            return_value=expected,
+        ) as mock_fn:
             result = adapter.list_resources(ignore_regions=["westus"])
 
         mock_fn.assert_called_once_with(
@@ -54,7 +57,9 @@ class TestAzureAdapterDelegation:
         adapter = _make_adapter()
         expected = MetricSummary(RID, RTYPE, 14, {"Percentage CPU": 5.2})
 
-        with patch("adapters.azure.adapter.monitor.get_metrics", return_value=expected) as mock_fn:
+        with patch(
+            "adapters.azure.adapter.monitor.get_metrics", return_value=expected
+        ) as mock_fn:
             result = adapter.get_metrics(RID, RTYPE, days=14)
 
         mock_fn.assert_called_once_with(
@@ -69,7 +74,9 @@ class TestAzureAdapterDelegation:
         adapter = _make_adapter()
         expected = {RID: 120.00}
 
-        with patch("adapters.azure.adapter.cost_management.get_cost", return_value=expected) as mock_fn:
+        with patch(
+            "adapters.azure.adapter.cost_management.get_cost", return_value=expected
+        ) as mock_fn:
             result = adapter.get_cost([RID], days=30)
 
         mock_fn.assert_called_once_with(
@@ -84,7 +91,10 @@ class TestAzureAdapterDelegation:
         adapter = _make_adapter()
         expected = datetime(2026, 5, 1, tzinfo=timezone.utc)
 
-        with patch("adapters.azure.adapter.activity_log.get_last_activity", return_value=expected) as mock_fn:
+        with patch(
+            "adapters.azure.adapter.activity_log.get_last_activity",
+            return_value=expected,
+        ) as mock_fn:
             result = adapter.get_last_activity(RID, RTYPE)
 
         mock_fn.assert_called_once_with(
@@ -101,11 +111,14 @@ class TestAzureAdapterDelegation:
         rid_b = "/subscriptions/sub-b/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/vm2"
 
         call_args = []
+
         def capture(**kwargs):
             call_args.append(kwargs["subscription_id"])
             return {rid: 0.0 for rid in kwargs["resource_ids"]}
 
-        with patch("adapters.azure.adapter.cost_management.get_cost", side_effect=capture):
+        with patch(
+            "adapters.azure.adapter.cost_management.get_cost", side_effect=capture
+        ):
             adapter.get_cost([rid_a, rid_b], days=30)
 
         assert set(call_args) == {"sub-a", "sub-b"}

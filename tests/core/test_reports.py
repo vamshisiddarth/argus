@@ -2,6 +2,7 @@
 Tests for core/reports/generator.py and core/reports/delivery.py.
 No cloud calls, no real HTTP — all network interactions are mocked.
 """
+
 from __future__ import annotations
 
 import json
@@ -14,7 +15,6 @@ import pytest
 from core.models.finding import ResourceFinding
 from core.reports.delivery import SlackDeliveryError, post_to_slack
 from core.reports.generator import TOP_FINDINGS_LIMIT, build_report, build_slack_payload
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -58,11 +58,22 @@ def _sample_findings() -> list[ResourceFinding]:
 # build_report tests
 # ---------------------------------------------------------------------------
 
+
 class TestBuildReport:
     def test_report_has_required_keys(self):
-        report = build_report(_sample_findings(), cloud="aws", executive_summary="All bad.")
-        for key in ("scan_id", "generated_at", "cloud", "accounts_scanned",
-                    "total_estimated_waste_usd", "findings_count", "findings", "executive_summary"):
+        report = build_report(
+            _sample_findings(), cloud="aws", executive_summary="All bad."
+        )
+        for key in (
+            "scan_id",
+            "generated_at",
+            "cloud",
+            "accounts_scanned",
+            "total_estimated_waste_usd",
+            "findings_count",
+            "findings",
+            "executive_summary",
+        ):
             assert key in report
 
     def test_findings_sorted_by_cost_descending(self):
@@ -82,7 +93,12 @@ class TestBuildReport:
         assert len(report["findings"]) == 3
 
     def test_cloud_and_summary_preserved(self):
-        report = build_report([], cloud="gcp", executive_summary="Nothing found.", accounts_scanned=["my-project"])
+        report = build_report(
+            [],
+            cloud="gcp",
+            executive_summary="Nothing found.",
+            accounts_scanned=["my-project"],
+        )
         assert report["cloud"] == "gcp"
         assert report["executive_summary"] == "Nothing found."
         assert report["accounts_scanned"] == ["my-project"]
@@ -109,10 +125,15 @@ class TestBuildReport:
 # build_slack_payload tests
 # ---------------------------------------------------------------------------
 
+
 class TestBuildSlackPayload:
     def _report(self, n_findings: int = 3) -> dict:
-        findings = [_finding(f"i-{i}", cost=float(100 - i * 10)) for i in range(n_findings)]
-        return build_report(findings, cloud="aws", executive_summary="Three resources are idle.")
+        findings = [
+            _finding(f"i-{i}", cost=float(100 - i * 10)) for i in range(n_findings)
+        ]
+        return build_report(
+            findings, cloud="aws", executive_summary="Three resources are idle."
+        )
 
     def test_payload_has_blocks_key(self):
         payload = build_slack_payload(self._report())
@@ -138,25 +159,39 @@ class TestBuildSlackPayload:
         assert len(section_blocks) == 5
 
     def test_top_findings_limit_respected(self):
-        findings = [_finding(f"i-{i}", cost=float(200 - i)) for i in range(TOP_FINDINGS_LIMIT + 5)]
+        findings = [
+            _finding(f"i-{i}", cost=float(200 - i))
+            for i in range(TOP_FINDINGS_LIMIT + 5)
+        ]
         report = build_report(findings, cloud="aws", executive_summary="Many findings.")
         payload = build_slack_payload(report)
-        _circle_emojis = (":red_circle:", ":large_yellow_circle:", ":large_green_circle:", ":white_circle:")
+        _circle_emojis = (
+            ":red_circle:",
+            ":large_yellow_circle:",
+            ":large_green_circle:",
+            ":white_circle:",
+        )
         finding_sections = [
-            b for b in payload["blocks"]
-            if b["type"] == "section" and any(
+            b
+            for b in payload["blocks"]
+            if b["type"] == "section"
+            and any(
                 b.get("text", {}).get("text", "").startswith(e) for e in _circle_emojis
             )
         ]
         assert len(finding_sections) == TOP_FINDINGS_LIMIT
 
     def test_overflow_context_block_shown(self):
-        findings = [_finding(f"i-{i}", cost=float(200 - i)) for i in range(TOP_FINDINGS_LIMIT + 3)]
+        findings = [
+            _finding(f"i-{i}", cost=float(200 - i))
+            for i in range(TOP_FINDINGS_LIMIT + 3)
+        ]
         report = build_report(findings, cloud="aws", executive_summary="Many.")
         payload = build_slack_payload(report)
         context_texts = " ".join(
             e["text"]
-            for b in payload["blocks"] if b["type"] == "context"
+            for b in payload["blocks"]
+            if b["type"] == "context"
             for e in b.get("elements", [])
         )
         assert "3 more" in context_texts
@@ -166,7 +201,8 @@ class TestBuildSlackPayload:
         payload = build_slack_payload(report)
         context_texts = " ".join(
             e["text"]
-            for b in payload["blocks"] if b["type"] == "context"
+            for b in payload["blocks"]
+            if b["type"] == "context"
             for e in b.get("elements", [])
             if "more finding" in e.get("text", "")
         )
@@ -186,8 +222,10 @@ class TestBuildSlackPayload:
         report = build_report([f], cloud="aws", executive_summary="x")
         payload = build_slack_payload(report)
         finding_blocks = [
-            b for b in payload["blocks"]
-            if b["type"] == "section" and ":red_circle:" in b.get("text", {}).get("text", "")
+            b
+            for b in payload["blocks"]
+            if b["type"] == "section"
+            and ":red_circle:" in b.get("text", {}).get("text", "")
         ]
         assert len(finding_blocks) == 1
 
@@ -196,7 +234,9 @@ class TestBuildSlackPayload:
 # post_to_slack tests
 # ---------------------------------------------------------------------------
 
-SAMPLE_PAYLOAD = {"blocks": [{"type": "section", "text": {"type": "mrkdwn", "text": "hello"}}]}
+SAMPLE_PAYLOAD = {
+    "blocks": [{"type": "section", "text": {"type": "mrkdwn", "text": "hello"}}]
+}
 WEBHOOK = "https://hooks.slack.com/services/TEST/HOOK"
 
 
@@ -233,6 +273,7 @@ class TestPostToSlack:
 
     def test_http_error_raises_slack_delivery_error(self):
         import urllib.error
+
         http_err = urllib.error.HTTPError(WEBHOOK, 400, "Bad Request", {}, None)
 
         with patch("urllib.request.urlopen", side_effect=http_err):
@@ -241,6 +282,7 @@ class TestPostToSlack:
 
     def test_url_error_raises_slack_delivery_error(self):
         import urllib.error
+
         url_err = urllib.error.URLError("Connection refused")
 
         with patch("urllib.request.urlopen", side_effect=url_err):

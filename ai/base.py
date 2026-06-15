@@ -8,6 +8,7 @@ from typing import Any
 @dataclass
 class ToolCall:
     """A tool invocation requested by the AI."""
+
     id: str
     name: str
     arguments: dict[str, Any]
@@ -16,6 +17,7 @@ class ToolCall:
 @dataclass
 class ToolResult:
     """The result of executing a tool call."""
+
     tool_call_id: str
     content: str
     is_error: bool = False
@@ -28,6 +30,7 @@ class Message:
     role: "user" | "assistant"
     Exactly one of text, tool_calls, or tool_results will be populated.
     """
+
     role: str
     text: str | None = None
     tool_calls: list[ToolCall] = field(default_factory=list)
@@ -37,6 +40,7 @@ class Message:
 @dataclass
 class Tool:
     """Definition of a tool the AI can call."""
+
     name: str
     description: str
     input_schema: dict[str, Any]
@@ -45,7 +49,8 @@ class Tool:
 @dataclass
 class AIResponse:
     """Parsed response from an AI provider."""
-    stop_reason: str            # "tool_use" | "end_turn" | "max_tokens"
+
+    stop_reason: str  # "tool_use" | "end_turn" | "max_tokens"
     text: str | None
     tool_calls: list[ToolCall]
 

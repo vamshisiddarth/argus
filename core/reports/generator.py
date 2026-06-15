@@ -20,7 +20,9 @@ def build_report(
     Convert a list of ResourceFinding objects into the canonical JSON report.
     Findings are sorted by estimated_monthly_cost descending before serialising.
     """
-    sorted_findings = sorted(findings, key=lambda f: f.estimated_monthly_cost, reverse=True)
+    sorted_findings = sorted(
+        findings, key=lambda f: f.estimated_monthly_cost, reverse=True
+    )
     total_waste = sum(f.estimated_monthly_cost for f in sorted_findings)
 
     return {
@@ -53,7 +55,13 @@ def build_slack_payload(report: dict[str, Any]) -> dict[str, Any]:
     )
 
     blocks: list[dict[str, Any]] = [
-        {"type": "header", "text": {"type": "plain_text", "text": f"Argus — {cloud} Waste Report ({generated_at})"}},
+        {
+            "type": "header",
+            "text": {
+                "type": "plain_text",
+                "text": f"Argus — {cloud} Waste Report ({generated_at})",
+            },
+        },
         {"type": "section", "text": {"type": "mrkdwn", "text": header_text}},
         {"type": "section", "text": {"type": "mrkdwn", "text": summary_text}},
         {"type": "divider"},
@@ -63,7 +71,11 @@ def build_slack_payload(report: dict[str, Any]) -> dict[str, Any]:
     for i, finding in enumerate(top, start=1):
         cost = finding["estimated_monthly_cost"]
         priority = finding["priority"].upper()
-        priority_emoji = {"HIGH": ":red_circle:", "MEDIUM": ":large_yellow_circle:", "LOW": ":large_green_circle:"}.get(priority, ":white_circle:")
+        priority_emoji = {
+            "HIGH": ":red_circle:",
+            "MEDIUM": ":large_yellow_circle:",
+            "LOW": ":large_green_circle:",
+        }.get(priority, ":white_circle:")
         label = finding.get("name") or finding["resource_id"]
         resource_type = finding["resource_type"]
         region = finding["region"]
@@ -74,19 +86,30 @@ def build_slack_payload(report: dict[str, Any]) -> dict[str, Any]:
             f"*Why:* {finding['waste_reason']}\n"
             f"*Action:* {finding['recommendation']}"
         )
-        blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": finding_text}})
+        blocks.append(
+            {"type": "section", "text": {"type": "mrkdwn", "text": finding_text}}
+        )
 
     if len(report["findings"]) > TOP_FINDINGS_LIMIT:
         remaining = len(report["findings"]) - TOP_FINDINGS_LIMIT
-        blocks.append({
-            "type": "context",
-            "elements": [{"type": "mrkdwn", "text": f"_{remaining} more finding{'s' if remaining != 1 else ''} in the full report._"}],
-        })
+        blocks.append(
+            {
+                "type": "context",
+                "elements": [
+                    {
+                        "type": "mrkdwn",
+                        "text": f"_{remaining} more finding{'s' if remaining != 1 else ''} in the full report._",
+                    }
+                ],
+            }
+        )
 
     blocks.append({"type": "divider"})
-    blocks.append({
-        "type": "context",
-        "elements": [{"type": "mrkdwn", "text": f"Scan ID: `{report['scan_id']}`"}],
-    })
+    blocks.append(
+        {
+            "type": "context",
+            "elements": [{"type": "mrkdwn", "text": f"Scan ID: `{report['scan_id']}`"}],
+        }
+    )
 
     return {"blocks": blocks}

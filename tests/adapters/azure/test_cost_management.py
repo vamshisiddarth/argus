@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from adapters.azure.cost_management import get_cost
 
@@ -12,8 +12,10 @@ class TestGetCost:
 
     def test_returns_cost_per_resource(self):
         with patch("adapters.azure.cost_management._query_batch") as mock_query:
+
             def fill_costs(client, scope, batch, days, costs):
                 costs[RID] = 88.50
+
             mock_query.side_effect = fill_costs
 
             with patch("adapters.azure.cost_management.CostManagementClient"):
@@ -24,6 +26,7 @@ class TestGetCost:
 
     def test_returns_zeros_on_403(self):
         from azure.core.exceptions import HttpResponseError
+
         exc = HttpResponseError()
         exc.status_code = 403
 
@@ -35,13 +38,19 @@ class TestGetCost:
         assert result == {RID: 0.0}
 
     def test_batches_large_resource_lists(self):
-        rids = [f"/subscriptions/sub/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/vm{i}" for i in range(120)]
+        rids = [
+            f"/subscriptions/sub/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/vm{i}"
+            for i in range(120)
+        ]
 
         call_count = []
+
         def record_call(client, scope, batch, days, costs):
             call_count.append(len(batch))
 
-        with patch("adapters.azure.cost_management._query_batch", side_effect=record_call):
+        with patch(
+            "adapters.azure.cost_management._query_batch", side_effect=record_call
+        ):
             with patch("adapters.azure.cost_management.CostManagementClient"):
                 with patch("adapters.azure.cost_management.DefaultAzureCredential"):
                     get_cost(SUB, rids, days=30)

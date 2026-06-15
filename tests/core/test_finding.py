@@ -1,9 +1,7 @@
 from datetime import datetime, timezone
 
-import pytest
 
 from core.models.finding import ResourceFinding
-
 
 SCAN_TIME = datetime(2026, 6, 6, 8, 0, 0, tzinfo=timezone.utc)
 LAST_ACTIVITY = datetime(2026, 5, 1, 12, 0, 0, tzinfo=timezone.utc)
@@ -49,9 +47,19 @@ class TestToDict:
     def test_keys_present(self):
         result = make_finding().to_dict()
         expected_keys = {
-            "resource_id", "resource_type", "cloud", "region", "name",
-            "estimated_monthly_cost", "waste_reason", "recommendation",
-            "priority", "metrics_summary", "tags", "last_activity", "scan_time",
+            "resource_id",
+            "resource_type",
+            "cloud",
+            "region",
+            "name",
+            "estimated_monthly_cost",
+            "waste_reason",
+            "recommendation",
+            "priority",
+            "metrics_summary",
+            "tags",
+            "last_activity",
+            "scan_time",
         }
         assert expected_keys == set(result.keys())
 

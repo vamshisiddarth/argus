@@ -35,7 +35,11 @@ class TestGetSessionMultiAccount:
             mock_sts.assume_role.return_value = self._mock_assume_role_response()
 
             session = get_session(
-                account={"id": "999", "name": "prod", "role_arn": "arn:aws:iam::999:role/ArgusRole"},
+                account={
+                    "id": "999",
+                    "name": "prod",
+                    "role_arn": "arn:aws:iam::999:role/ArgusRole",
+                },
                 region="us-east-1",
             )
 

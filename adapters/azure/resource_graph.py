@@ -61,7 +61,7 @@ def list_resources(
 
             response = client.resources(request)
 
-            for raw in (response.data or []):
+            for raw in response.data or []:
                 parsed = _parse_resource(raw, ignore_set)
                 if parsed:
                     resources.append(parsed)
@@ -98,9 +98,7 @@ def _parse_resource(raw: dict[str, Any], ignore_set: set[str]) -> Resource | Non
     if location.lower() in ignore_set:
         return None
 
-    tags: dict[str, str] = {
-        str(k): str(v) for k, v in (raw.get("tags") or {}).items()
-    }
+    tags: dict[str, str] = {str(k): str(v) for k, v in (raw.get("tags") or {}).items()}
 
     return Resource(
         resource_id=resource_id,

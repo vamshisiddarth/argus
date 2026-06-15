@@ -9,9 +9,10 @@ from typing import Any
 @dataclass
 class Resource:
     """Minimal representation of a discovered cloud resource."""
+
     resource_id: str
-    resource_type: str          # e.g. "AWS::EC2::Instance"
-    cloud: str                  # "aws" | "gcp" | "azure"
+    resource_type: str  # e.g. "AWS::EC2::Instance"
+    cloud: str  # "aws" | "gcp" | "azure"
     region: str
     name: str | None = None
     tags: dict[str, str] = field(default_factory=dict)
@@ -30,11 +31,12 @@ class Resource:
 @dataclass
 class MetricSummary:
     """Key usage metrics for a resource over a lookback window."""
+
     resource_id: str
     resource_type: str
     period_days: int
-    metrics: dict[str, Any]     # {"avg_cpu_pct": 1.2, "network_bytes_total": 847, ...}
-    has_data: bool = True       # False if CloudWatch has no data points
+    metrics: dict[str, Any]  # {"avg_cpu_pct": 1.2, "network_bytes_total": 847, ...}
+    has_data: bool = True  # False if CloudWatch has no data points
 
     def to_dict(self) -> dict[str, Any]:
         return {

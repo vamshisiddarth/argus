@@ -68,7 +68,10 @@ def get_cost(
             )
             return {rid: 0.0 for rid in resource_ids}
 
-        if code == "AccessDeniedException" and "not enabled for cost explorer" in message.lower():
+        if (
+            code == "AccessDeniedException"
+            and "not enabled for cost explorer" in message.lower()
+        ):
             logger.warning(
                 "cost_explorer_not_activated",
                 extra={

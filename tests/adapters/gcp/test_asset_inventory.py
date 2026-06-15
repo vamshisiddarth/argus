@@ -96,7 +96,9 @@ class TestListResources:
             asset_type="compute.googleapis.com/Instance",
             data={"name": "vm1", "zone": "us-central1-a"},
         )
-        with patch("adapters.gcp.asset_inventory.asset_v1.AssetServiceClient") as mock_cls:
+        with patch(
+            "adapters.gcp.asset_inventory.asset_v1.AssetServiceClient"
+        ) as mock_cls:
             mock_client = MagicMock()
             mock_cls.return_value = mock_client
             mock_client.list_assets.return_value = [mock_asset]
@@ -107,7 +109,10 @@ class TestListResources:
 
     def test_raises_permission_error_on_denied(self):
         from google.api_core.exceptions import PermissionDenied
-        with patch("adapters.gcp.asset_inventory.asset_v1.AssetServiceClient") as mock_cls:
+
+        with patch(
+            "adapters.gcp.asset_inventory.asset_v1.AssetServiceClient"
+        ) as mock_cls:
             mock_client = MagicMock()
             mock_cls.return_value = mock_client
             mock_client.list_assets.side_effect = PermissionDenied("denied")
@@ -120,10 +125,14 @@ class TestListResources:
             asset_type="compute.googleapis.com/Instance",
             data={"zone": "us-central1-a"},
         )
-        with patch("adapters.gcp.asset_inventory.asset_v1.AssetServiceClient") as mock_cls:
+        with patch(
+            "adapters.gcp.asset_inventory.asset_v1.AssetServiceClient"
+        ) as mock_cls:
             mock_client = MagicMock()
             mock_cls.return_value = mock_client
             mock_client.list_assets.return_value = [mock_asset]
-            resources = list_resources(project_id="my-proj", ignore_regions=["us-central1"])
+            resources = list_resources(
+                project_id="my-proj", ignore_regions=["us-central1"]
+            )
 
         assert resources == []

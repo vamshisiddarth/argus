@@ -8,6 +8,7 @@ Usage:
   python main.py --cloud aws --run-now --ai-provider anthropic
   python main.py --cloud aws --run-now --accounts accounts.yaml
 """
+
 from __future__ import annotations
 
 import argparse
@@ -77,6 +78,7 @@ def main(argv: list[str] | None = None) -> None:
 
     if args.cloud == "aws":
         from entrypoints.aws_lambda import handler
+
         result = handler({}, None)
         print(json.dumps(result, indent=2))
     else:
@@ -89,7 +91,10 @@ def _apply_accounts_config(path: str) -> None:
     try:
         import yaml  # PyYAML — in requirements.txt
     except ImportError:
-        print("PyYAML is required for --accounts. Run: pip install pyyaml", file=sys.stderr)
+        print(
+            "PyYAML is required for --accounts. Run: pip install pyyaml",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     with open(path) as fh:

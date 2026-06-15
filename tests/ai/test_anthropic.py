@@ -5,10 +5,10 @@ import pytest
 from ai.anthropic import AnthropicProvider
 from ai.base import AIResponse, Message, Tool, ToolCall, ToolResult
 
-
 # ------------------------------------------------------------------
 # Fixtures — mimic real Anthropic SDK response objects
 # ------------------------------------------------------------------
+
 
 def _make_sdk_text_response(text: str, stop_reason: str = "end_turn"):
     block = MagicMock()
@@ -64,6 +64,7 @@ SAMPLE_TOOL = Tool(
 # ------------------------------------------------------------------
 # Tests
 # ------------------------------------------------------------------
+
 
 class TestAnthropicProviderInit:
     def test_raises_without_api_key(self, monkeypatch):

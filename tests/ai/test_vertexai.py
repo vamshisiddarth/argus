@@ -2,18 +2,19 @@
 Tests for VertexAIProvider.
 All HTTP calls are mocked — no real GCP credentials required.
 """
+
 from unittest.mock import MagicMock, patch
 import json
 
 import pytest
 
-from ai.base import Message, Tool, ToolCall, ToolResult
+from ai.base import Message, Tool, ToolResult
 from ai.vertexai import VertexAIProvider
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_tool_call_completion(tool_id="tc-1", name="list_resources", args=None):
     """Build a mock OpenAI-style completion with a tool call."""
@@ -66,6 +67,7 @@ def _make_provider(mock_openai_client: MagicMock) -> VertexAIProvider:
 # Tests
 # ---------------------------------------------------------------------------
 
+
 class TestVertexAIProvider:
     def test_raises_if_no_project(self, monkeypatch):
         monkeypatch.delenv("VERTEXAI_PROJECT", raising=False)
@@ -80,7 +82,9 @@ class TestVertexAIProvider:
     def test_parses_tool_call_response(self):
         mock_client = MagicMock()
         mock_client.chat.completions.create.return_value = _make_tool_call_completion(
-            tool_id="tc-99", name="get_metrics", args={"resource_id": "i-0abc", "resource_type": "AWS::EC2::Instance"}
+            tool_id="tc-99",
+            name="get_metrics",
+            args={"resource_id": "i-0abc", "resource_type": "AWS::EC2::Instance"},
         )
         provider = _make_provider(mock_client)
 
@@ -97,7 +101,9 @@ class TestVertexAIProvider:
 
     def test_parses_text_response(self):
         mock_client = MagicMock()
-        mock_client.chat.completions.create.return_value = _make_text_completion("Scan complete.")
+        mock_client.chat.completions.create.return_value = _make_text_completion(
+            "Scan complete."
+        )
         provider = _make_provider(mock_client)
 
         response = provider.chat(

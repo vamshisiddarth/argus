@@ -13,6 +13,7 @@ Environment variables (set in CloudFormation template or .env for local):
                      e.g. [{"id":"123","name":"prod","role_arn":"arn:..."}]
   REPORT_S3_BUCKET   S3 bucket name for saving the full JSON report (optional)
 """
+
 from __future__ import annotations
 
 import json
@@ -41,16 +42,17 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     """Lambda entry point. Triggered by EventBridge on a schedule."""
     cloud = "aws"
     ignore_regions = [
-        r.strip()
-        for r in os.environ.get("IGNORE_REGIONS", "").split(",")
-        if r.strip()
+        r.strip() for r in os.environ.get("IGNORE_REGIONS", "").split(",") if r.strip()
     ]
     primary_region = os.environ.get("PRIMARY_REGION", "us-east-1")
     accounts_mode = os.environ.get("ACCOUNTS_MODE", "single")
 
     logger.info(
         "scan_start cloud=%s ignore_regions=%s primary_region=%s mode=%s",
-        cloud, ignore_regions, primary_region, accounts_mode,
+        cloud,
+        ignore_regions,
+        primary_region,
+        accounts_mode,
     )
 
     ai_provider = _build_ai_provider()
@@ -97,6 +99,7 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
 # Scan runners
 # ---------------------------------------------------------------------------
 
+
 def _run_single_account(
     ai_provider: Any,
     ignore_regions: list[str],
@@ -125,7 +128,9 @@ def _run_multi_account(
         raise ValueError(f"ACCOUNTS_CONFIG is not valid JSON: {exc}") from exc
 
     if not accounts:
-        logger.warning("ACCOUNTS_MODE=multi but ACCOUNTS_CONFIG is empty — falling back to single-account mode")
+        logger.warning(
+            "ACCOUNTS_MODE=multi but ACCOUNTS_CONFIG is empty — falling back to single-account mode"
+        )
         return _run_single_account(ai_provider, ignore_regions, primary_region, cloud)
 
     all_findings: list[ResourceFinding] = []
@@ -151,7 +156,9 @@ def _run_multi_account(
         except (PermissionError, ClientError) as exc:
             logger.error("failed to scan account %s: %s", acct_id, exc)
 
-    executive_summary = " ".join(all_summaries) if all_summaries else "No findings across all accounts."
+    executive_summary = (
+        " ".join(all_summaries) if all_summaries else "No findings across all accounts."
+    )
     return all_findings, executive_summary, account_ids
 
 
@@ -159,12 +166,15 @@ def _run_multi_account(
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _build_ai_provider() -> Any:
     provider_name = os.environ.get("AI_PROVIDER", "bedrock").lower()
     if provider_name == "anthropic":
         from ai.anthropic import AnthropicProvider
+
         return AnthropicProvider()
     from ai.bedrock import BedrockProvider
+
     return BedrockProvider()
 
 
@@ -179,7 +189,9 @@ def _get_current_account_id() -> str:
 
 def _save_report_to_s3(report: dict[str, Any], bucket: str) -> None:
     now = datetime.now(tz=timezone.utc)
-    key = f"reports/{report['cloud']}/{now.strftime('%Y/%m/%d')}/{report['scan_id']}.json"
+    key = (
+        f"reports/{report['cloud']}/{now.strftime('%Y/%m/%d')}/{report['scan_id']}.json"
+    )
     try:
         s3 = boto3.client("s3")
         s3.put_object(

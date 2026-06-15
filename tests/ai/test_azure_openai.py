@@ -2,18 +2,19 @@
 Tests for AzureOpenAIProvider.
 All HTTP calls are mocked — no real Azure credentials required.
 """
+
 import json
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from ai.base import Message, Tool, ToolCall, ToolResult
+from ai.base import Message, Tool, ToolResult
 from ai.azure_openai import AzureOpenAIProvider
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_tool_call_completion(tool_id="tc-1", name="list_resources", args=None):
     tc = MagicMock()
@@ -58,6 +59,7 @@ def _make_provider_with_key(mock_client: MagicMock) -> AzureOpenAIProvider:
 # Tests
 # ---------------------------------------------------------------------------
 
+
 class TestAzureOpenAIProvider:
     def test_raises_if_no_endpoint(self, monkeypatch):
         monkeypatch.delenv("AZURE_OPENAI_ENDPOINT", raising=False)
@@ -85,7 +87,9 @@ class TestAzureOpenAIProvider:
 
     def test_parses_text_response(self):
         mock_client = MagicMock()
-        mock_client.chat.completions.create.return_value = _make_text_completion("Done.")
+        mock_client.chat.completions.create.return_value = _make_text_completion(
+            "Done."
+        )
         provider = _make_provider_with_key(mock_client)
 
         response = provider.chat(

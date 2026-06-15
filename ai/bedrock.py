@@ -36,13 +36,19 @@ class BedrockProvider(AIProvider):
         temperature: float = DEFAULT_TEMPERATURE,
         session: Any = None,
     ) -> None:
-        self._model_id = model_id or os.environ.get("BEDROCK_MODEL_ID", self.DEFAULT_MODEL)
-        resolved_region = region or os.environ.get("BEDROCK_REGION", self.DEFAULT_REGION)
+        self._model_id = model_id or os.environ.get(
+            "BEDROCK_MODEL_ID", self.DEFAULT_MODEL
+        )
+        resolved_region = region or os.environ.get(
+            "BEDROCK_REGION", self.DEFAULT_REGION
+        )
         self._max_tokens = max_tokens
         self._temperature = temperature
 
         boto_session = session or boto3.Session(region_name=resolved_region)
-        self._client = boto_session.client("bedrock-runtime", region_name=resolved_region)
+        self._client = boto_session.client(
+            "bedrock-runtime", region_name=resolved_region
+        )
 
     def chat(
         self,

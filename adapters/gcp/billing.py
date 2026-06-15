@@ -3,9 +3,6 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timedelta, timezone
 
-from google.cloud import billing_v1
-from google.api_core.exceptions import GoogleAPICallError, PermissionDenied
-
 logger = logging.getLogger(__name__)
 
 # BigQuery dataset where Cloud Billing export is written.
@@ -37,6 +34,7 @@ def get_cost(
         return {}
 
     import os
+
     resolved_table = bq_table or os.environ.get("BILLING_BQ_TABLE", _DEFAULT_TABLE)
 
     try:
@@ -73,9 +71,7 @@ def _query_bigquery(
     # Full: //compute.googleapis.com/projects/p/zones/z/instances/my-vm
     # Short: my-vm
     short_names = [rid.rstrip("/").split("/")[-1] for rid in resource_ids]
-    name_to_full = {
-        rid.rstrip("/").split("/")[-1]: rid for rid in resource_ids
-    }
+    name_to_full = {rid.rstrip("/").split("/")[-1]: rid for rid in resource_ids}
 
     placeholders = ", ".join(f"@name_{i}" for i in range(len(short_names)))
     query = f"""

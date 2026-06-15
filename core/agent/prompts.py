@@ -16,8 +16,7 @@ def build_system_prompt(
         else "All regions (no exclusions)"
     )
     account_lines = "\n".join(
-        f"  - {a.get('name', 'unnamed')} ({a.get('id', 'unknown')})"
-        for a in accounts
+        f"  - {a.get('name', 'unnamed')} ({a.get('id', 'unknown')})" for a in accounts
     )
 
     return f"""You are Argus, an intelligent cloud cost optimization agent.

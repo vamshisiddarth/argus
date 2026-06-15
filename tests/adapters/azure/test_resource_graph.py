@@ -77,6 +77,7 @@ class TestListResources:
 
     def test_raises_permission_error_on_403(self):
         from azure.core.exceptions import HttpResponseError
+
         exc = HttpResponseError()
         exc.status_code = 403
 

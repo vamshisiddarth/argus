@@ -2,6 +2,7 @@
 Tests for BedrockProvider.
 All AWS calls are mocked — no real Bedrock credentials required.
 """
+
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -10,10 +11,10 @@ from botocore.exceptions import ClientError
 from ai.base import Message, Tool, ToolCall, ToolResult
 from ai.bedrock import BedrockProvider
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_provider(mock_client: MagicMock) -> BedrockProvider:
     """Return a BedrockProvider whose boto3 client is pre-replaced."""
@@ -59,7 +60,10 @@ def _mixed_response(text="Thinking...", tool_use_id="tu-2", name="get_metrics"):
                         "toolUse": {
                             "toolUseId": tool_use_id,
                             "name": name,
-                            "input": {"resource_id": "i-0abc", "resource_type": "AWS::EC2::Instance"},
+                            "input": {
+                                "resource_id": "i-0abc",
+                                "resource_type": "AWS::EC2::Instance",
+                            },
                         }
                     },
                 ]
@@ -71,13 +75,18 @@ def _mixed_response(text="Thinking...", tool_use_id="tu-2", name="get_metrics"):
 SAMPLE_TOOL = Tool(
     name="list_resources",
     description="List all cloud resources.",
-    input_schema={"type": "object", "properties": {"regions": {"type": "array", "items": {"type": "string"}}}, "required": ["regions"]},
+    input_schema={
+        "type": "object",
+        "properties": {"regions": {"type": "array", "items": {"type": "string"}}},
+        "required": ["regions"],
+    },
 )
 
 
 # ---------------------------------------------------------------------------
 # Parsing tests
 # ---------------------------------------------------------------------------
+
 
 class TestParseResponse:
     def test_parses_tool_use_block(self):
@@ -130,8 +139,11 @@ class TestParseResponse:
 # Message serialisation tests
 # ---------------------------------------------------------------------------
 
+
 class TestMessageSerialisation:
-    def _capture_converse_kwargs(self, mock_client: MagicMock, messages, tools, system=None):
+    def _capture_converse_kwargs(
+        self, mock_client: MagicMock, messages, tools, system=None
+    ):
         mock_client.converse.return_value = _text_response()
         provider = _make_provider(mock_client)
         provider.chat(messages=messages, tools=tools, system_prompt=system)
@@ -156,7 +168,13 @@ class TestMessageSerialisation:
             messages=[
                 Message(
                     role="assistant",
-                    tool_calls=[ToolCall(id="tc-1", name="get_cost", arguments={"resource_ids": ["i-0abc"]})],
+                    tool_calls=[
+                        ToolCall(
+                            id="tc-1",
+                            name="get_cost",
+                            arguments={"resource_ids": ["i-0abc"]},
+                        )
+                    ],
                 )
             ],
             tools=[],
@@ -177,7 +195,9 @@ class TestMessageSerialisation:
             messages=[
                 Message(
                     role="user",
-                    tool_results=[ToolResult(tool_call_id="tc-1", content='{"ok": true}')],
+                    tool_results=[
+                        ToolResult(tool_call_id="tc-1", content='{"ok": true}')
+                    ],
                 )
             ],
             tools=[],
@@ -197,7 +217,9 @@ class TestMessageSerialisation:
             messages=[
                 Message(
                     role="user",
-                    tool_results=[ToolResult(tool_call_id="tc-1", content="boom", is_error=True)],
+                    tool_results=[
+                        ToolResult(tool_call_id="tc-1", content="boom", is_error=True)
+                    ],
                 )
             ],
             tools=[],
@@ -250,6 +272,7 @@ class TestMessageSerialisation:
 # Retry / throttling tests
 # ---------------------------------------------------------------------------
 
+
 class TestThrottlingRetry:
     def test_retries_on_throttling_and_succeeds(self):
         mock_client = MagicMock()
@@ -279,7 +302,11 @@ class TestThrottlingRetry:
             {"Error": {"Code": "ThrottlingException", "Message": "Rate exceeded"}},
             "Converse",
         )
-        mock_client.converse.side_effect = [throttle_error, throttle_error, throttle_error]
+        mock_client.converse.side_effect = [
+            throttle_error,
+            throttle_error,
+            throttle_error,
+        ]
         provider = _make_provider(mock_client)
 
         with patch("ai.bedrock.time.sleep"):
@@ -313,7 +340,9 @@ class TestThrottlingRetry:
         provider = _make_provider(mock_client)
 
         sleep_calls = []
-        with patch("ai.bedrock.time.sleep", side_effect=lambda s: sleep_calls.append(s)):
+        with patch(
+            "ai.bedrock.time.sleep", side_effect=lambda s: sleep_calls.append(s)
+        ):
             provider.chat(messages=[Message(role="user", text="go")], tools=[])
 
         assert len(sleep_calls) == 2
