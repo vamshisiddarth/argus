@@ -1,0 +1,54 @@
+# =============================================================================
+# Argus — Python Dependencies
+# Python 3.13+ required
+# Install: pip install -r requirements.txt
+# =============================================================================
+
+# --- AWS ---
+boto3==1.35.36                  # AWS SDK — Resource Explorer, CloudWatch, Cost Explorer, Bedrock
+botocore==1.35.36               # boto3 core (pinned to match boto3)
+
+# --- AI Providers ---
+anthropic==0.40.0               # Anthropic direct API — universal fallback, local dev
+
+# --- GCP (Phase 6) ---
+google-cloud-asset==3.26.0      # Asset Inventory — list all GCP resources
+google-cloud-monitoring==2.23.0 # Cloud Monitoring — metrics
+google-cloud-billing==1.14.0    # Billing API — cost data
+google-cloud-logging==3.11.3    # Cloud Audit Logs — last activity timestamps
+
+# --- Azure (Phase 7) ---
+azure-identity==1.19.0          # Azure auth (DefaultAzureCredential)
+azure-mgmt-resourcegraph==8.0.0 # Resource Graph — list all Azure resources
+azure-monitor-query==1.4.0      # Azure Monitor — metrics
+azure-mgmt-costmanagement==4.0.0 # Cost Management — cost data
+openai==1.55.0                  # Azure OpenAI (GPT-4o) + Vertex AI compat layer
+
+# --- Configuration ---
+python-dotenv==1.0.1            # loads .env into os.environ
+PyYAML==6.0.2                   # accounts.yaml parsing
+
+# --- Delivery ---
+slack-sdk==3.33.1               # Slack webhook delivery
+
+# --- Data & Utilities ---
+pydantic==2.9.2                 # ResourceFinding dataclass validation
+python-dateutil==2.9.0          # date arithmetic for lookback windows
+structlog==24.4.0               # structured JSON logging
+
+# --- Testing ---
+pytest==8.3.3
+pytest-cov==5.0.0
+pytest-mock==3.14.0             # mocker fixture for unit tests
+moto[s3,sts]==5.0.16            # AWS service mocking (s3 for report storage, sts for AssumeRole)
+freezegun==1.5.1                # freeze time in tests
+
+# --- Dev tooling ---
+black==24.10.0                  # code formatter (88 char line length)
+ruff==0.7.1                     # linter (replaces flake8 + isort)
+mypy==1.13.0                    # static type checking
+
+# --- Docs ---
+mkdocs-material==9.5.44         # Material for MkDocs theme (same as Karpenter)
+mkdocs-minify-plugin==0.8.0     # minify HTML/CSS/JS output
+boto3-stubs[s3,sts,resourceexplorer2,cloudwatch,ce,bedrock-runtime]==1.35.36

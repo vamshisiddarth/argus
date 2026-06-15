@@ -1,0 +1,140 @@
+/* =========================================================
+   Argus — MkDocs Material custom styles
+   ========================================================= */
+
+/* Hero section on the home page */
+.hero {
+  padding: 4rem 0 3rem;
+  text-align: center;
+}
+
+.hero h1 {
+  font-size: 3rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-bottom: 1rem;
+}
+
+.hero p.tagline {
+  font-size: 1.25rem;
+  color: var(--md-default-fg-color--light);
+  max-width: 600px;
+  margin: 0 auto 2rem;
+  line-height: 1.6;
+}
+
+.hero-buttons {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* Feature cards grid */
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1.5rem;
+  margin: 2rem 0;
+}
+
+.feature-card {
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 8px;
+  padding: 1.5rem;
+  transition: box-shadow 0.2s ease;
+}
+
+.feature-card:hover {
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+}
+
+.feature-card .icon {
+  margin-bottom: 0.75rem;
+  line-height: 1;
+}
+
+/* Material icons inside feature cards */
+.feature-card .icon .twemoji,
+.feature-card .icon svg {
+  width: 2rem;
+  height: 2rem;
+  fill: var(--md-primary-fg-color);
+}
+
+.feature-card h3 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+}
+
+.feature-card p {
+  font-size: 0.9rem;
+  color: var(--md-default-fg-color--light);
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Cloud badge row */
+.cloud-badges {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin: 1rem 0;
+  justify-content: center;
+}
+
+.cloud-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.85rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  border: 1px solid var(--md-default-fg-color--lightest);
+}
+
+/* Material icons inside cloud badges */
+.cloud-badge .twemoji,
+.cloud-badge svg {
+  width: 1rem;
+  height: 1rem;
+  vertical-align: middle;
+}
+
+/* Colored cloud provider badges */
+.cloud-badge--aws   { color: #FF9900; border-color: rgba(255,153,0,0.3); }
+.cloud-badge--gcp   { color: #4285F4; border-color: rgba(66,133,244,0.3); }
+.cloud-badge--azure { color: #0078D4; border-color: rgba(0,120,212,0.3); }
+
+/* Slim announcement banner */
+.md-banner {
+  font-size: 0.85rem;
+}
+
+/* Tighten up nav tabs */
+.md-tabs__link {
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+/* Code block filename label */
+.md-code__title {
+  font-family: var(--md-code-font);
+  font-size: 0.75rem;
+}
+
+/* ── Navbar logo ─────────────────────────────────────────── */
+
+/* Invert logo to white on the indigo header */
+.md-header .md-logo img,
+.md-header .md-logo svg {
+  filter: brightness(0) invert(1);
+}
+
+/* Hide site-name + page-title text in header — logo SVG already carries the wordmark.
+   visibility:hidden keeps the flex space so search/github/toggle stay right-aligned. */
+.md-header__title {
+  visibility: hidden;
+}

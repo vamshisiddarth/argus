@@ -1,0 +1,139 @@
+site_name: Argus
+site_description: AI-powered cloud cost optimization agent for AWS, GCP, and Azure
+site_url: https://vamshisiddarthgaddam.github.io/argus
+repo_url: https://github.com/vamshisiddarthgaddam/argus
+repo_name: argus
+edit_uri: edit/main/docs/
+
+docs_dir: docs
+site_dir: site
+
+# ---------------------------------------------------------------------------
+# Theme — Material for MkDocs
+# ---------------------------------------------------------------------------
+theme:
+  name: material
+  custom_dir: docs/overrides
+  favicon: assets/images/logo.svg
+  logo: assets/images/logo.svg
+
+  palette:
+    # Light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/toggle-switch-off
+        name: Switch to dark mode
+    # Dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/toggle-switch
+        name: Switch to light mode
+
+  font:
+    text: Inter
+    code: JetBrains Mono
+
+  features:
+    - navigation.tabs               # top-level nav as tabs
+    - navigation.tabs.sticky        # tabs stay visible while scrolling
+    - navigation.sections           # expand sections in sidebar
+    - navigation.expand             # expand all nav by default
+    - navigation.indexes            # section index pages
+    - navigation.top                # back-to-top button
+    - navigation.footer             # prev/next page links in footer
+    - search.highlight
+    - search.suggest
+    - search.share
+    - content.code.copy             # copy button on code blocks
+    - content.code.annotate         # code annotations
+    - content.tabs.link             # link content tabs together
+    - content.action.edit           # "edit this page" button
+    - toc.follow                    # sidebar TOC follows scroll
+
+# ---------------------------------------------------------------------------
+# Plugins
+# ---------------------------------------------------------------------------
+plugins:
+  - search
+  - minify:
+      minify_html: true
+
+# ---------------------------------------------------------------------------
+# Markdown extensions
+# ---------------------------------------------------------------------------
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+
+# ---------------------------------------------------------------------------
+# Navigation
+# ---------------------------------------------------------------------------
+nav:
+  - Home: index.md
+  - Getting Started:
+    - getting-started/index.md
+    - Quick Start (Local): getting-started/quickstart.md
+    - Configuration: getting-started/configuration.md
+    - First Scan: getting-started/first-scan.md
+  - Deployment:
+    - deployment/index.md
+    - AWS Lambda: deployment/aws.md
+    - GCP Cloud Run: deployment/gcp.md
+    - Azure Function: deployment/azure.md
+    - Multi-Account (AWS): deployment/multi-account.md
+  - Concepts:
+    - concepts/index.md
+    - How It Works: concepts/how-it-works.md
+    - AI Reasoning: concepts/ai-reasoning.md
+    - Cloud Adapters: concepts/adapters.md
+    - AI Providers: concepts/ai-providers.md
+  - Reference:
+    - reference/index.md
+    - Environment Variables: reference/env-vars.md
+    - IAM Permissions: reference/iam-permissions.md
+    - Resource Types: reference/resource-types.md
+  - Contributing:
+    - contributing/index.md
+    - Development Setup: contributing/development.md
+    - Adding a Cloud Adapter: contributing/new-adapter.md
+    - Adding an AI Provider: contributing/new-ai-provider.md
+
+# ---------------------------------------------------------------------------
+# Extra
+# ---------------------------------------------------------------------------
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/vamshisiddarthgaddam/argus
+      name: Argus on GitHub
+  generator: false   # hide "Made with Material" footer
+
+extra_css:
+  - assets/css/custom.css

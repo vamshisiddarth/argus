@@ -1,0 +1,25 @@
+# Argus — multi-account configuration
+# Copy this file to accounts.yaml and fill in your account details.
+#
+# CLI usage:
+#   python main.py --cloud aws --run-now --accounts accounts.yaml
+#
+# Lambda (multi-account): set ACCOUNTS_MODE=multi and pass ACCOUNTS_CONFIG
+# as a JSON array in the hub.yaml CloudFormation parameter.
+
+mode: single   # Change to "multi" for multi-account mode
+
+# Only required when mode: multi.
+# Each account must have the ArgusSpokeRole deployed (spoke-role.yaml).
+accounts:
+  - id: "111122223333"
+    name: dev
+    role_arn: arn:aws:iam::111122223333:role/ArgusSpokeRole
+
+  - id: "444455556666"
+    name: staging
+    role_arn: arn:aws:iam::444455556666:role/ArgusSpokeRole
+
+  - id: "999988887777"
+    name: prod
+    role_arn: arn:aws:iam::999988887777:role/ArgusSpokeRole

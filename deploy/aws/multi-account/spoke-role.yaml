@@ -1,0 +1,111 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  Argus — spoke account IAM role.
+  Deploy this in every AWS account you want Argus to scan.
+  This creates a single read-only IAM role that the hub Lambda assumes via STS.
+  No Lambda, no S3, no EventBridge — just one IAM role.
+  Docs: https://github.com/your-org/argus
+
+# ---------------------------------------------------------------------------
+# Parameters
+# ---------------------------------------------------------------------------
+Parameters:
+
+  HubRoleArn:
+    Type: String
+    Description: >
+      ARN of the Argus Lambda execution role in the hub account.
+      Find it in the Outputs tab of the hub.yaml CloudFormation stack.
+      Example: arn:aws:iam::111122223333:role/ArgusHubRole-us-east-1
+
+  RoleName:
+    Type: String
+    Default: ArgusSpokeRole
+    Description: >
+      Name of the IAM role to create. Must match the SpokeRoleName parameter
+      used in hub.yaml (default: ArgusSpokeRole).
+
+# ---------------------------------------------------------------------------
+# Resources
+# ---------------------------------------------------------------------------
+Resources:
+
+  ArgusSpokeRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Ref RoleName
+      Description: >
+        Read-only role assumed by the Argus hub Lambda to scan this account.
+        No write permissions. Safe to deploy in production accounts.
+      MaxSessionDuration: 3600  # 1 hour — credentials auto-expire
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowHubLambdaToAssume
+            Effect: Allow
+            Principal:
+              AWS: !Ref HubRoleArn
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: ArgusSpokeReadOnly
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+
+              # Resource Explorer — discover all resources across regions
+              - Sid: ResourceExplorer
+                Effect: Allow
+                Action:
+                  - resource-explorer-2:Search
+                  - resource-explorer-2:GetView
+                  - resource-explorer-2:ListIndexes
+                Resource: "*"
+
+              # CloudWatch — read metrics for discovered resources
+              - Sid: CloudWatchMetrics
+                Effect: Allow
+                Action:
+                  - cloudwatch:GetMetricData
+                Resource: "*"
+
+              # Cost Explorer — cost data (read-only, per-resource billing breakdown)
+              - Sid: CostExplorer
+                Effect: Allow
+                Action:
+                  - ce:GetCostAndUsage
+                  - ce:GetCostAndUsageWithResources
+                Resource: "*"
+
+              # CloudTrail — last-activity timestamps for resources
+              - Sid: CloudTrail
+                Effect: Allow
+                Action:
+                  - cloudtrail:LookupEvents
+                Resource: "*"
+
+              # Describe APIs — fetch current instance size for right-sizing recommendations
+              - Sid: DescribeForRightSizing
+                Effect: Allow
+                Action:
+                  - ec2:DescribeInstances
+                  - rds:DescribeDBInstances
+                  - rds:DescribeDBClusters
+                  - elasticache:DescribeCacheClusters
+                  - elasticache:DescribeReplicationGroups
+                  - redshift:DescribeClusters
+                  - es:DescribeDomain
+                  - lambda:GetFunctionConfiguration
+                  - dms:DescribeReplicationInstances
+                Resource: "*"
+
+# ---------------------------------------------------------------------------
+# Outputs
+# ---------------------------------------------------------------------------
+Outputs:
+
+  SpokeRoleArn:
+    Value: !GetAtt ArgusSpokeRole.Arn
+    Description: >
+      ARN of the spoke role.
+      Add this account to the AccountsConfig parameter in hub.yaml:
+        {"id": "<account-id>", "name": "<friendly-name>", "role_arn": "<this-value>"}

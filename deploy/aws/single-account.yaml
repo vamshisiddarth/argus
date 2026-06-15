@@ -1,0 +1,280 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  Argus — single-account deployment.
+  Deploys a Lambda function that scans all AWS resources for idle/wasteful usage
+  and posts a prioritised AI-written report to Slack every week.
+  Docs: https://github.com/your-org/argus
+
+# ---------------------------------------------------------------------------
+# Parameters
+# ---------------------------------------------------------------------------
+Parameters:
+
+  DeploymentBucket:
+    Type: String
+    Description: >
+      S3 bucket containing the Argus deployment ZIP.
+      Build it with: make package  (see README for instructions).
+
+  DeploymentKey:
+    Type: String
+    Description: S3 key of the deployment ZIP (e.g. argus/argus-latest.zip).
+
+  SlackWebhookUrl:
+    Type: String
+    NoEcho: true
+    Description: Slack incoming webhook URL. Create one at api.slack.com/apps.
+
+  IgnoreRegions:
+    Type: String
+    Default: ""
+    Description: >
+      Comma-separated list of AWS regions to EXCLUDE from the scan.
+      Leave empty to scan every region automatically (recommended).
+      Example: ap-east-1,me-south-1,ap-southeast-3
+
+  PrimaryRegion:
+    Type: String
+    Default: us-east-1
+    Description: >
+      AWS region for the Lambda boto3 session and Bedrock invocations.
+      Must match where your Resource Explorer aggregator index lives.
+
+  Schedule:
+    Type: String
+    Default: "cron(0 9 ? * MON *)"
+    Description: >
+      EventBridge cron expression for the weekly scan.
+      Default: every Monday at 09:00 UTC.
+      Syntax: cron(minutes hours day-of-month month day-of-week year)
+
+  AiProvider:
+    Type: String
+    Default: bedrock
+    AllowedValues: [bedrock, anthropic]
+    Description: >
+      AI provider for analysis.
+      bedrock  — Claude Sonnet via AWS Bedrock (no extra cost beyond Bedrock tokens).
+      anthropic — Anthropic API (requires AnthropicApiKey).
+
+  BedrockModelId:
+    Type: String
+    Default: anthropic.claude-sonnet-4-6
+    Description: Bedrock model ID (only used when AiProvider=bedrock).
+
+  BedrockRegion:
+    Type: String
+    Default: us-east-1
+    Description: AWS region where Bedrock is invoked (must have model access enabled).
+
+  AnthropicApiKey:
+    Type: String
+    Default: ""
+    NoEcho: true
+    Description: Anthropic API key (only required when AiProvider=anthropic).
+
+  DryRun:
+    Type: String
+    Default: "false"
+    AllowedValues: ["true", "false"]
+    Description: >
+      When "true", logs the Slack payload instead of posting it.
+      Useful for testing without a real webhook.
+
+  LambdaMemoryMB:
+    Type: Number
+    Default: 512
+    AllowedValues: [256, 512, 1024, 2048]
+    Description: Lambda memory allocation in MB. Increase if scans time out.
+
+  LambdaTimeoutSeconds:
+    Type: Number
+    Default: 900
+    Description: Lambda timeout in seconds (max 900 = 15 minutes).
+
+# ---------------------------------------------------------------------------
+# Conditions
+# ---------------------------------------------------------------------------
+Conditions:
+  UseAnthropicKey: !Not [!Equals [!Ref AnthropicApiKey, ""]]
+
+# ---------------------------------------------------------------------------
+# Resources
+# ---------------------------------------------------------------------------
+Resources:
+
+  # --- S3 bucket for storing full JSON reports ---
+  ReportBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "argus-reports-${AWS::AccountId}-${AWS::Region}"
+      LifecycleConfiguration:
+        Rules:
+          - Id: ExpireOldReports
+            Status: Enabled
+            ExpirationInDays: 90
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  # --- IAM role for the Lambda function ---
+  ArgusRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "ArgusLambdaRole-${AWS::Region}"
+      Description: Execution role for the Argus Lambda function (read-only).
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: ArgusReadOnly
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+
+              # Resource Explorer — discover all resources across regions
+              - Sid: ResourceExplorer
+                Effect: Allow
+                Action:
+                  - resource-explorer-2:Search
+                  - resource-explorer-2:GetView
+                  - resource-explorer-2:ListIndexes
+                Resource: "*"
+
+              # CloudWatch — read metrics for discovered resources
+              - Sid: CloudWatchMetrics
+                Effect: Allow
+                Action:
+                  - cloudwatch:GetMetricData
+                Resource: "*"
+
+              # Cost Explorer — cost data (charges $0.01/call; we batch to ≤2 calls)
+              - Sid: CostExplorer
+                Effect: Allow
+                Action:
+                  - ce:GetCostAndUsage
+                  - ce:GetCostAndUsageWithResources
+                Resource: "*"
+
+              # CloudTrail — last activity timestamps
+              - Sid: CloudTrail
+                Effect: Allow
+                Action:
+                  - cloudtrail:LookupEvents
+                Resource: "*"
+
+              # Describe APIs — fetch current instance size for right-sizing recommendations
+              # All read-only; used to inject instance_type into metric summaries so the AI
+              # can recommend a specific target (e.g. db.r5.4xlarge → db.r5.2xlarge).
+              - Sid: DescribeForRightSizing
+                Effect: Allow
+                Action:
+                  - ec2:DescribeInstances
+                  - rds:DescribeDBInstances
+                  - rds:DescribeDBClusters
+                  - elasticache:DescribeCacheClusters
+                  - elasticache:DescribeReplicationGroups
+                  - redshift:DescribeClusters
+                  - es:DescribeDomain
+                  - lambda:GetFunctionConfiguration
+                  - dms:DescribeReplicationInstances
+                Resource: "*"
+
+              # Bedrock — invoke the AI model
+              - Sid: Bedrock
+                Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                Resource: !Sub "arn:aws:bedrock:${BedrockRegion}::foundation-model/${BedrockModelId}"
+
+              # S3 — save full JSON reports
+              - Sid: S3Reports
+                Effect: Allow
+                Action:
+                  - s3:PutObject
+                Resource: !Sub "${ReportBucket.Arn}/reports/*"
+
+              # STS — get the current account ID
+              - Sid: StsGetCallerIdentity
+                Effect: Allow
+                Action:
+                  - sts:GetCallerIdentity
+                Resource: "*"
+
+  # --- Lambda function ---
+  ArgusFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: Argus
+      Description: AI-powered idle resource scanner. Runs weekly and reports to Slack.
+      Runtime: python3.13
+      Handler: entrypoints.aws_lambda.handler
+      Role: !GetAtt ArgusRole.Arn
+      Code:
+        S3Bucket: !Ref DeploymentBucket
+        S3Key: !Ref DeploymentKey
+      MemorySize: !Ref LambdaMemoryMB
+      Timeout: !Ref LambdaTimeoutSeconds
+      Architectures: [x86_64]
+      Environment:
+        Variables:
+          IGNORE_REGIONS: !Ref IgnoreRegions
+          PRIMARY_REGION: !Ref PrimaryRegion
+          DRY_RUN: !Ref DryRun
+          AI_PROVIDER: !Ref AiProvider
+          BEDROCK_MODEL_ID: !Ref BedrockModelId
+          BEDROCK_REGION: !Ref BedrockRegion
+          SLACK_WEBHOOK_URL: !Ref SlackWebhookUrl
+          REPORT_S3_BUCKET: !Ref ReportBucket
+          ACCOUNTS_MODE: single
+          ANTHROPIC_API_KEY: !If [UseAnthropicKey, !Ref AnthropicApiKey, ""]
+
+  # --- EventBridge rule (scheduled trigger) ---
+  ArgusSchedule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: ArgusWeeklyScan
+      Description: Triggers the Argus Lambda on a schedule.
+      ScheduleExpression: !Ref Schedule
+      State: ENABLED
+      Targets:
+        - Id: ArgusLambda
+          Arn: !GetAtt ArgusFunction.Arn
+
+  # --- Permission for EventBridge to invoke the Lambda ---
+  ArgusSchedulePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt ArgusFunction.Arn
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt ArgusSchedule.Arn
+
+# ---------------------------------------------------------------------------
+# Outputs
+# ---------------------------------------------------------------------------
+Outputs:
+
+  LambdaFunctionName:
+    Value: !Ref ArgusFunction
+    Description: Argus Lambda function name.
+
+  LambdaFunctionArn:
+    Value: !GetAtt ArgusFunction.Arn
+    Description: Argus Lambda function ARN.
+
+  ReportBucketName:
+    Value: !Ref ReportBucket
+    Description: S3 bucket where full JSON reports are stored.
+
+  ExecutionRoleArn:
+    Value: !GetAtt ArgusRole.Arn
+    Description: IAM role ARN used by the Lambda function.

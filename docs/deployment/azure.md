@@ -1,0 +1,109 @@
+# Azure Function Deployment
+
+Argus runs as an Azure Function with a Timer trigger on a weekly schedule.
+
+## Prerequisites
+
+- Azure CLI installed and authenticated: `az login`
+- A resource group:
+  ```bash
+  az group create --name Argus-RG --location eastus
+  ```
+- An Azure OpenAI resource with a GPT-4o deployment **or** an Anthropic API key
+
+## Deploy
+
+```bash
+az deployment group create \
+  --resource-group Argus-RG \
+  --template-file deploy/azure/function-app.bicep \
+  --parameters \
+      subscriptionIds="sub-id-1,sub-id-2" \
+      slackWebhookUrl="https://hooks.slack.com/services/T.../B.../..."
+```
+
+### With Azure OpenAI
+
+```bash
+az deployment group create \
+  --resource-group Argus-RG \
+  --template-file deploy/azure/function-app.bicep \
+  --parameters \
+      subscriptionIds="sub-id-1,sub-id-2" \
+      slackWebhookUrl="https://hooks.slack.com/services/..." \
+      azureOpenAIEndpoint="https://my-resource.openai.azure.com/" \
+      azureOpenAIDeployment="gpt-4o"
+```
+
+### With Anthropic API
+
+```bash
+az deployment group create \
+  --resource-group Argus-RG \
+  --template-file deploy/azure/function-app.bicep \
+  --parameters \
+      subscriptionIds="sub-id-1,sub-id-2" \
+      slackWebhookUrl="https://hooks.slack.com/services/..." \
+      anthropicApiKey="sk-ant-..."
+```
+
+## Post-deploy: grant subscription Reader access
+
+The Bicep template assigns roles at the resource group level.
+For cross-subscription scanning, grant Reader access at the subscription level:
+
+```bash
+# Get the managed identity principal ID from the deployment output
+PRINCIPAL_ID=$(az deployment group show \
+  --resource-group Argus-RG \
+  --name function-app \
+  --query properties.outputs.functionAppPrincipalId.value -o tsv)
+
+# Grant Reader on each subscription
+az role assignment create \
+  --assignee $PRINCIPAL_ID \
+  --role "Reader" \
+  --scope /subscriptions/sub-id-1
+
+az role assignment create \
+  --assignee $PRINCIPAL_ID \
+  --role "Reader" \
+  --scope /subscriptions/sub-id-2
+```
+
+## Deploy the function code
+
+```bash
+func azure functionapp publish <function-app-name>
+```
+
+## What gets created
+
+| Resource | Purpose |
+|----------|---------|
+| Function App (Linux, Python 3.13) | Runs the scan |
+| App Service Plan (Consumption Y1) | Serverless billing |
+| Storage Account | Required by Function runtime |
+| System-assigned managed identity | Authentication to Azure APIs |
+| Role assignments | Monitoring Reader + Cost Management Reader |
+
+## View logs
+
+```bash
+az functionapp log stream --name <function-app-name> --resource-group Argus-RG
+```
+
+## Parameters reference
+
+| Parameter | Required | Default | Description |
+|-----------|----------|---------|-------------|
+| `subscriptionIds` | Yes | — | Comma-separated subscription IDs |
+| `slackWebhookUrl` | Yes | — | Slack incoming webhook URL |
+| `azureOpenAIEndpoint` | No | _(empty)_ | Use Azure OpenAI for AI inference |
+| `azureOpenAIDeployment` | No | `gpt-4o` | Deployment name |
+| `anthropicApiKey` | No | _(empty)_ | Use Anthropic API instead |
+| `logAnalyticsWorkspaceId` | No | _(empty)_ | Enables Activity Log KQL queries |
+| `scheduleExpression` | No | `0 0 9 * * 1` | Timer cron expression |
+| `ignoreRegions` | No | _(empty)_ | Comma-separated Azure regions to skip |
+| `dryRun` | No | `false` | `true` to skip Slack post |
+| `location` | No | resource group location | Azure region for all resources |
