@@ -62,28 +62,33 @@ LOW   eipalloc-xyz  Elastic IP         $3.65/mo   Unassociated since creation
 
 ---
 
-## Quick start — local AWS scan
+## Quick start
 
-### Prerequisites
+### Option A — Docker (fastest)
+
+```bash
+docker build --build-arg CLOUD=aws -t argus .
+
+docker run --rm \
+  -e ANTHROPIC_API_KEY=sk-ant-... \
+  -e DRY_RUN=true \
+  -v ~/.aws:/root/.aws:ro \
+  argus --cloud aws --run-now --dry-run
+```
+
+### Option B — Local Python
+
+**Prerequisites**
 - Python 3.13+
-- AWS credentials configured (`~/.aws/credentials` or environment variables)
+- AWS credentials configured (`~/.aws/credentials` or env vars)
 - AWS Resource Explorer enabled with an **aggregator index** in `us-east-1`
   (or set `RESOURCE_EXPLORER_REGION` to your aggregator region)
 - An Anthropic API key **or** AWS Bedrock access
 
-### 1. Clone and install
-
 ```bash
 git clone https://github.com/vamshisiddarth/argus.git
 cd argus
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-```
-
-### 2. Configure
-
-```bash
-cp .env.example .env
+make setup          # creates .venv, installs deps, copies .env.example
 ```
 
 Edit `.env` — minimum required:
@@ -92,18 +97,23 @@ Edit `.env` — minimum required:
 AI_PROVIDER=anthropic
 ANTHROPIC_API_KEY=sk-ant-...
 
-SLACK_WEBHOOK_URL=https://hooks.slack.com/services/T.../B.../...
-# or set DRY_RUN=true to print the Slack payload instead of posting it
+# Remove DRY_RUN or set to false to post to Slack
 DRY_RUN=true
+SLACK_WEBHOOK_URL=https://hooks.slack.com/services/T.../B.../...
 ```
-
-### 3. Run
 
 ```bash
-python main.py --cloud aws --run-now --dry-run
+make scan-aws       # runs --dry-run by default
 ```
 
-The agent will scan your account and print the Slack payload to stdout. Remove `--dry-run` to post to Slack.
+**Install only what you need:**
+
+```bash
+pip install -r requirements/aws.txt    # AWS only
+pip install -r requirements/gcp.txt    # GCP only
+pip install -r requirements/azure.txt  # Azure only
+pip install -r requirements/dev.txt    # everything + dev tools
+```
 
 ### Options
 
@@ -264,14 +274,9 @@ No write permissions are ever requested.
 ## Running tests
 
 ```bash
-# All 187 tests — no cloud credentials needed
-pytest tests/ -v
-
-# Just AWS adapter tests
-pytest tests/adapters/aws/ -v
-
-# With coverage
-pytest tests/ --cov=. --cov-report=term-missing
+make test                                          # all tests, no cloud credentials needed
+pytest tests/adapters/aws/ -v                      # just AWS adapter tests
+pytest tests/ --cov=. --cov-report=term-missing    # with coverage
 ```
 
 Tests use `unittest.mock` throughout — no real AWS/GCP/Azure calls are made.

@@ -1,0 +1,7 @@
+# AWS dependencies
+# Install: pip install -r requirements/aws.txt
+
+-r base.txt
+
+boto3==1.35.36                  # AWS SDK — Resource Explorer, CloudWatch, Cost Explorer, Bedrock
+botocore==1.35.36               # boto3 core (pinned to match boto3)

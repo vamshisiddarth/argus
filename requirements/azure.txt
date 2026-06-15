@@ -1,0 +1,10 @@
+# Azure dependencies
+# Install: pip install -r requirements/azure.txt
+
+-r base.txt
+
+azure-identity==1.19.0          # Azure auth (DefaultAzureCredential)
+azure-mgmt-resourcegraph==8.0.0 # Resource Graph — list all Azure resources
+azure-monitor-query==1.4.0      # Azure Monitor — metrics
+azure-mgmt-costmanagement==4.0.0 # Cost Management — cost data
+openai==1.55.0                  # Azure OpenAI (GPT-4o)

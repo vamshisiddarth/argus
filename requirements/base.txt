@@ -1,0 +1,10 @@
+# Core dependencies — required for all clouds
+# Install: pip install -r requirements/base.txt
+
+anthropic==0.40.0               # Anthropic direct API — universal fallback, local dev
+python-dotenv==1.0.1            # loads .env into os.environ
+PyYAML==6.0.2                   # accounts.yaml parsing
+slack-sdk==3.33.1               # Slack webhook delivery
+pydantic==2.9.2                 # ResourceFinding dataclass validation
+python-dateutil==2.9.0          # date arithmetic for lookback windows
+structlog==24.4.0               # structured JSON logging
