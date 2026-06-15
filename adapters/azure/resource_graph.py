@@ -66,9 +66,10 @@ def list_resources(
                 if parsed:
                     resources.append(parsed)
 
-            skip_token = getattr(response, "skip_token", None) or getattr(
+            _raw_token = getattr(response, "skip_token", None) or getattr(
                 response, "$skipToken", None
             )
+            skip_token = _raw_token if isinstance(_raw_token, str) else None
             if not skip_token:
                 break
 
