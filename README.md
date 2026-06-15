@@ -10,6 +10,10 @@ Argus finds idle and wasted cloud resources — stopped EC2 instances, unattache
 [![Python 3.13+](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
+<p align="center">
+  <img src="docs/assets/images/slack-demo.png" alt="Argus Slack report" width="600">
+</p>
+
 ---
 
 ## What it does
