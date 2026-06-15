@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """
 AI provider backed by Azure OpenAI (GPT-4o).
 
@@ -15,6 +13,8 @@ Environment variables:
     AZURE_OPENAI_API_VERSION API version (default: 2024-10-21)
     AZURE_OPENAI_API_KEY     Optional — use only for local dev without az login
 """
+
+from __future__ import annotations
 
 import json
 import logging

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """
 AI provider backed by Google Vertex AI (Gemini models).
 
@@ -13,6 +11,8 @@ Environment variables:
     VERTEXAI_LOCATION  GCP region (default: us-central1)
     VERTEXAI_MODEL     Model name (default: gemini-1.5-pro-002)
 """
+
+from __future__ import annotations
 
 import json
 import logging
@@ -59,7 +59,9 @@ class VertexAIProvider(AIProvider):
                 "VERTEXAI_PROJECT is not set. "
                 "Set it in .env or pass project= explicitly."
             )
-        self._location = location or os.environ.get("VERTEXAI_LOCATION", self.DEFAULT_LOCATION)
+        self._location = location or os.environ.get(
+            "VERTEXAI_LOCATION", self.DEFAULT_LOCATION
+        )
         self._model = model or os.environ.get("VERTEXAI_MODEL", self.DEFAULT_MODEL)
         self._max_tokens = max_tokens
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os as _os
 from datetime import datetime, timezone
 from typing import Any
 
@@ -14,11 +15,7 @@ logger = logging.getLogger(__name__)
 
 MAX_ITERATIONS = 50
 
-# Maximum number of resources handed to the AI after pre-filtering by cost.
-# Resources beyond this limit are silently dropped (they have near-zero cost
-# and would only consume context window without adding value).
 # Override via MAX_RESOURCES_PER_SCAN env var for large accounts.
-import os as _os
 MAX_RESOURCES_PER_SCAN: int = int(_os.environ.get("MAX_RESOURCES_PER_SCAN", "200"))
 
 
@@ -59,14 +56,16 @@ class AgentLoop:
             findings: ResourceFinding list sorted by estimated_monthly_cost desc
             executive_summary: AI-written 3-5 sentence summary for managers
         """
-        system_prompt = build_system_prompt(cloud=cloud, ignore_regions=ignore_regions, accounts=accounts)
+        system_prompt = build_system_prompt(
+            cloud=cloud, ignore_regions=ignore_regions, accounts=accounts
+        )
 
         # ------------------------------------------------------------------
         # Phase 0 — pre-filter (outside AI context, no tokens consumed)
         # Fetch all resources + batch cost, then hand only the top-N by cost
         # to the agent. This keeps context small regardless of account size.
         # ------------------------------------------------------------------
-        prefiltered = self._prefilter_resources(ignore_regions)
+        self._prefilter_resources(ignore_regions)
 
         messages: list[Message] = [
             Message(role="user", text="Begin your cloud cost analysis now.")
@@ -83,7 +82,9 @@ class AgentLoop:
                     if tc.name == "submit_findings":
                         logger.info(
                             "agent_complete",
-                            extra={"findings_count": len(tc.arguments.get("findings", []))},
+                            extra={
+                                "findings_count": len(tc.arguments.get("findings", []))
+                            },
                         )
                         return _parse_findings(tc.arguments, cloud=cloud)
 
@@ -162,10 +163,7 @@ class AgentLoop:
             costs = {}
 
         # Attach cost to each resource and sort descending
-        resources_with_cost = [
-            (r, costs.get(r.resource_id, 0.0))
-            for r in resources
-        ]
+        resources_with_cost = [(r, costs.get(r.resource_id, 0.0)) for r in resources]
         resources_with_cost.sort(key=lambda x: x[1], reverse=True)
 
         # Cap at MAX_RESOURCES_PER_SCAN
@@ -208,17 +206,23 @@ class AgentLoop:
                     # Return the pre-filtered, cost-sorted list built in Phase 0.
                     # The adapter is NOT called again here — avoids a second full
                     # Resource Explorer / Asset Inventory scan mid-conversation.
-                    return json.dumps(
-                        self._prefiltered_payload,
-                        default=str,
-                        separators=(",", ":"),
-                    ), False
+                    return (
+                        json.dumps(
+                            self._prefiltered_payload,
+                            default=str,
+                            separators=(",", ":"),
+                        ),
+                        False,
+                    )
 
                 case "get_metrics":
                     summary = self._adapter.get_metrics(**tc.arguments)
-                    return json.dumps(
-                        summary.to_dict(), default=str, separators=(",", ":")
-                    ), False
+                    return (
+                        json.dumps(
+                            summary.to_dict(), default=str, separators=(",", ":")
+                        ),
+                        False,
+                    )
 
                 case "get_cost":
                     costs = self._adapter.get_cost(**tc.arguments)
@@ -240,6 +244,7 @@ class AgentLoop:
 # ------------------------------------------------------------------
 # Internal helpers
 # ------------------------------------------------------------------
+
 
 def _compress_resource(r: dict) -> dict:
     """

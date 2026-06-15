@@ -1,6 +1,12 @@
-from unittest.mock import MagicMock, patch
+import pytest
+from unittest.mock import MagicMock
 
-from adapters.aws.cloudwatch import _dimension_value, _region_from_arn, _enrich_instance_details, get_metrics
+from adapters.aws.cloudwatch import (
+    _dimension_value,
+    _region_from_arn,
+    _enrich_instance_details,
+    get_metrics,
+)
 
 
 def _make_mock_session(metric_results):
@@ -36,7 +42,9 @@ class TestRegionAndDimensionHelpers:
         assert _dimension_value(arn, "AWS::Lambda::Function") == "my-fn"
 
     def test_dimension_alb(self):
-        arn = "arn:aws:elasticloadbalancing:us-east-1:123:loadbalancer/app/my-alb/abc123"
+        arn = (
+            "arn:aws:elasticloadbalancing:us-east-1:123:loadbalancer/app/my-alb/abc123"
+        )
         result = _dimension_value(arn, "AWS::ElasticLoadBalancingV2::LoadBalancer")
         assert result == "app/my-alb/abc123"
 
@@ -96,6 +104,7 @@ class TestGetMetrics:
 
     def test_handles_cloudwatch_error_gracefully(self):
         from botocore.exceptions import ClientError
+
         mock_client = MagicMock()
         mock_client.get_metric_data.side_effect = ClientError(
             {"Error": {"Code": "InvalidParameterCombination", "Message": "err"}},
@@ -112,9 +121,6 @@ class TestGetMetrics:
         assert summary.has_data is False
 
 
-import pytest
-
-
 class TestEnrichInstanceDetails:
     """_enrich_instance_details injects instance size metadata into the metrics dict."""
 
@@ -126,12 +132,16 @@ class TestEnrichInstanceDetails:
     def test_ec2_injects_instance_type_and_vcpus(self):
         ec2_client = MagicMock()
         ec2_client.describe_instances.return_value = {
-            "Reservations": [{
-                "Instances": [{
-                    "InstanceType": "m5.4xlarge",
-                    "CpuOptions": {"CoreCount": 8, "ThreadsPerCore": 2},
-                }]
-            }]
+            "Reservations": [
+                {
+                    "Instances": [
+                        {
+                            "InstanceType": "m5.4xlarge",
+                            "CpuOptions": {"CoreCount": 8, "ThreadsPerCore": 2},
+                        }
+                    ]
+                }
+            ]
         }
         session = self._make_session(ec2_client)
         metrics: dict = {}
@@ -147,13 +157,15 @@ class TestEnrichInstanceDetails:
     def test_rds_injects_instance_class_and_engine(self):
         rds_client = MagicMock()
         rds_client.describe_db_instances.return_value = {
-            "DBInstances": [{
-                "DBInstanceClass": "db.r5.4xlarge",
-                "Engine": "postgres",
-                "EngineVersion": "14.7",
-                "AllocatedStorage": 500,
-                "MultiAZ": True,
-            }]
+            "DBInstances": [
+                {
+                    "DBInstanceClass": "db.r5.4xlarge",
+                    "Engine": "postgres",
+                    "EngineVersion": "14.7",
+                    "AllocatedStorage": 500,
+                    "MultiAZ": True,
+                }
+            ]
         }
         session = self._make_session(rds_client)
         metrics: dict = {}
@@ -171,12 +183,14 @@ class TestEnrichInstanceDetails:
     def test_elasticache_injects_node_type(self):
         ec_client = MagicMock()
         ec_client.describe_cache_clusters.return_value = {
-            "CacheClusters": [{
-                "CacheNodeType": "cache.r6g.xlarge",
-                "NumCacheNodes": 3,
-                "Engine": "redis",
-                "EngineVersion": "7.0.5",
-            }]
+            "CacheClusters": [
+                {
+                    "CacheNodeType": "cache.r6g.xlarge",
+                    "NumCacheNodes": 3,
+                    "Engine": "redis",
+                    "EngineVersion": "7.0.5",
+                }
+            ]
         }
         session = self._make_session(ec_client)
         metrics: dict = {}
@@ -210,6 +224,7 @@ class TestEnrichInstanceDetails:
 
     def test_client_error_is_silently_ignored(self):
         from botocore.exceptions import ClientError
+
         ec2_client = MagicMock()
         ec2_client.describe_instances.side_effect = ClientError(
             {"Error": {"Code": "InvalidInstanceID", "Message": "not found"}},
