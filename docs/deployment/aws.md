@@ -10,6 +10,24 @@ which packages and uploads the code automatically — no manual S3 setup needed.
 - AWS credentials configured (`aws configure` or environment variables)
 - AWS Resource Explorer enabled with an **aggregator index** in your primary region
 
+    Check if you have one:
+    ```bash
+    aws resource-explorer-2 get-index --region us-east-1
+    ```
+    If not, create one:
+    ```bash
+    aws resource-explorer-2 create-index --type LOCAL --region us-east-1
+    aws resource-explorer-2 update-index-type --type AGGREGATOR --region us-east-1
+    ```
+
+!!! tip "Cost Explorer activation (recommended)"
+    For accurate per-resource cost data, enable two things in AWS Console → **Cost Management → Settings**:
+
+    1. **Cost Explorer** — first activation takes up to 24 hours
+    2. **Resource-level data** — enables `GetCostAndUsageWithResources`
+
+    Without this, cost fields show `$0.00`. Argus still finds idle resources via metrics and activity signals, but cost-based sorting and estimates will be unavailable.
+
 ---
 
 ## Single account

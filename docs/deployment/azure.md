@@ -5,10 +5,12 @@ Argus runs as an Azure Function with a Timer trigger on a weekly schedule.
 ## Prerequisites
 
 - Azure CLI installed and authenticated: `az login`
+- [Azure Functions Core Tools](https://learn.microsoft.com/en-us/azure/azure-functions/functions-run-local) v4 installed (`func` CLI — needed to publish function code after Bicep deploy)
 - A resource group:
   ```bash
   az group create --name Argus-RG --location eastus
   ```
+- The subscription IDs you want to scan — you'll need them for `subscriptionIds` parameter
 - An Azure OpenAI resource with a GPT-4o deployment **or** an Anthropic API key
 
 ## Deploy
@@ -85,7 +87,7 @@ func azure functionapp publish <function-app-name>
 | App Service Plan (Consumption Y1) | Serverless billing |
 | Storage Account | Required by Function runtime |
 | System-assigned managed identity | Authentication to Azure APIs |
-| Role assignments | Monitoring Reader + Cost Management Reader |
+| Role assignments | Monitoring Reader + Cost Management Reader at resource group level. Cross-subscription Reader must be granted manually (see post-deploy step above). `Storage Blob Data Contributor` required on the report container if `reportStorageAccount` is set. |
 
 ## View logs
 
