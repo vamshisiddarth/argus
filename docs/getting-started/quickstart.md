@@ -94,6 +94,18 @@ DRY_RUN=false
 python main.py --cloud aws --run-now
 ```
 
+Argus posts a **compact digest** — stats, a 2-sentence AI summary, and the top 5 findings as single lines. The full AI reasoning (why each resource is idle, what to do) lives in a separate HTML report.
+
+### Optional: HTML report with "Full report" button
+
+Set `REPORT_S3_BUCKET` to upload a self-contained HTML report to S3 after each scan. The Slack digest will include a **Full report** button linking to a 7-day pre-signed URL:
+
+```ini title=".env"
+REPORT_S3_BUCKET=my-argus-reports-bucket
+```
+
+The Lambda execution role needs `s3:PutObject` and `s3:GetObject` on this bucket. For local dev runs the bucket is optional — the digest still posts without it.
+
 ## :material-console: CLI reference
 
 ```
@@ -107,6 +119,12 @@ Options:
   --accounts PATH            Path to accounts.yaml for multi-account mode
   --primary-region REGION    AWS region for boto3 session (default: us-east-1)
 ```
+
+!!! note "GCP and Azure"
+    The CLI only supports `--cloud aws`. For GCP and Azure, use the dedicated entrypoints:
+
+    - GCP: `python -m entrypoints.gcp_cloudrun` (or deploy via Cloud Run Job)
+    - Azure: `python -m entrypoints.azure_function` (or deploy via Azure Function)
 
 ## :material-arrow-right-circle-outline: Next steps
 

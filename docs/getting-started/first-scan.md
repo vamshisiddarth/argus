@@ -19,16 +19,42 @@ Iteration N: submit_findings([...]) → done
 
 ## Reading the Slack output
 
-Each finding includes:
+The Slack message is a **compact digest** — it gives you the headline numbers and top findings at a glance, without flooding the channel with AI reasoning text.
 
-| Field | Description |
-|-------|-------------|
-| **Priority** | `HIGH` / `MED` / `LOW` — based on cost and confidence of idleness |
-| **Resource ID** | The cloud resource identifier (instance ID, ARN, resource path) |
+```
+Argus — AWS Waste Report (2026-06-17)
+
+💸 $340.50/month estimated waste   📊 12 idle resources across 3 accounts
+
+Two stopped EC2 instances and a forgotten NAT Gateway account for 72% of
+total waste. Four RDS databases have had zero connections in over 30 days.
+
+Top findings
+🔴  prod-api-server (i-0abc123def)  ·  EC2 t3.xlarge    ·  $142.70/mo
+🔴  nat-0def456abc                  ·  NAT Gateway       ·  $104.80/mo
+🟡  staging-rds-cluster             ·  RDS db.r6g.large  ·  $48.20/mo
+🟡  3 unattached volumes            ·  EBS gp3           ·  $24.00/mo
+🟢  + 8 more findings in full report                     ·  $20.80/mo
+
+[ 📄 Full report (HTML) ]   [ vamshisiddarth/argus ]
+```
+
+### Full HTML report
+
+Click **Full report (HTML)** to open the self-contained report in your browser. It includes:
+
+| Column | Description |
+|--------|-------------|
+| **Priority** | `HIGH` / `MEDIUM` / `LOW` — based on cost and confidence of idleness |
+| **Resource** | Name and resource ID |
 | **Type** | EC2 instance, RDS DB, NAT Gateway, etc. |
-| **Monthly cost** | Estimated USD/month from Cost Explorer / BigQuery |
-| **Waste reason** | Why the AI flagged it as idle or wasteful |
-| **Recommendation** | Specific action: delete, downsize, snapshot-and-delete, tag for review |
+| **Region** | Cloud region |
+| **Cost / mo** | Estimated USD/month from Cost Explorer / BigQuery / Cost Management |
+| **Last activity** | Days since last CloudTrail / Audit Log / Activity Log event |
+
+Click any row to expand the full AI reasoning: **Why idle** and **Recommendation** (specific action — delete, downsize, snapshot-and-delete, tag for review).
+
+The HTML file is filterable by priority and resource type, sortable by cost, and works offline. It is generated after every scan and stored in S3 / GCS / Azure Blob (requires `REPORT_S3_BUCKET` / `REPORT_GCS_BUCKET` / `REPORT_STORAGE_ACCOUNT` to be set).
 
 ## Priority rules
 

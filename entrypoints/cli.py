@@ -26,7 +26,7 @@ def main(argv: list[str] | None = None) -> None:
         "--cloud",
         default="aws",
         choices=["aws"],
-        help="Cloud provider to scan (default: aws)",
+        help="Cloud provider to scan (default: aws). GCP and Azure run via their own entrypoints (gcp_cloudrun.py / azure_function.py).",
     )
     parser.add_argument(
         "--run-now",
