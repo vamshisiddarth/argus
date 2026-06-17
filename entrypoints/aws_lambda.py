@@ -11,7 +11,8 @@ Environment variables (set in CloudFormation template or .env for local):
   ACCOUNTS_MODE      "single" | "multi" (default: single)
   ACCOUNTS_CONFIG    JSON array of account dicts when ACCOUNTS_MODE=multi
                      e.g. [{"id":"123","name":"prod","role_arn":"arn:..."}]
-  REPORT_S3_BUCKET   S3 bucket name for saving the full JSON report (optional)
+  REPORT_S3_BUCKET   S3 bucket name for saving full reports (JSON + HTML) (optional)
+  REPORT_URL_EXPIRY  Pre-signed URL expiry in seconds (default: 604800 = 7 days)
 """
 
 from __future__ import annotations
@@ -30,6 +31,7 @@ from core.agent.loop import AgentLoop
 from core.models.finding import ResourceFinding
 from core.reports.delivery import post_to_slack
 from core.reports.generator import build_report, build_slack_payload
+from core.reports.html import build_html_report
 
 logging.basicConfig(
     level=logging.INFO,
@@ -74,10 +76,11 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     )
 
     s3_bucket = os.environ.get("REPORT_S3_BUCKET", "").strip()
+    report_url: str | None = None
     if s3_bucket:
-        _save_report_to_s3(report, s3_bucket)
+        report_url = _save_reports_to_s3(report, s3_bucket)
 
-    payload = build_slack_payload(report)
+    payload = build_slack_payload(report, report_url=report_url)
     post_to_slack(payload)
 
     logger.info(
@@ -187,19 +190,41 @@ def _get_current_account_id() -> str:
         return "unknown"
 
 
-def _save_report_to_s3(report: dict[str, Any], bucket: str) -> None:
+def _save_reports_to_s3(report: dict[str, Any], bucket: str) -> str | None:
+    """Upload JSON + HTML reports to S3. Returns a pre-signed URL for the HTML report."""
     now = datetime.now(tz=timezone.utc)
-    key = (
-        f"reports/{report['cloud']}/{now.strftime('%Y/%m/%d')}/{report['scan_id']}.json"
-    )
+    prefix = f"reports/{report['cloud']}/{now.strftime('%Y/%m/%d')}/{report['scan_id']}"
+    json_key = f"{prefix}.json"
+    html_key = f"{prefix}.html"
+    expiry = int(os.environ.get("REPORT_URL_EXPIRY", "604800"))
+
     try:
         s3 = boto3.client("s3")
+
         s3.put_object(
             Bucket=bucket,
-            Key=key,
+            Key=json_key,
             Body=json.dumps(report, indent=2, default=str).encode("utf-8"),
             ContentType="application/json",
         )
-        logger.info("report saved to s3://%s/%s", bucket, key)
+        logger.info("json report saved to s3://%s/%s", bucket, json_key)
+
+        html_body = build_html_report(report).encode("utf-8")
+        s3.put_object(
+            Bucket=bucket,
+            Key=html_key,
+            Body=html_body,
+            ContentType="text/html; charset=utf-8",
+        )
+        logger.info("html report saved to s3://%s/%s", bucket, html_key)
+
+        url: str = s3.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": bucket, "Key": html_key},
+            ExpiresIn=expiry,
+        )
+        logger.info("pre-signed url generated (expires in %ds)", expiry)
+        return url
     except ClientError as exc:
-        logger.error("failed to save report to S3: %s", exc)
+        logger.error("failed to save reports to S3: %s", exc)
+        return None

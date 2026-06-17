@@ -14,7 +14,8 @@ import pytest
 
 from core.models.finding import ResourceFinding
 from core.reports.delivery import SlackDeliveryError, post_to_slack
-from core.reports.generator import TOP_FINDINGS_LIMIT, build_report, build_slack_payload
+from core.reports.generator import SLACK_DIGEST_LIMIT, build_report, build_slack_payload
+from core.reports.html import build_html_report
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -126,6 +127,28 @@ class TestBuildReport:
 # ---------------------------------------------------------------------------
 
 
+def _all_text(payload: dict) -> str:
+    """Flatten all text in a Block Kit payload for assertion purposes."""
+    parts: list[str] = []
+    for block in payload.get("blocks", []):
+        t = block.get("text")
+        if isinstance(t, dict):
+            parts.append(t.get("text", ""))
+        elif isinstance(t, str):
+            parts.append(t)
+        for field in block.get("fields", []):
+            parts.append(field.get("text", ""))
+        for elem in block.get("elements", []):
+            if not isinstance(elem, dict):
+                continue
+            et = elem.get("text")
+            if isinstance(et, dict):
+                parts.append(et.get("text", ""))
+            elif isinstance(et, str):
+                parts.append(et)
+    return " ".join(parts)
+
+
 class TestBuildSlackPayload:
     def _report(self, n_findings: int = 3) -> dict:
         findings = [
@@ -140,94 +163,152 @@ class TestBuildSlackPayload:
         assert "blocks" in payload
         assert isinstance(payload["blocks"], list)
 
-    def test_blocks_contain_header_and_summary(self):
+    def test_header_block_present(self):
         payload = build_slack_payload(self._report())
-        block_texts = [
-            b.get("text", {}).get("text", "") + b.get("text", {}).get("text", "")
-            for b in payload["blocks"]
-            if b.get("type") == "section"
-        ]
-        combined = " ".join(block_texts)
-        assert "Argus" in combined
-        assert "AWS" in combined
+        headers = [b for b in payload["blocks"] if b["type"] == "header"]
+        assert len(headers) == 1
+        assert "AWS" in headers[0]["text"]["text"]
 
-    def test_each_finding_gets_a_block(self):
+    def test_stats_fields_contain_total_and_count(self):
         report = self._report(n_findings=3)
         payload = build_slack_payload(report)
-        section_blocks = [b for b in payload["blocks"] if b["type"] == "section"]
-        # header section + summary section + 3 findings = 5
-        assert len(section_blocks) == 5
+        text = _all_text(payload)
+        assert "$" in text
+        assert "3" in text
 
-    def test_top_findings_limit_respected(self):
+    def test_executive_summary_in_payload(self):
+        report = self._report()
+        payload = build_slack_payload(report)
+        assert "Three resources are idle." in _all_text(payload)
+
+    def test_findings_rows_capped_at_digest_limit(self):
         findings = [
             _finding(f"i-{i}", cost=float(200 - i))
-            for i in range(TOP_FINDINGS_LIMIT + 5)
+            for i in range(SLACK_DIGEST_LIMIT + 5)
         ]
         report = build_report(findings, cloud="aws", executive_summary="Many findings.")
         payload = build_slack_payload(report)
-        _circle_emojis = (
-            ":red_circle:",
-            ":large_yellow_circle:",
-            ":large_green_circle:",
-            ":white_circle:",
-        )
-        finding_sections = [
-            b
-            for b in payload["blocks"]
-            if b["type"] == "section"
-            and any(
-                b.get("text", {}).get("text", "").startswith(e) for e in _circle_emojis
-            )
+        text = _all_text(payload)
+        # Each finding row contains its resource id; only SLACK_DIGEST_LIMIT should appear
+        visible_ids = [f"i-{i}" for i in range(SLACK_DIGEST_LIMIT)]
+        hidden_ids = [
+            f"i-{i}" for i in range(SLACK_DIGEST_LIMIT, SLACK_DIGEST_LIMIT + 5)
         ]
-        assert len(finding_sections) == TOP_FINDINGS_LIMIT
+        for rid in visible_ids:
+            assert rid in text
+        for rid in hidden_ids:
+            assert rid not in text
 
-    def test_overflow_context_block_shown(self):
+    def test_overflow_mentioned_in_digest_block(self):
         findings = [
             _finding(f"i-{i}", cost=float(200 - i))
-            for i in range(TOP_FINDINGS_LIMIT + 3)
+            for i in range(SLACK_DIGEST_LIMIT + 3)
         ]
         report = build_report(findings, cloud="aws", executive_summary="Many.")
         payload = build_slack_payload(report)
-        context_texts = " ".join(
-            e["text"]
-            for b in payload["blocks"]
-            if b["type"] == "context"
-            for e in b.get("elements", [])
-        )
-        assert "3 more" in context_texts
+        assert "3 more" in _all_text(payload)
 
-    def test_no_overflow_block_when_within_limit(self):
-        report = self._report(n_findings=3)
+    def test_no_overflow_line_when_within_limit(self):
+        report = self._report(n_findings=2)
         payload = build_slack_payload(report)
-        context_texts = " ".join(
-            e["text"]
-            for b in payload["blocks"]
-            if b["type"] == "context"
-            for e in b.get("elements", [])
-            if "more finding" in e.get("text", "")
-        )
-        assert context_texts == ""
+        assert "more finding" not in _all_text(payload)
 
     def test_finding_shows_name_when_available(self):
         f = _finding(resource_id="i-0abc", name="my-prod-server", cost=99.0)
         report = build_report([f], cloud="aws", executive_summary="x")
         payload = build_slack_payload(report)
-        all_text = " ".join(
-            b.get("text", {}).get("text", "") for b in payload["blocks"]
-        )
-        assert "my-prod-server" in all_text
+        assert "my-prod-server" in _all_text(payload)
 
-    def test_priority_emoji_in_finding_block(self):
+    def test_report_url_button_included_when_provided(self):
+        report = self._report()
+        payload = build_slack_payload(
+            report, report_url="https://example.com/report.html"
+        )
+        action_blocks = [b for b in payload["blocks"] if b["type"] == "actions"]
+        assert len(action_blocks) == 1
+        urls = [elem.get("url", "") for elem in action_blocks[0]["elements"]]
+        assert any("example.com" in u for u in urls)
+
+    def test_no_report_url_button_when_not_provided(self):
+        report = self._report()
+        payload = build_slack_payload(report, report_url=None)
+        action_blocks = [b for b in payload["blocks"] if b["type"] == "actions"]
+        assert len(action_blocks) == 1
+        urls = [elem.get("url", "") for elem in action_blocks[0]["elements"]]
+        # Only the GitHub link; no S3 pre-signed URL
+        assert all("github" in u for u in urls)
+
+    def test_high_priority_emoji_present(self):
         f = _finding(priority="high")
         report = build_report([f], cloud="aws", executive_summary="x")
         payload = build_slack_payload(report)
-        finding_blocks = [
-            b
-            for b in payload["blocks"]
-            if b["type"] == "section"
-            and ":red_circle:" in b.get("text", {}).get("text", "")
+        assert ":red_circle:" in _all_text(payload)
+
+
+# ---------------------------------------------------------------------------
+# build_html_report tests
+# ---------------------------------------------------------------------------
+
+
+class TestBuildHtmlReport:
+    def _report(self, n_findings: int = 3) -> dict:
+        findings = [
+            _finding(f"i-{i}", cost=float(100 - i * 10), priority="high")
+            for i in range(n_findings)
         ]
-        assert len(finding_blocks) == 1
+        return build_report(
+            findings,
+            cloud="aws",
+            executive_summary="Some idle resources found.",
+            accounts_scanned=["123456789012"],
+        )
+
+    def test_returns_string(self):
+        assert isinstance(build_html_report(self._report()), str)
+
+    def test_is_valid_html_scaffold(self):
+        html = build_html_report(self._report())
+        assert "<!DOCTYPE html>" in html
+        assert "<html" in html
+        assert "</html>" in html
+
+    def test_contains_cloud_and_date(self):
+        html = build_html_report(self._report())
+        assert "AWS" in html
+
+    def test_contains_total_waste(self):
+        report = self._report()
+        html = build_html_report(report)
+        total = report["total_estimated_waste_usd"]
+        assert f"{total:,.2f}" in html
+
+    def test_all_resource_ids_present(self):
+        report = self._report(n_findings=3)
+        html = build_html_report(report)
+        for i in range(3):
+            assert f"i-{i}" in html
+
+    def test_waste_reason_and_recommendation_in_rows(self):
+        report = self._report(n_findings=1)
+        html = build_html_report(report)
+        assert "CPU utilization below 1%" in html
+        assert "Stop or terminate" in html
+
+    def test_executive_summary_present(self):
+        report = self._report()
+        html = build_html_report(report)
+        assert "Some idle resources found." in html
+
+    def test_json_data_embedded(self):
+        report = self._report()
+        html = build_html_report(report)
+        assert report["scan_id"] in html
+
+    def test_no_external_cdn_urls(self):
+        html = build_html_report(self._report())
+        assert "cdn." not in html
+        assert "googleapis" not in html
+        assert "unpkg" not in html
 
 
 # ---------------------------------------------------------------------------

@@ -6,8 +6,8 @@ from typing import Any
 
 from core.models.finding import ResourceFinding
 
-# Top N findings shown in the Slack summary block
-TOP_FINDINGS_LIMIT = 10
+# Maximum findings shown as individual rows in the Slack digest
+SLACK_DIGEST_LIMIT = 5
 
 
 def build_report(
@@ -37,22 +37,27 @@ def build_report(
     }
 
 
-def build_slack_payload(report: dict[str, Any]) -> dict[str, Any]:
+def build_slack_payload(
+    report: dict[str, Any],
+    report_url: str | None = None,
+) -> dict[str, Any]:
     """
-    Convert a JSON report into a Slack Block Kit message payload.
-    Shows the executive summary and the top findings ranked by cost.
+    Build a compact Slack Block Kit digest.
+
+    Shows stats + AI summary + top findings as a one-line-per-finding table.
+    Full AI reasoning lives in the HTML report linked via report_url.
     """
     cloud = report["cloud"].upper()
     total = report["total_estimated_waste_usd"]
     count = report["findings_count"]
     generated_at = report["generated_at"][:10]  # YYYY-MM-DD
+    accounts = len(report.get("accounts_scanned", []))
 
-    header_text = f":money_with_wings: *Argus — {cloud} Waste Report* ({generated_at})"
-    summary_text = (
-        f"*{count} idle resource{'s' if count != 1 else ''}* found "
-        f"costing an estimated *${total:,.2f}/month*.\n\n"
-        f"{report['executive_summary']}"
-    )
+    _PRIORITY_EMOJI = {
+        "HIGH": ":red_circle:",
+        "MEDIUM": ":large_yellow_circle:",
+        "LOW": ":large_green_circle:",
+    }
 
     blocks: list[dict[str, Any]] = [
         {
@@ -62,49 +67,73 @@ def build_slack_payload(report: dict[str, Any]) -> dict[str, Any]:
                 "text": f"Argus — {cloud} Waste Report ({generated_at})",
             },
         },
-        {"type": "section", "text": {"type": "mrkdwn", "text": header_text}},
-        {"type": "section", "text": {"type": "mrkdwn", "text": summary_text}},
+        {
+            "type": "section",
+            "fields": [
+                {
+                    "type": "mrkdwn",
+                    "text": f":money_with_wings: *${total:,.2f}/month* estimated waste",
+                },
+                {
+                    "type": "mrkdwn",
+                    "text": f":bar_chart: *{count}* idle resource{'s' if count != 1 else ''} across *{accounts}* account{'s' if accounts != 1 else ''}",
+                },
+            ],
+        },
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"_{report['executive_summary']}_",
+            },
+        },
         {"type": "divider"},
     ]
 
-    top = report["findings"][:TOP_FINDINGS_LIMIT]
-    for i, finding in enumerate(top, start=1):
-        cost = finding["estimated_monthly_cost"]
-        priority = finding["priority"].upper()
-        priority_emoji = {
-            "HIGH": ":red_circle:",
-            "MEDIUM": ":large_yellow_circle:",
-            "LOW": ":large_green_circle:",
-        }.get(priority, ":white_circle:")
-        label = finding.get("name") or finding["resource_id"]
-        resource_type = finding["resource_type"]
-        region = finding["region"]
+    top = report["findings"][:SLACK_DIGEST_LIMIT]
+    if top:
+        lines = ["*Top findings*"]
+        for finding in top:
+            cost = finding["estimated_monthly_cost"]
+            priority = (finding.get("priority") or "low").upper()
+            emoji = _PRIORITY_EMOJI.get(priority, ":white_circle:")
+            label = finding.get("name") or finding["resource_id"]
+            rtype = finding["resource_type"]
+            lines.append(f"{emoji} `{label}` · {rtype} · *${cost:,.2f}/mo*")
 
-        finding_text = (
-            f"{priority_emoji} *{i}. {label}* (`{resource_type}` · {region})\n"
-            f"*Cost:* ${cost:,.2f}/mo · *Priority:* {priority}\n"
-            f"*Why:* {finding['waste_reason']}\n"
-            f"*Action:* {finding['recommendation']}"
-        )
-        blocks.append(
-            {"type": "section", "text": {"type": "mrkdwn", "text": finding_text}}
-        )
+        remaining = count - SLACK_DIGEST_LIMIT
+        if remaining > 0:
+            lines.append(
+                f":white_circle: _+{remaining} more finding{'s' if remaining != 1 else ''} in the full report_"
+            )
 
-    if len(report["findings"]) > TOP_FINDINGS_LIMIT:
-        remaining = len(report["findings"]) - TOP_FINDINGS_LIMIT
         blocks.append(
+            {"type": "section", "text": {"type": "mrkdwn", "text": "\n".join(lines)}}
+        )
+        blocks.append({"type": "divider"})
+
+    actions: list[dict[str, Any]] = []
+    if report_url:
+        actions.append(
             {
-                "type": "context",
-                "elements": [
-                    {
-                        "type": "mrkdwn",
-                        "text": f"_{remaining} more finding{'s' if remaining != 1 else ''} in the full report._",
-                    }
-                ],
+                "type": "button",
+                "text": {
+                    "type": "plain_text",
+                    "text": ":page_facing_up: Full report (HTML)",
+                },
+                "url": report_url,
+                "style": "primary",
             }
         )
+    actions.append(
+        {
+            "type": "button",
+            "text": {"type": "plain_text", "text": "vamshisiddarth/argus"},
+            "url": "https://github.com/vamshisiddarth/argus",
+        }
+    )
+    blocks.append({"type": "actions", "elements": actions})
 
-    blocks.append({"type": "divider"})
     blocks.append(
         {
             "type": "context",
