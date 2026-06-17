@@ -20,6 +20,8 @@
 #   BILLING_BQ_TABLE         BigQuery billing export table
 #   SCHEDULE                 Cron expression (default: "0 9 * * 1" = Mondays 9am UTC)
 #   DRY_RUN                  "true" to skip Slack post
+#   REPORT_GCS_BUCKET        GCS bucket for HTML + JSON reports (created automatically if set)
+#   REPORT_URL_EXPIRY        Signed URL expiry in seconds (default: 604800 = 7 days)
 # =============================================================================
 set -euo pipefail
 
@@ -105,6 +107,42 @@ if [[ -n "${BILLING_BQ_TABLE:-}" ]]; then
 fi
 if [[ "${DRY_RUN:-false}" == "true" ]]; then
   ENV_VARS="${ENV_VARS},DRY_RUN=true"
+fi
+
+# Optional: GCS bucket for HTML + JSON reports
+if [[ -n "${REPORT_GCS_BUCKET:-}" ]]; then
+  echo "--- Setting up GCS report bucket: ${REPORT_GCS_BUCKET}..."
+  # Enable GCS API
+  gcloud services enable storage.googleapis.com --project="${PROJECT}" --quiet
+
+  # Create bucket if it doesn't exist (uniform bucket-level access, private)
+  gcloud storage buckets create "gs://${REPORT_GCS_BUCKET}" \
+    --project="${PROJECT}" \
+    --location="${REGION}" \
+    --uniform-bucket-level-access \
+    --quiet 2>/dev/null || echo "  Bucket already exists."
+
+  # Grant the service account objectCreator + objectViewer for signed URLs
+  gcloud storage buckets add-iam-policy-binding "gs://${REPORT_GCS_BUCKET}" \
+    --member="serviceAccount:${SA_EMAIL}" \
+    --role="roles/storage.objectCreator" \
+    --quiet > /dev/null
+  gcloud storage buckets add-iam-policy-binding "gs://${REPORT_GCS_BUCKET}" \
+    --member="serviceAccount:${SA_EMAIL}" \
+    --role="roles/storage.objectViewer" \
+    --quiet > /dev/null
+
+  # Grant service account token creator on itself (required for v4 signed URLs)
+  gcloud iam service-accounts add-iam-policy-binding "${SA_EMAIL}" \
+    --member="serviceAccount:${SA_EMAIL}" \
+    --role="roles/iam.serviceAccountTokenCreator" \
+    --project="${PROJECT}" \
+    --quiet > /dev/null
+
+  ENV_VARS="${ENV_VARS},REPORT_GCS_BUCKET=${REPORT_GCS_BUCKET}"
+  if [[ -n "${REPORT_URL_EXPIRY:-}" ]]; then
+    ENV_VARS="${ENV_VARS},REPORT_URL_EXPIRY=${REPORT_URL_EXPIRY}"
+  fi
 fi
 
 gcloud run jobs create "${SERVICE_NAME}" \

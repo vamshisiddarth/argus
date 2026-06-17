@@ -32,7 +32,12 @@ export REPORT_GCS_BUCKET=my-argus-reports-bucket
 export REPORT_URL_EXPIRY=604800        # 7 days (default)
 ```
 
-When `REPORT_GCS_BUCKET` is set, Argus uploads a self-contained HTML report to GCS after each scan and includes a signed URL in the Slack digest. The service account needs `storage.objectCreator` and `storage.objectViewer` on the bucket.
+When `REPORT_GCS_BUCKET` is set, the deploy script **automatically**:
+
+- Creates the GCS bucket (if it doesn't exist)
+- Grants the service account `storage.objectCreator` + `storage.objectViewer`
+- Grants `iam.serviceAccountTokenCreator` on the service account itself (required for v4 signed URLs)
+- Sets `REPORT_GCS_BUCKET` in the Cloud Run Job environment
 
 ## What gets created
 

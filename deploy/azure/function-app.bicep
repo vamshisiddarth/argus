@@ -52,6 +52,15 @@ param logLevel string = 'INFO'
 @description('Azure location for all resources')
 param location string = resourceGroup().location
 
+@description('Storage account name for HTML + JSON report storage. Leave blank to skip report upload.')
+param reportStorageAccount string = ''
+
+@description('Blob container name for reports')
+param reportStorageContainer string = 'argus-reports'
+
+@description('SAS URL expiry in seconds (default: 604800 = 7 days)')
+param reportUrlExpiry string = '604800'
+
 // ---------------------------------------------------------------------------
 // Variables
 // ---------------------------------------------------------------------------
@@ -164,6 +173,18 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
           name: 'ARGUS_SCHEDULE'
           value: scheduleExpression
         }
+        {
+          name: 'REPORT_STORAGE_ACCOUNT'
+          value: reportStorageAccount
+        }
+        {
+          name: 'REPORT_STORAGE_CONTAINER'
+          value: reportStorageContainer
+        }
+        {
+          name: 'REPORT_URL_EXPIRY'
+          value: reportUrlExpiry
+        }
       ]
       ftpsState: 'Disabled'
       minTlsVersion: '1.2'
@@ -201,6 +222,26 @@ resource costManagementReaderAssignment 'Microsoft.Authorization/roleAssignments
   scope: resourceGroup()
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', costManagementReaderRoleId)
+    principalId: functionApp.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Role assignment: Storage Blob Data Contributor on the report storage account
+// Only assigned when reportStorageAccount is provided.
+// ---------------------------------------------------------------------------
+var storageBlobDataContributorRoleId = 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
+
+resource reportStorageAccountRef 'Microsoft.Storage/storageAccounts@2023-01-01' existing = if (!empty(reportStorageAccount)) {
+  name: reportStorageAccount
+}
+
+resource reportStorageBlobContributorAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(reportStorageAccount)) {
+  name: guid(reportStorageAccount, functionApp.id, storageBlobDataContributorRoleId)
+  scope: reportStorageAccountRef
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', storageBlobDataContributorRoleId)
     principalId: functionApp.identity.principalId
     principalType: 'ServicePrincipal'
   }
