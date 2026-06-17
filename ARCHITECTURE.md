@@ -128,7 +128,7 @@
   │  USER ACTION: click "Launch Stack" in README                     │
   │                    │                                             │
   │                    ▼                                             │
-  │  CloudFormation (deploy/aws/single-account.yaml) creates:        │
+  │  SAM (deploy/aws/single-account/template.yaml) creates:          │
   │                                                                  │
   │  ┌──────────────┐  ┌───────────────┐  ┌────────────────────┐   │
   │  │  Lambda Fn   │  │  EventBridge  │  │  IAM Role          │   │
@@ -165,7 +165,7 @@
   ┌─────────────────────────────────────────────────────────────────────┐
   │  HUB ACCOUNT (Argus runs here)                                  │
   │                                                                     │
-  │  CloudFormation: deploy/aws/multi-account/hub.yaml                  │
+  │  SAM: deploy/aws/multi-account/hub/template.yaml                    │
   │                                                                     │
   │  EventBridge ──► Lambda (Argus)                                 │
   │                     │                                               │

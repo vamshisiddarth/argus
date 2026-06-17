@@ -163,7 +163,7 @@ Argus found $1,412.85/month in waste across 6 resources
 
     ```bash
     aws cloudformation deploy \
-      --template-file deploy/aws/single-account.yaml \
+      --template-file deploy/aws/single-account/template.yaml \
       --stack-name Argus \
       --capabilities CAPABILITY_IAM \
       --parameter-overrides \

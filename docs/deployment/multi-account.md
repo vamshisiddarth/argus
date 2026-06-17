@@ -20,7 +20,7 @@ Hub Account (runs Argus Lambda)
 
 ```bash
 aws cloudformation deploy \
-  --template-file deploy/aws/multi-account/hub.yaml \
+  --template-file deploy/aws/multi-account/hub/template.yaml \
   --stack-name Argus-Hub \
   --capabilities CAPABILITY_IAM \
   --parameter-overrides \
