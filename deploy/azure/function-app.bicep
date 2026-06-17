@@ -231,7 +231,10 @@ resource costManagementReaderAssignment 'Microsoft.Authorization/roleAssignments
 // Role assignment: Storage Blob Data Contributor on the report storage account
 // Only assigned when reportStorageAccount is provided.
 // ---------------------------------------------------------------------------
+// Storage Blob Data Contributor — upload/read blobs
 var storageBlobDataContributorRoleId = 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
+// Storage Blob Delegator — required for get_user_delegation_key (user-delegation SAS)
+var storageBlobDelegatorRoleId = 'db58b8e5-c6ad-4a2a-8342-4190687cbf4a'
 
 resource reportStorageAccountRef 'Microsoft.Storage/storageAccounts@2023-01-01' existing = if (!empty(reportStorageAccount)) {
   name: reportStorageAccount
@@ -242,6 +245,16 @@ resource reportStorageBlobContributorAssignment 'Microsoft.Authorization/roleAss
   scope: reportStorageAccountRef
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', storageBlobDataContributorRoleId)
+    principalId: functionApp.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+resource reportStorageBlobDelegatorAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(reportStorageAccount)) {
+  name: guid(reportStorageAccount, functionApp.id, storageBlobDelegatorRoleId)
+  scope: reportStorageAccountRef
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', storageBlobDelegatorRoleId)
     principalId: functionApp.identity.principalId
     principalType: 'ServicePrincipal'
   }
