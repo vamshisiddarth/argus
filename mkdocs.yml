@@ -119,6 +119,8 @@ nav:
     - Environment Variables: reference/env-vars.md
     - IAM Permissions: reference/iam-permissions.md
     - Resource Types: reference/resource-types.md
+    - Security Model: reference/security.md
+    - Troubleshooting: reference/troubleshooting.md
   - Contributing:
     - contributing/index.md
     - Development Setup: contributing/development.md

@@ -8,8 +8,11 @@ Complete reference for all Argus environment variables.
 |----------|---------|-------------|
 | `AI_PROVIDER` | `bedrock` (Lambda) · `anthropic` (CLI) | `anthropic` \| `bedrock` \| `vertexai` \| `azure_openai` |
 | `ANTHROPIC_API_KEY` | — | Required when `AI_PROVIDER=anthropic` |
+| `ANTHROPIC_MODEL` | `claude-sonnet-4-6` | Model name when using Anthropic API directly |
 | `BEDROCK_MODEL_ID` | `anthropic.claude-sonnet-4-6` | Bedrock model ID |
 | `BEDROCK_REGION` | `us-east-1` | Region where Bedrock is enabled |
+| `BEDROCK_MAX_TOKENS` | `2048` | Maximum tokens in Bedrock response |
+| `BEDROCK_TEMPERATURE` | `0.3` | Bedrock model temperature |
 | `VERTEXAI_PROJECT` | — | Required when `AI_PROVIDER=vertexai` |
 | `VERTEXAI_LOCATION` | `us-central1` | Vertex AI region |
 | `VERTEXAI_MODEL` | `gemini-1.5-pro-002` | Vertex AI model name |
