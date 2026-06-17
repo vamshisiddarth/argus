@@ -39,7 +39,7 @@ def get_cost(
 
     try:
         return _query_bigquery(project_id, resource_ids, days, resolved_table or "")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         logger.warning(
             "gcp_billing_query_failed",
             extra={

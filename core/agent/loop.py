@@ -125,7 +125,8 @@ class AgentLoop:
                 return [], response.text or ""
 
         raise RuntimeError(
-            f"Agent loop exceeded {MAX_ITERATIONS} iterations without submitting findings. "
+            f"Agent loop exceeded {MAX_ITERATIONS} iterations "
+            "without submitting findings. "
             "Check the system prompt or increase MAX_ITERATIONS."
         )
 
@@ -158,7 +159,7 @@ class AgentLoop:
         resource_ids = [r.resource_id for r in resources]
         try:
             costs = self._adapter.get_cost(resource_ids=resource_ids)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             logger.warning("prefilter_cost_fetch_failed", extra={"error": str(exc)})
             costs = {}
 
@@ -236,7 +237,7 @@ class AgentLoop:
                 case _:
                     return f"Unknown tool: {tc.name!r}", True
 
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             logger.error("tool_error", extra={"tool": tc.name, "error": str(exc)})
             return f"Tool error: {exc}", True
 
@@ -271,24 +272,6 @@ def _compress_resource(r: dict) -> dict:
         out["tags"] = r["tags"]
     # cloud field is redundant (the AI already knows the cloud from system prompt)
     return out
-
-
-def _short_id(resource_id: str) -> str:
-    """
-    Return a short human-readable identifier from a full ARN or resource path.
-
-    Examples:
-      arn:aws:ec2:us-east-1:123:instance/i-0abc123  →  i-0abc123
-      arn:aws:s3:::my-bucket                         →  my-bucket
-      projects/my-proj/zones/us-central1-a/instances/vm-1  →  vm-1
-      /subscriptions/xxx/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/vm  →  vm
-
-    The full ID is still stored in the `id` field — this is only used in log
-    messages and debugging. The AI always sends back the full `id` when calling
-    adapter tools.
-    """
-    # Strip trailing slashes, take last path segment
-    return resource_id.rstrip("/").rsplit("/", 1)[-1]
 
 
 def _parse_findings(

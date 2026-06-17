@@ -30,7 +30,7 @@ from typing import Any
 
 from adapters.azure.adapter import AzureAdapter
 from core.agent.loop import AgentLoop
-from core.reports.delivery import post_to_slack
+from core.reports.delivery import SlackDeliveryError, post_to_slack
 from core.reports.generator import build_report, build_slack_payload
 from core.reports.html import build_html_report
 
@@ -90,7 +90,10 @@ def main(mytimer: Any) -> None:
         report_url = _save_reports_to_blob(report, storage_account)
 
     payload = build_slack_payload(report, report_url=report_url)
-    post_to_slack(payload)
+    try:
+        post_to_slack(payload)
+    except (SlackDeliveryError, OSError) as exc:
+        logger.error("slack_delivery_failed: %s", exc)
 
     logger.info(
         "scan_complete findings=%d total_waste_usd=%.2f scan_id=%s",
@@ -120,6 +123,7 @@ def _save_reports_to_blob(report: dict[str, Any], storage_account: str) -> str |
             BlobSasPermissions,
         )
         from azure.identity import DefaultAzureCredential  # type: ignore[import-untyped]
+        from azure.core.exceptions import AzureError, ResourceExistsError  # type: ignore[import-untyped]
     except ImportError:
         logger.error(
             "azure-storage-blob or azure-identity is not installed — skipping Blob upload. "
@@ -142,8 +146,8 @@ def _save_reports_to_blob(report: dict[str, Any], storage_account: str) -> str |
 
         try:
             container_client.create_container()
-        except Exception:
-            pass  # container already exists
+        except ResourceExistsError:
+            pass
 
         container_client.upload_blob(
             json_key,
@@ -181,6 +185,6 @@ def _save_reports_to_blob(report: dict[str, Any], storage_account: str) -> str |
         url = f"{account_url}/{container}/{html_key}?{sas_token}"
         logger.info("sas url generated (expires in %ds)", expiry_seconds)
         return url
-    except Exception as exc:
+    except AzureError as exc:
         logger.error("failed to save reports to Blob Storage: %s", exc)
         return None

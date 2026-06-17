@@ -31,7 +31,7 @@ from typing import Any
 
 from adapters.gcp.adapter import GCPAdapter
 from core.agent.loop import AgentLoop
-from core.reports.delivery import post_to_slack
+from core.reports.delivery import SlackDeliveryError, post_to_slack
 from core.reports.generator import build_report, build_slack_payload
 from core.reports.html import build_html_report
 
@@ -85,7 +85,10 @@ def main() -> None:
         report_url = _save_reports_to_gcs(report, gcs_bucket)
 
     payload = build_slack_payload(report, report_url=report_url)
-    post_to_slack(payload)
+    try:
+        post_to_slack(payload)
+    except (SlackDeliveryError, OSError) as exc:
+        logger.error("slack_delivery_failed: %s", exc)
 
     logger.info(
         "scan_complete findings=%d total_waste_usd=%.2f scan_id=%s",
@@ -113,6 +116,7 @@ def _save_reports_to_gcs(report: dict[str, Any], bucket_name: str) -> str | None
     """Upload JSON + HTML reports to GCS. Returns a signed URL for the HTML report."""
     try:
         from google.cloud import storage  # type: ignore[import-untyped]
+        from google.api_core import exceptions as google_exceptions  # type: ignore[import-untyped]
     except ImportError:
         logger.error(
             "google-cloud-storage is not installed — skipping GCS upload. "
@@ -151,7 +155,7 @@ def _save_reports_to_gcs(report: dict[str, Any], bucket_name: str) -> str | None
         )
         logger.info("signed url generated (expires in %ds)", expiry_seconds)
         return url
-    except Exception as exc:
+    except google_exceptions.GoogleAPIError as exc:
         logger.error("failed to save reports to GCS: %s", exc)
         return None
 
