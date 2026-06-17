@@ -69,7 +69,7 @@ make deploy-aws
 | Lambda function | Runs the scan on schedule |
 | EventBridge rule | Triggers Lambda every Monday at 9am UTC |
 | IAM execution role | Read-only access to Resource Explorer, CloudWatch, Cost Explorer, CloudTrail, Bedrock |
-| S3 bucket | Stores full JSON + HTML reports per scan (90-day retention). The Slack digest links to the HTML report via a 7-day pre-signed URL. |
+| S3 bucket | Created automatically as `argus-reports-{accountId}-{region}`. Stores full JSON + HTML reports per scan (90-day retention). `REPORT_S3_BUCKET` is wired into the Lambda environment automatically — no manual bucket creation needed. The Slack digest links to the HTML report via a 7-day pre-signed URL. |
 
 ---
 

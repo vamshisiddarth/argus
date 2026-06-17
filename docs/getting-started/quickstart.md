@@ -98,13 +98,18 @@ Argus posts a **compact digest** — stats, a 2-sentence AI summary, and the top
 
 ### Optional: HTML report with "Full report" button
 
-Set `REPORT_S3_BUCKET` to upload a self-contained HTML report to S3 after each scan. The Slack digest will include a **Full report** button linking to a 7-day pre-signed URL:
+To get the **Full report** button in the Slack digest, Argus needs an S3 bucket to upload the HTML report to.
 
-```ini title=".env"
-REPORT_S3_BUCKET=my-argus-reports-bucket
-```
+- **Lambda deployment** — the SAM template creates the bucket automatically (`argus-reports-{accountId}-{region}`) and sets `REPORT_S3_BUCKET` in the Lambda environment. Nothing to configure.
+- **Local CLI runs** — create a bucket manually and set it in `.env`:
 
-The Lambda execution role needs `s3:PutObject` and `s3:GetObject` on this bucket. For local dev runs the bucket is optional — the digest still posts without it.
+    ```ini title=".env"
+    REPORT_S3_BUCKET=my-argus-reports-bucket
+    ```
+
+    Your local AWS credentials need `s3:PutObject` and `s3:GetObject` on that bucket.
+
+The digest still posts to Slack without a bucket — it just won't have the button.
 
 ## :material-console: CLI reference
 
