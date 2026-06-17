@@ -101,7 +101,11 @@ ResourceFinding dataclass list
         ↓
 build_report() → JSON report
         ↓
-build_slack_payload() → Slack Block Kit
+build_html_report() → self-contained HTML file
+        ↓ (if REPORT_*_BUCKET is set)
+upload to S3 / GCS / Azure Blob → pre-signed / SAS URL
+        ↓
+build_slack_payload(report, report_url) → compact Slack digest
         ↓
 post_to_slack() → Slack webhook
 ```

@@ -48,8 +48,27 @@ Complete reference for all Argus environment variables.
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `SLACK_WEBHOOK_URL` | — | Slack incoming webhook URL |
-| `REPORT_S3_BUCKET` | _(empty)_ | S3 bucket for full JSON report (optional) |
 | `DRY_RUN` | `false` | `true` = log Slack payload to stdout, skip posting |
+| `REPORT_URL_EXPIRY` | `604800` | Pre-signed / SAS URL expiry in seconds (default: 7 days) |
+
+### AWS report storage
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `REPORT_S3_BUCKET` | _(empty)_ | S3 bucket for full JSON + HTML reports. When set, the Slack digest includes a "Full report" button linking to a 7-day pre-signed URL. |
+
+### GCP report storage
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `REPORT_GCS_BUCKET` | _(empty)_ | GCS bucket for full JSON + HTML reports. When set, the Slack digest includes a "Full report" button linking to a signed URL. |
+
+### Azure report storage
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `REPORT_STORAGE_ACCOUNT` | _(empty)_ | Azure Storage account name for full JSON + HTML reports. When set, the Slack digest includes a "Full report" button linking to a SAS URL. |
+| `REPORT_STORAGE_CONTAINER` | `argus-reports` | Blob container name. Created automatically if it doesn't exist. |
 
 ## :material-text-box-search-outline: Logging
 

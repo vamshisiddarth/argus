@@ -83,10 +83,22 @@ You can pass accounts as a JSON env var or via a YAML file:
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `SLACK_WEBHOOK_URL` | Yes* | — | Slack incoming webhook URL |
-| `REPORT_S3_BUCKET` | No | — | S3 bucket to save the full JSON report |
 | `DRY_RUN` | No | `false` | `true` = log payload to stdout, skip Slack post |
+| `REPORT_URL_EXPIRY` | No | `604800` | Pre-signed / SAS URL expiry in seconds (default: 7 days) |
 
 *Not required when `DRY_RUN=true`
+
+### HTML report storage (optional)
+
+When a report bucket is configured, Argus uploads a self-contained HTML report after each scan and includes a **Full report** button in the Slack digest. Without a bucket, the Slack digest is still sent — it just won't have the button.
+
+| Cloud | Variable | Description |
+|-------|----------|-------------|
+| AWS | `REPORT_S3_BUCKET` | S3 bucket name. The Lambda execution role needs `s3:PutObject` and `s3:GetObject` on this bucket. |
+| GCP | `REPORT_GCS_BUCKET` | GCS bucket name. The Cloud Run service account needs `storage.objectCreator` and `storage.objectViewer`. |
+| Azure | `REPORT_STORAGE_ACCOUNT` | Storage account name. The managed identity needs `Storage Blob Data Contributor` on the container. Set `REPORT_STORAGE_CONTAINER` to override the default container name (`argus-reports`). |
+
+The HTML file is self-contained (no external CDN), works offline, and includes a filterable/sortable findings table with expandable AI reasoning rows.
 
 ## Logging
 

@@ -26,7 +26,13 @@ export REGION=us-central1              # default: us-central1
 export BILLING_BQ_TABLE=my-project.billing.gcp_billing_export_v1_XXX
 export SCHEDULE="0 9 * * 1"           # default: Mondays 9am UTC (cron)
 export DRY_RUN=true                   # skip Slack post
+
+# HTML report storage (optional — enables "Full report" button in Slack)
+export REPORT_GCS_BUCKET=my-argus-reports-bucket
+export REPORT_URL_EXPIRY=604800        # 7 days (default)
 ```
+
+When `REPORT_GCS_BUCKET` is set, Argus uploads a self-contained HTML report to GCS after each scan and includes a signed URL in the Slack digest. The service account needs `storage.objectCreator` and `storage.objectViewer` on the bucket.
 
 ## What gets created
 

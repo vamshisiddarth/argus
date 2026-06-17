@@ -41,6 +41,7 @@ make deploy-aws
 | `BedrockModelId` | No | `anthropic.claude-sonnet-4-6` | Bedrock model ID |
 | `Schedule` | No | `cron(0 9 ? * MON *)` | EventBridge schedule (default: Mondays 9am UTC) |
 | `DryRun` | No | `false` | `true` logs the Slack payload instead of posting |
+| `ReportUrlExpiry` | No | `604800` | Pre-signed URL expiry in seconds (default: 7 days) |
 | `LambdaMemoryMB` | No | `512` | Increase for large accounts that time out |
 
 ### What gets created
@@ -50,7 +51,7 @@ make deploy-aws
 | Lambda function | Runs the scan on schedule |
 | EventBridge rule | Triggers Lambda every Monday at 9am UTC |
 | IAM execution role | Read-only access to Resource Explorer, CloudWatch, Cost Explorer, CloudTrail, Bedrock |
-| S3 bucket | Stores full JSON reports (90-day retention) |
+| S3 bucket | Stores full JSON + HTML reports per scan (90-day retention). The Slack digest links to the HTML report via a 7-day pre-signed URL. |
 
 ---
 

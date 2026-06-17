@@ -24,18 +24,28 @@ Every week (or on demand), Argus:
 1. **Discovers** every resource in your cloud account using AWS Resource Explorer / GCP Asset Inventory / Azure Resource Graph
 2. **Analyzes** each candidate — CloudWatch/Cloud Monitoring/Azure Monitor metrics, Cost Explorer/BigQuery/Cost Management cost data, and CloudTrail/Audit Log/Activity Log last-activity timestamps
 3. **Reasons** about idleness using Claude (via AWS Bedrock, Anthropic API, or Vertex AI) — no hardcoded thresholds
-4. **Reports** findings to Slack ranked by monthly waste, with plain-English explanations and actionable recommendations
+4. **Reports** a compact Slack digest with top findings and a link to a full self-contained HTML report
 
 Example Slack output:
 
 ```
-Argus found $42.65/month in waste across 4 resources
+Argus — AWS Waste Report (2026-06-17)
 
-HIGH  i-0abc123def  EC2 t3.large       $28.40/mo  CPU avg 0.0014% over 14 days
-HIGH  nat-0def456   NAT Gateway        $10.80/mo  Zero bytes transferred — no traffic
-MED   vol-orphan    EBS 100 GiB gp3    $8.00/mo   Unattached, no I/O in 30 days
-LOW   eipalloc-xyz  Elastic IP         $3.65/mo   Unassociated since creation
+💸 $42.65/month estimated waste   📊 4 idle resources across 1 account
+
+Two stopped EC2 instances and a forgotten NAT Gateway account for 72% of
+total waste. One EBS volume has had no I/O in over 30 days.
+
+Top findings
+🔴  i-0abc123def  ·  EC2 t3.large    ·  $28.40/mo
+🔴  nat-0def456   ·  NAT Gateway     ·  $10.80/mo
+🟡  vol-orphan    ·  EBS gp3 100GiB  ·  $8.00/mo
+🟢  eipalloc-xyz  ·  Elastic IP      ·  $3.65/mo
+
+[ 📄 Full report (HTML) ]   [ vamshisiddarth/argus ]
 ```
+
+The **Full report** button links to a self-contained HTML file (S3 / GCS / Azure Blob) with a filterable/sortable table and expandable AI reasoning per finding. Works offline, no login required.
 
 ---
 

@@ -106,4 +106,7 @@ az functionapp log stream --name <function-app-name> --resource-group Argus-RG
 | `scheduleExpression` | No | `0 0 9 * * 1` | Timer cron expression |
 | `ignoreRegions` | No | _(empty)_ | Comma-separated Azure regions to skip |
 | `dryRun` | No | `false` | `true` to skip Slack post |
+| `reportStorageAccount` | No | _(empty)_ | Storage account name for JSON + HTML reports. When set, the Slack digest includes a "Full report" button with a 7-day SAS URL. The managed identity needs `Storage Blob Data Contributor` on the container. |
+| `reportStorageContainer` | No | `argus-reports` | Blob container name (created automatically if missing) |
+| `reportUrlExpiry` | No | `604800` | SAS URL expiry in seconds (default: 7 days) |
 | `location` | No | resource group location | Azure region for all resources |
