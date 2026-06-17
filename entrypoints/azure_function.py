@@ -5,32 +5,39 @@ The function is triggered on a schedule by Azure Function's built-in timer trigg
 Deploy with the Bicep template in deploy/azure/function-app.bicep.
 
 Environment variables (set in Azure Function App Configuration):
-  AZURE_SUBSCRIPTION_IDS          Comma-separated subscription IDs to scan (required)
+  AZURE_SUBSCRIPTION_IDS           Comma-separated subscription IDs to scan (required)
   AZURE_LOG_ANALYTICS_WORKSPACE_ID Log Analytics workspace ID (optional — for Activity Log KQL)
-  AI_PROVIDER                     "anthropic" | "azure_openai" (default: azure_openai)
-  ANTHROPIC_API_KEY               Required when AI_PROVIDER=anthropic
-  AZURE_OPENAI_ENDPOINT           Required when AI_PROVIDER=azure_openai
-  AZURE_OPENAI_DEPLOYMENT         GPT-4o deployment name (default: gpt-4o)
-  IGNORE_REGIONS                  Comma-separated regions to exclude (default: empty)
-  SLACK_WEBHOOK_URL               Slack incoming webhook URL
+  AI_PROVIDER                      "anthropic" | "azure_openai" (default: azure_openai)
+  ANTHROPIC_API_KEY                Required when AI_PROVIDER=anthropic
+  AZURE_OPENAI_ENDPOINT            Required when AI_PROVIDER=azure_openai
+  AZURE_OPENAI_DEPLOYMENT          GPT-4o deployment name (default: gpt-4o)
+  IGNORE_REGIONS                   Comma-separated regions to exclude (default: empty)
+  SLACK_WEBHOOK_URL                Slack incoming webhook URL
   DRY_RUN                         "true" to skip Slack post (default: false)
-  LOG_LEVEL                       DEBUG | INFO | WARNING | ERROR (default: INFO)
+  REPORT_STORAGE_ACCOUNT          Azure Storage account name for full reports (optional)
+  REPORT_STORAGE_CONTAINER        Blob container name (default: argus-reports)
+  REPORT_URL_EXPIRY               SAS URL expiry in seconds (default: 604800 = 7 days)
+  LOG_LEVEL                        DEBUG | INFO | WARNING | ERROR (default: INFO)
 """
 
 from __future__ import annotations
 
+import json
 import logging
 import os
+from datetime import datetime, timedelta, timezone
+from typing import Any
 
 from adapters.azure.adapter import AzureAdapter
 from core.agent.loop import AgentLoop
 from core.reports.delivery import post_to_slack
 from core.reports.generator import build_report, build_slack_payload
+from core.reports.html import build_html_report
 
 logger = logging.getLogger(__name__)
 
 
-def main(mytimer) -> None:
+def main(mytimer: Any) -> None:
     """
     Azure Function timer trigger entry point.
 
@@ -77,7 +84,12 @@ def main(mytimer) -> None:
         accounts_scanned=subscription_ids,
     )
 
-    payload = build_slack_payload(report)
+    storage_account = os.environ.get("REPORT_STORAGE_ACCOUNT", "").strip()
+    report_url: str | None = None
+    if storage_account:
+        report_url = _save_reports_to_blob(report, storage_account)
+
+    payload = build_slack_payload(report, report_url=report_url)
     post_to_slack(payload)
 
     logger.info(
@@ -88,7 +100,7 @@ def main(mytimer) -> None:
     )
 
 
-def _build_ai_provider():
+def _build_ai_provider() -> Any:
     provider_name = os.environ.get("AI_PROVIDER", "azure_openai").lower()
     if provider_name == "anthropic":
         from ai.anthropic import AnthropicProvider
@@ -97,3 +109,78 @@ def _build_ai_provider():
     from ai.azure_openai import AzureOpenAIProvider
 
     return AzureOpenAIProvider()
+
+
+def _save_reports_to_blob(report: dict[str, Any], storage_account: str) -> str | None:
+    """Upload JSON + HTML reports to Azure Blob Storage. Returns a SAS URL for the HTML report."""
+    try:
+        from azure.storage.blob import (  # type: ignore[import-untyped]
+            BlobServiceClient,
+            generate_blob_sas,
+            BlobSasPermissions,
+        )
+        from azure.identity import DefaultAzureCredential  # type: ignore[import-untyped]
+    except ImportError:
+        logger.error(
+            "azure-storage-blob or azure-identity is not installed — skipping Blob upload. "
+            "Run: pip install azure-storage-blob azure-identity"
+        )
+        return None
+
+    container = os.environ.get("REPORT_STORAGE_CONTAINER", "argus-reports")
+    expiry_seconds = int(os.environ.get("REPORT_URL_EXPIRY", "604800"))
+    now = datetime.now(tz=timezone.utc)
+    prefix = f"reports/{report['cloud']}/{now.strftime('%Y/%m/%d')}/{report['scan_id']}"
+    json_key = f"{prefix}.json"
+    html_key = f"{prefix}.html"
+
+    try:
+        credential = DefaultAzureCredential()
+        account_url = f"https://{storage_account}.blob.core.windows.net"
+        client = BlobServiceClient(account_url=account_url, credential=credential)
+        container_client = client.get_container_client(container)
+
+        try:
+            container_client.create_container()
+        except Exception:
+            pass  # container already exists
+
+        container_client.upload_blob(
+            json_key,
+            json.dumps(report, indent=2, default=str).encode("utf-8"),
+            content_settings={"content_type": "application/json"},
+            overwrite=True,
+        )
+        logger.info(
+            "json report saved to %s/%s/%s", storage_account, container, json_key
+        )
+
+        container_client.upload_blob(
+            html_key,
+            build_html_report(report).encode("utf-8"),
+            content_settings={"content_type": "text/html; charset=utf-8"},
+            overwrite=True,
+        )
+        logger.info(
+            "html report saved to %s/%s/%s", storage_account, container, html_key
+        )
+
+        # SAS token scoped to just this blob
+        user_delegation_key = client.get_user_delegation_key(
+            key_start_time=now,
+            key_expiry_time=now + timedelta(seconds=expiry_seconds),
+        )
+        sas_token = generate_blob_sas(
+            account_name=storage_account,
+            container_name=container,
+            blob_name=html_key,
+            user_delegation_key=user_delegation_key,
+            permission=BlobSasPermissions(read=True),
+            expiry=now + timedelta(seconds=expiry_seconds),
+        )
+        url = f"{account_url}/{container}/{html_key}?{sas_token}"
+        logger.info("sas url generated (expires in %ds)", expiry_seconds)
+        return url
+    except Exception as exc:
+        logger.error("failed to save reports to Blob Storage: %s", exc)
+        return None
