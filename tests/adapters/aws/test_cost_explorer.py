@@ -83,10 +83,7 @@ class TestGetCost:
     def test_returns_zeros_on_iam_access_denied(self):
         session, _ = _make_session(
             error_code="AccessDeniedException",
-            error_message=(
-                "User is not authorized to perform "
-                "ce:GetCostAndUsageWithResources"
-            ),
+            error_message="User: missing ce:GetCostAndUsageWithResources",
         )
         costs = get_cost(session, resource_ids=["i-0abc123"])
         assert costs == {"i-0abc123": 0.0}
