@@ -189,7 +189,7 @@ def _build_ai_provider() -> Any:
 def _get_current_account_id() -> str:
     try:
         sts = boto3.client("sts")
-        return sts.get_caller_identity()["Account"]
+        return str(sts.get_caller_identity()["Account"])
     except ClientError as exc:
         logger.warning("Could not determine account ID via STS: %s", exc)
         return "unknown"
