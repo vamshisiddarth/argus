@@ -1,14 +1,15 @@
 from __future__ import annotations
 
 import json
-import logging
 import os
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-logger = logging.getLogger(__name__)
+import structlog
+
+logger = structlog.get_logger(__name__)
 
 
 class SlackDeliveryError(Exception):
@@ -93,12 +94,12 @@ def save_reports_locally(
 
     json_path = prefix.with_suffix(".json")
     json_path.write_text(json.dumps(report, indent=2, default=str), encoding="utf-8")
-    logger.info("json report saved to %s", json_path)
+    logger.info("json_report_saved", path=str(json_path))
 
     from core.reports.html import build_html_report
 
     html_path = prefix.with_suffix(".html")
     html_path.write_text(build_html_report(report), encoding="utf-8")
-    logger.info("html report saved to %s", html_path)
+    logger.info("html_report_saved", path=str(html_path))
 
     return str(html_path.resolve())

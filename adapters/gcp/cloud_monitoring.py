@@ -1,16 +1,16 @@
 from __future__ import annotations
 
-import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+import structlog
 from google.api_core.exceptions import GoogleAPICallError
 from google.cloud import monitoring_v3
 from google.protobuf.timestamp_pb2 import Timestamp
 
 from adapters.base import MetricSummary
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 # (MetricType, Stat, label_key_for_resource_filter)
 # Stat: "mean" for utilisation, "sum" for throughput/count.

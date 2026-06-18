@@ -1,16 +1,16 @@
 from __future__ import annotations
 
-import logging
 import os as _os
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import boto3
+import structlog
 from botocore.exceptions import ClientError
 
 from adapters.base import MetricSummary
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 # (MetricName, Namespace, Stat, CloudWatch Dimension Key)
 # Stat is "Average" for utilisation metrics, "Sum" for throughput/count metrics.

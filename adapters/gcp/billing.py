@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-import logging
 from datetime import datetime, timedelta, timezone
 
-logger = logging.getLogger(__name__)
+import structlog
+
+logger = structlog.get_logger(__name__)
 
 # BigQuery dataset where Cloud Billing export is written.
 # Users must enable billing export to BigQuery — this is the standard GCP cost path.

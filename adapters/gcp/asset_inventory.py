@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-import logging
 from typing import Any
 
+import structlog
 from google.api_core.exceptions import GoogleAPICallError, PermissionDenied
 from google.cloud import asset_v1
 
 from adapters.base import Resource
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 # Asset types Argus cares about. Empty list = all types (too noisy for cost analysis).
 # We scope to resource types that have associated billing.

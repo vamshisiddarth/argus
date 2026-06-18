@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+import structlog
 from azure.core.exceptions import HttpResponseError
 from azure.identity import DefaultAzureCredential
 from azure.monitor.query import LogsQueryClient, LogsQueryStatus
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 _LOOKBACK_DAYS = 90  # Azure Activity Log retention is 90 days
 

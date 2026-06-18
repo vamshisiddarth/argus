@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-import logging
-
 import boto3
+import structlog
 from botocore.exceptions import ClientError
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 SESSION_DURATION_SECONDS = 3600  # 1 hour — short-lived, auto-expires
 
@@ -27,15 +26,13 @@ def get_session(
         and never stored anywhere.
     """
     if not account or not account.get("role_arn"):
-        logger.debug("auth_single_account", extra={"region": region})
+        logger.debug("auth_single_account", region=region)
         return boto3.Session(region_name=region)
 
     role_arn = account["role_arn"]
     account_name = account.get("name", account.get("id", "unknown"))
 
-    logger.info(
-        "auth_assuming_role", extra={"account": account_name, "role_arn": role_arn}
-    )
+    logger.info("auth_assuming_role", account=account_name, role_arn=role_arn)
 
     try:
         sts = boto3.client("sts", region_name=region)

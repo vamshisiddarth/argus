@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 import json
-import logging
 from typing import Any
 
 import boto3
+import structlog
 from botocore.exceptions import ClientError
 
 from adapters.base import Resource
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 # Resource Explorer aggregator index lives in one region per account.
 # This is created by our CloudFormation template. Users can override
@@ -138,7 +138,8 @@ def list_resources(
 
     logger.info(
         "resource_explorer_search_complete",
-        extra={"total": len(resources), "ignored_regions": list(ignore_set)},
+        total=len(resources),
+        ignored_regions=list(ignore_set),
     )
     return resources
 

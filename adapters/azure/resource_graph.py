@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import logging
 from typing import Any
 
+import structlog
 from azure.core.exceptions import HttpResponseError
 from azure.identity import DefaultAzureCredential
 from azure.mgmt.resourcegraph import ResourceGraphClient
@@ -10,7 +10,7 @@ from azure.mgmt.resourcegraph.models import QueryRequest, QueryRequestOptions
 
 from adapters.base import Resource
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 # KQL query — returns all resources with their type, location, tags, and resource group.
 # We exclude resource types that have no billing impact (e.g. locks, role assignments).

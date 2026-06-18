@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import logging
 from datetime import datetime, timedelta, timezone
 
+import structlog
 from google.api_core.exceptions import GoogleAPICallError
 from google.cloud import logging as gcp_logging
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 _LOOKBACK_DAYS = 90  # Cloud Logging retention default is 30-400 days depending on tier
 

@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+import structlog
 from azure.core.exceptions import HttpResponseError
 from azure.identity import DefaultAzureCredential
 from azure.mgmt.costmanagement import CostManagementClient
@@ -16,7 +16,7 @@ from azure.mgmt.costmanagement.models import (
     QueryTimePeriod,
 )
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 _BATCH_SIZE = 50  # Cost Management API supports up to ~100 resource IDs per filter
 

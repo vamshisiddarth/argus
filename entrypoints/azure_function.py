@@ -24,13 +24,15 @@ Environment variables (set in Azure Function App Configuration):
 from __future__ import annotations
 
 import json
-import logging
 import os
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+import structlog
+
 from adapters.azure.adapter import AzureAdapter
 from core.agent.loop import AgentLoop
+from core.log import configure_logging
 from core.reports.delivery import (
     SlackDeliveryError,
     post_to_slack,
@@ -39,7 +41,8 @@ from core.reports.delivery import (
 from core.reports.generator import build_report, build_slack_payload
 from core.reports.html import build_html_report
 
-logger = logging.getLogger(__name__)
+configure_logging()
+logger = structlog.get_logger(__name__)
 
 
 def main(mytimer: Any) -> None:
@@ -65,11 +68,11 @@ def main(mytimer: Any) -> None:
 
     subscription_ids = [s.strip() for s in subscription_ids_raw.split(",") if s.strip()]
 
+    structlog.contextvars.bind_contextvars(
+        cloud=cloud, account_id=",".join(subscription_ids)
+    )
     logger.info(
-        "scan_start cloud=%s subscriptions=%s ignore_regions=%s",
-        cloud,
-        subscription_ids,
-        ignore_regions,
+        "scan_start", subscriptions=subscription_ids, ignore_regions=ignore_regions
     )
 
     ai_provider = _build_ai_provider()
@@ -96,17 +99,17 @@ def main(mytimer: Any) -> None:
     else:
         save_reports_locally(report)
 
+    structlog.contextvars.bind_contextvars(scan_id=report["scan_id"])
     payload = build_slack_payload(report, report_url=report_url)
     try:
         post_to_slack(payload)
     except (SlackDeliveryError, OSError) as exc:
-        logger.error("slack_delivery_failed: %s", exc)
+        logger.error("slack_delivery_failed", error=str(exc))
 
     logger.info(
-        "scan_complete findings=%d total_waste_usd=%.2f scan_id=%s",
-        report["findings_count"],
-        report["total_estimated_waste_usd"],
-        report["scan_id"],
+        "scan_complete",
+        findings=report["findings_count"],
+        total_waste_usd=round(report["total_estimated_waste_usd"], 2),
     )
 
 
@@ -169,7 +172,8 @@ def _save_reports_to_blob(report: dict[str, Any], storage_account: str) -> str |
             overwrite=True,
         )
         logger.info(
-            "json report saved to %s/%s/%s", storage_account, container, json_key
+            "json_report_saved",
+            location=f"{storage_account}/{container}/{json_key}",
         )
 
         container_client.upload_blob(
@@ -179,7 +183,8 @@ def _save_reports_to_blob(report: dict[str, Any], storage_account: str) -> str |
             overwrite=True,
         )
         logger.info(
-            "html report saved to %s/%s/%s", storage_account, container, html_key
+            "html_report_saved",
+            location=f"{storage_account}/{container}/{html_key}",
         )
 
         # SAS token scoped to just this blob
@@ -196,8 +201,8 @@ def _save_reports_to_blob(report: dict[str, Any], storage_account: str) -> str |
             expiry=now + timedelta(seconds=expiry_seconds),
         )
         url = f"{account_url}/{container}/{html_key}?{sas_token}"
-        logger.info("sas url generated (expires in %ds)", expiry_seconds)
+        logger.info("sas_url_generated", expires_in_seconds=expiry_seconds)
         return url
     except AzureError as exc:
-        logger.error("failed to save reports to Blob Storage: %s", exc)
+        logger.error("blob_upload_failed", error=str(exc))
         return None

@@ -1,16 +1,16 @@
 from __future__ import annotations
 
-import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+import structlog
 from azure.core.exceptions import HttpResponseError
 from azure.identity import DefaultAzureCredential
 from azure.monitor.query import MetricAggregationType, MetricsQueryClient
 
 from adapters.base import MetricSummary
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 # (MetricName, AggregationType)
 _METRICS: dict[str, list[tuple[str, str]]] = {

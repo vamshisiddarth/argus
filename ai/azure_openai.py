@@ -17,16 +17,16 @@ Environment variables:
 from __future__ import annotations
 
 import json
-import logging
 import os
 import time
 from typing import Any
 
 import openai
+import structlog
 
 from ai.base import AIProvider, AIResponse, Message, Tool, ToolCall
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 MAX_RETRIES = 3
 _BASE_DELAY = 1.0

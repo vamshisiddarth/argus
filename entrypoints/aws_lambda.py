@@ -19,16 +19,17 @@ Environment variables (set in CloudFormation template or .env for local):
 from __future__ import annotations
 
 import json
-import logging
 import os
 from datetime import datetime, timezone
 from typing import Any
 
 import boto3
+import structlog
 from botocore.exceptions import ClientError
 
 from adapters.aws.adapter import AWSAdapter
 from core.agent.loop import AgentLoop
+from core.log import configure_logging
 from core.models.finding import ResourceFinding
 from core.reports.delivery import (
     SlackDeliveryError,
@@ -38,11 +39,8 @@ from core.reports.delivery import (
 from core.reports.generator import build_report, build_slack_payload
 from core.reports.html import build_html_report
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(name)s %(message)s",
-)
-logger = logging.getLogger(__name__)
+configure_logging()
+logger = structlog.get_logger(__name__)
 
 
 def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
@@ -54,12 +52,12 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     primary_region = os.environ.get("PRIMARY_REGION", "us-east-1")
     accounts_mode = os.environ.get("ACCOUNTS_MODE", "single")
 
+    structlog.contextvars.bind_contextvars(cloud=cloud)
     logger.info(
-        "scan_start cloud=%s ignore_regions=%s primary_region=%s mode=%s",
-        cloud,
-        ignore_regions,
-        primary_region,
-        accounts_mode,
+        "scan_start",
+        ignore_regions=ignore_regions,
+        primary_region=primary_region,
+        mode=accounts_mode,
     )
 
     ai_provider = _build_ai_provider()
@@ -87,17 +85,17 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     else:
         save_reports_locally(report)
 
+    structlog.contextvars.bind_contextvars(scan_id=report["scan_id"])
     payload = build_slack_payload(report, report_url=report_url)
     try:
         post_to_slack(payload)
     except (SlackDeliveryError, OSError) as exc:
-        logger.error("slack_delivery_failed: %s", exc)
+        logger.error("slack_delivery_failed", error=str(exc))
 
     logger.info(
-        "scan_complete findings=%d total_waste_usd=%.2f scan_id=%s",
-        report["findings_count"],
-        report["total_estimated_waste_usd"],
-        report["scan_id"],
+        "scan_complete",
+        findings=report["findings_count"],
+        total_waste_usd=round(report["total_estimated_waste_usd"], 2),
     )
 
     return {
@@ -154,7 +152,7 @@ def _run_multi_account(
     for account in accounts:
         acct_id = account["id"]
         acct_name = account.get("name", acct_id)
-        logger.info("scanning account %s (%s)", acct_name, acct_id)
+        logger.info("scanning_account", account_id=acct_id, account_name=acct_name)
 
         try:
             adapter = AWSAdapter.for_account(account=account, region=primary_region)
@@ -168,7 +166,7 @@ def _run_multi_account(
             all_summaries.append(f"[{acct_name}] {summary}")
             account_ids.append(acct_id)
         except (PermissionError, ClientError) as exc:
-            logger.error("failed to scan account %s: %s", acct_id, exc)
+            logger.error("account_scan_failed", account_id=acct_id, error=str(exc))
 
     executive_summary = (
         " ".join(all_summaries) if all_summaries else "No findings across all accounts."
@@ -197,7 +195,7 @@ def _get_current_account_id() -> str:
         sts = boto3.client("sts")
         return str(sts.get_caller_identity()["Account"])
     except ClientError as exc:
-        logger.warning("Could not determine account ID via STS: %s", exc)
+        logger.warning("sts_get_account_id_failed", error=str(exc))
         return "unknown"
 
 
@@ -218,7 +216,7 @@ def _save_reports_to_s3(report: dict[str, Any], bucket: str) -> str | None:
             Body=json.dumps(report, indent=2, default=str).encode("utf-8"),
             ContentType="application/json",
         )
-        logger.info("json report saved to s3://%s/%s", bucket, json_key)
+        logger.info("json_report_saved", location=f"s3://{bucket}/{json_key}")
 
         html_body = build_html_report(report).encode("utf-8")
         s3.put_object(
@@ -227,15 +225,15 @@ def _save_reports_to_s3(report: dict[str, Any], bucket: str) -> str | None:
             Body=html_body,
             ContentType="text/html; charset=utf-8",
         )
-        logger.info("html report saved to s3://%s/%s", bucket, html_key)
+        logger.info("html_report_saved", location=f"s3://{bucket}/{html_key}")
 
         url: str = s3.generate_presigned_url(
             "get_object",
             Params={"Bucket": bucket, "Key": html_key},
             ExpiresIn=expiry,
         )
-        logger.info("pre-signed url generated (expires in %ds)", expiry)
+        logger.info("presigned_url_generated", expires_in_seconds=expiry)
         return url
     except ClientError as exc:
-        logger.error("failed to save reports to S3: %s", exc)
+        logger.error("s3_upload_failed", error=str(exc))
         return None

@@ -1,17 +1,18 @@
 from __future__ import annotations
 
 import json
-import logging
 import os as _os
 from datetime import datetime, timezone
 from typing import Any
+
+import structlog
 
 from adapters.base import CloudAdapter
 from ai.base import AIProvider, Message, Tool, ToolCall, ToolResult
 from core.agent.prompts import build_system_prompt, build_tool_schemas
 from core.models.finding import ResourceFinding
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 MAX_ITERATIONS = 50
 
@@ -72,7 +73,7 @@ class AgentLoop:
         ]
 
         for iteration in range(1, MAX_ITERATIONS + 1):
-            logger.info("agent_iteration", extra={"iteration": iteration})
+            logger.info("agent_iteration", iteration=iteration)
 
             response = self._ai.chat(messages, self._tools, system_prompt=system_prompt)
 
@@ -82,9 +83,7 @@ class AgentLoop:
                     if tc.name == "submit_findings":
                         logger.info(
                             "agent_complete",
-                            extra={
-                                "findings_count": len(tc.arguments.get("findings", []))
-                            },
+                            findings_count=len(tc.arguments.get("findings", [])),
                         )
                         return _parse_findings(tc.arguments, cloud=cloud)
 
@@ -101,10 +100,7 @@ class AgentLoop:
                 tool_results: list[ToolResult] = []
                 for tc in response.tool_calls:
                     content, is_error = self._execute(tc)
-                    logger.info(
-                        "tool_executed",
-                        extra={"tool": tc.name, "is_error": is_error},
-                    )
+                    logger.info("tool_executed", tool=tc.name, is_error=is_error)
                     tool_results.append(
                         ToolResult(
                             tool_call_id=tc.id,
@@ -120,7 +116,7 @@ class AgentLoop:
                 # if the prompt is working, but handle gracefully
                 logger.warning(
                     "agent_stopped_without_findings",
-                    extra={"stop_reason": response.stop_reason},
+                    stop_reason=response.stop_reason,
                 )
                 return [], response.text or ""
 
@@ -152,7 +148,7 @@ class AgentLoop:
 
         if not resources:
             self._prefiltered_payload = []
-            logger.info("prefilter_complete", extra={"discovered": 0, "sent_to_ai": 0})
+            logger.info("prefilter_complete", discovered=0, sent_to_ai=0)
             return []
 
         # Batch cost fetch — one API call for all resource IDs
@@ -160,7 +156,7 @@ class AgentLoop:
         try:
             costs = self._adapter.get_cost(resource_ids=resource_ids)
         except Exception as exc:  # noqa: BLE001
-            logger.warning("prefilter_cost_fetch_failed", extra={"error": str(exc)})
+            logger.warning("prefilter_cost_fetch_failed", error=str(exc))
             costs = {}
 
         # Attach cost to each resource and sort descending
@@ -174,12 +170,10 @@ class AgentLoop:
         if dropped > 0:
             logger.info(
                 "prefilter_capped",
-                extra={
-                    "discovered": total_discovered,
-                    "sent_to_ai": len(capped),
-                    "dropped_zero_cost": dropped,
-                    "cap": MAX_RESOURCES_PER_SCAN,
-                },
+                discovered=total_discovered,
+                sent_to_ai=len(capped),
+                dropped_zero_cost=dropped,
+                cap=MAX_RESOURCES_PER_SCAN,
             )
 
         # Build compact payload — include cost so AI doesn't need to call get_cost
@@ -195,7 +189,8 @@ class AgentLoop:
 
         logger.info(
             "prefilter_complete",
-            extra={"discovered": total_discovered, "sent_to_ai": len(payload)},
+            discovered=total_discovered,
+            sent_to_ai=len(payload),
         )
         return payload
 
@@ -238,7 +233,7 @@ class AgentLoop:
                     return f"Unknown tool: {tc.name!r}", True
 
         except Exception as exc:  # noqa: BLE001
-            logger.error("tool_error", extra={"tool": tc.name, "error": str(exc)})
+            logger.error("tool_error", tool=tc.name, error=str(exc))
             return f"Tool error: {exc}", True
 
 

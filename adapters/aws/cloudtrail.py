@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import logging
 from datetime import datetime, timedelta, timezone
 
 import boto3
+import structlog
 from botocore.exceptions import ClientError
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 _LOOKBACK_DAYS = 90  # CloudTrail LookupEvents max window is 90 days
 

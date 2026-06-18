@@ -23,14 +23,16 @@ Environment variables:
 from __future__ import annotations
 
 import json
-import logging
 import os
 import sys
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+import structlog
+
 from adapters.gcp.adapter import GCPAdapter
 from core.agent.loop import AgentLoop
+from core.log import configure_logging
 from core.reports.delivery import (
     SlackDeliveryError,
     post_to_slack,
@@ -39,12 +41,8 @@ from core.reports.delivery import (
 from core.reports.generator import build_report, build_slack_payload
 from core.reports.html import build_html_report
 
-logging.basicConfig(
-    level=os.environ.get("LOG_LEVEL", "INFO").upper(),
-    format="%(asctime)s %(levelname)s %(name)s %(message)s",
-    stream=sys.stdout,
-)
-logger = logging.getLogger(__name__)
+configure_logging()
+logger = structlog.get_logger(__name__)
 
 
 def main() -> None:
@@ -59,12 +57,8 @@ def main() -> None:
         logger.error("GCP_PROJECT_ID is not set — cannot scan")
         sys.exit(1)
 
-    logger.info(
-        "scan_start cloud=%s project=%s ignore_regions=%s",
-        cloud,
-        project_id,
-        ignore_regions,
-    )
+    structlog.contextvars.bind_contextvars(cloud=cloud, account_id=project_id)
+    logger.info("scan_start", ignore_regions=ignore_regions)
 
     ai_provider = _build_ai_provider(project_id)
     adapter = GCPAdapter.from_env()
@@ -90,17 +84,17 @@ def main() -> None:
     else:
         save_reports_locally(report)
 
+    structlog.contextvars.bind_contextvars(scan_id=report["scan_id"])
     payload = build_slack_payload(report, report_url=report_url)
     try:
         post_to_slack(payload)
     except (SlackDeliveryError, OSError) as exc:
-        logger.error("slack_delivery_failed: %s", exc)
+        logger.error("slack_delivery_failed", error=str(exc))
 
     logger.info(
-        "scan_complete findings=%d total_waste_usd=%.2f scan_id=%s",
-        report["findings_count"],
-        report["total_estimated_waste_usd"],
-        report["scan_id"],
+        "scan_complete",
+        findings=report["findings_count"],
+        total_waste_usd=round(report["total_estimated_waste_usd"], 2),
     )
 
 
@@ -147,24 +141,24 @@ def _save_reports_to_gcs(report: dict[str, Any], bucket_name: str) -> str | None
             json.dumps(report, indent=2, default=str).encode("utf-8"),
             content_type="application/json",
         )
-        logger.info("json report saved to gs://%s/%s", bucket_name, json_key)
+        logger.info("json_report_saved", location=f"gs://{bucket_name}/{json_key}")
 
         html_blob = bucket.blob(html_key)
         html_blob.upload_from_string(
             build_html_report(report).encode("utf-8"),
             content_type="text/html; charset=utf-8",
         )
-        logger.info("html report saved to gs://%s/%s", bucket_name, html_key)
+        logger.info("html_report_saved", location=f"gs://{bucket_name}/{html_key}")
 
         url: str = html_blob.generate_signed_url(
             expiration=timedelta(seconds=expiry_seconds),
             method="GET",
             version="v4",
         )
-        logger.info("signed url generated (expires in %ds)", expiry_seconds)
+        logger.info("signed_url_generated", expires_in_seconds=expiry_seconds)
         return url
     except google_exceptions.GoogleAPIError as exc:
-        logger.error("failed to save reports to GCS: %s", exc)
+        logger.error("gcs_upload_failed", error=str(exc))
         return None
 
 

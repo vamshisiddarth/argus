@@ -322,16 +322,14 @@ WEBHOOK = "https://hooks.slack.com/services/TEST/HOOK"
 
 
 class TestPostToSlack:
-    def test_dry_run_logs_and_does_not_post(self, caplog):
-        with caplog.at_level(logging.INFO, logger="core.reports.delivery"):
-            post_to_slack(SAMPLE_PAYLOAD, webhook_url=WEBHOOK, dry_run=True)
-        assert "DRY RUN" in caplog.text
+    def test_dry_run_logs_and_does_not_post(self, capsys):
+        post_to_slack(SAMPLE_PAYLOAD, webhook_url=WEBHOOK, dry_run=True)
+        assert "DRY RUN" in capsys.readouterr().out
 
-    def test_dry_run_env_var_respected(self, caplog, monkeypatch):
+    def test_dry_run_env_var_respected(self, capsys, monkeypatch):
         monkeypatch.setenv("DRY_RUN", "true")
-        with caplog.at_level(logging.INFO, logger="core.reports.delivery"):
-            post_to_slack(SAMPLE_PAYLOAD, webhook_url=WEBHOOK)
-        assert "DRY RUN" in caplog.text
+        post_to_slack(SAMPLE_PAYLOAD, webhook_url=WEBHOOK)
+        assert "DRY RUN" in capsys.readouterr().out
 
     def test_missing_webhook_raises_environment_error(self):
         with pytest.raises(EnvironmentError, match="SLACK_WEBHOOK_URL"):

@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import logging
 from datetime import datetime, timedelta, timezone
 
 import boto3
+import structlog
 from botocore.exceptions import ClientError
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 # Cost Explorer is a global service — always us-east-1
 _CE_REGION = "us-east-1"
@@ -59,12 +59,10 @@ def get_cost(
         if code == "DataUnavailableException":
             logger.warning(
                 "cost_explorer_resource_granularity_disabled",
-                extra={
-                    "hint": (
-                        "Enable resource-level data in AWS Cost Management console "
-                        "(Preferences → Resource-level data)."
-                    )
-                },
+                hint=(
+                    "Enable resource-level data in AWS Cost Management console "
+                    "(Preferences → Resource-level data)."
+                ),
             )
             return {rid: 0.0 for rid in resource_ids}
 
@@ -74,32 +72,27 @@ def get_cost(
         ):
             logger.warning(
                 "cost_explorer_not_activated",
-                extra={
-                    "hint": (
-                        "Cost Explorer has not been enabled for this AWS account. "
-                        "Activate it at: "
-                        "https://console.aws.amazon.com/cost-management/home "
-                        "(it takes up to 24 hours to show data after first activation)."
-                    )
-                },
+                hint=(
+                    "Cost Explorer has not been enabled for this AWS account. "
+                    "Activate it in the AWS Cost Management console "
+                    "(takes up to 24 hours after first activation)."
+                ),
             )
             return {rid: 0.0 for rid in resource_ids}
 
         if code == "AccessDeniedException":
             logger.warning(
                 "cost_explorer_access_denied",
-                extra={
-                    "hint": (
-                        "IAM principal is missing "
-                        "ce:GetCostAndUsageWithResources permission. "
-                        "Add it to the Argus IAM role."
-                    ),
-                    "error": str(exc),
-                },
+                hint=(
+                    "IAM principal is missing "
+                    "ce:GetCostAndUsageWithResources permission. "
+                    "Add it to the Argus IAM role."
+                ),
+                error=str(exc),
             )
             return {rid: 0.0 for rid in resource_ids}
 
-        logger.error("cost_explorer_failed", extra={"error": str(exc), "code": code})
+        logger.error("cost_explorer_failed", error=str(exc), code=code)
         return {rid: 0.0 for rid in resource_ids}
 
     costs: dict[str, float] = {rid: 0.0 for rid in resource_ids}
@@ -113,9 +106,7 @@ def get_cost(
 
     logger.info(
         "cost_explorer_complete",
-        extra={
-            "resources_queried": len(resource_ids),
-            "resources_with_cost": sum(1 for v in costs.values() if v > 0),
-        },
+        resources_queried=len(resource_ids),
+        resources_with_cost=sum(1 for v in costs.values() if v > 0),
     )
     return costs
