@@ -31,7 +31,11 @@ from typing import Any
 
 from adapters.azure.adapter import AzureAdapter
 from core.agent.loop import AgentLoop
-from core.reports.delivery import SlackDeliveryError, post_to_slack
+from core.reports.delivery import (
+    SlackDeliveryError,
+    post_to_slack,
+    save_reports_locally,
+)
 from core.reports.generator import build_report, build_slack_payload
 from core.reports.html import build_html_report
 
@@ -89,6 +93,8 @@ def main(mytimer: Any) -> None:
     report_url: str | None = None
     if storage_account:
         report_url = _save_reports_to_blob(report, storage_account)
+    else:
+        save_reports_locally(report)
 
     payload = build_slack_payload(report, report_url=report_url)
     try:

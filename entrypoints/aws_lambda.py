@@ -30,7 +30,11 @@ from botocore.exceptions import ClientError
 from adapters.aws.adapter import AWSAdapter
 from core.agent.loop import AgentLoop
 from core.models.finding import ResourceFinding
-from core.reports.delivery import SlackDeliveryError, post_to_slack
+from core.reports.delivery import (
+    SlackDeliveryError,
+    post_to_slack,
+    save_reports_locally,
+)
 from core.reports.generator import build_report, build_slack_payload
 from core.reports.html import build_html_report
 
@@ -80,6 +84,8 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     report_url: str | None = None
     if s3_bucket:
         report_url = _save_reports_to_s3(report, s3_bucket)
+    else:
+        save_reports_locally(report)
 
     payload = build_slack_payload(report, report_url=report_url)
     try:

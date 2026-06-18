@@ -4,6 +4,8 @@ import json
 import logging
 import os
 import urllib.request
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -69,3 +71,34 @@ def post_to_slack(
         raise SlackDeliveryError(f"Unexpected Slack response: {response_text!r}")
 
     logger.info("Slack report delivered successfully.")
+
+
+def save_reports_locally(
+    report: dict[str, Any],
+    base_dir: str | None = None,
+) -> str:
+    """
+    Save JSON + HTML reports to local_reports/ (or base_dir).
+
+    Used as a fallback when no cloud storage bucket is configured —
+    keeps local runs consistent with deployed behaviour.
+    Returns the absolute path to the HTML file.
+    """
+    resolved_dir = Path(base_dir or os.environ.get("LOCAL_REPORT_DIR", "local_reports"))
+    now = datetime.now(tz=timezone.utc)
+    prefix = (
+        resolved_dir / report["cloud"] / now.strftime("%Y/%m/%d") / report["scan_id"]
+    )
+    prefix.parent.mkdir(parents=True, exist_ok=True)
+
+    json_path = prefix.with_suffix(".json")
+    json_path.write_text(json.dumps(report, indent=2, default=str), encoding="utf-8")
+    logger.info("json report saved to %s", json_path)
+
+    from core.reports.html import build_html_report
+
+    html_path = prefix.with_suffix(".html")
+    html_path.write_text(build_html_report(report), encoding="utf-8")
+    logger.info("html report saved to %s", html_path)
+
+    return str(html_path.resolve())

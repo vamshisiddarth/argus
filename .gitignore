@@ -18,6 +18,7 @@ env/
 
 # Reports output (generated at runtime)
 reports_output/
+local_reports/
 
 # Testing
 .pytest_cache/

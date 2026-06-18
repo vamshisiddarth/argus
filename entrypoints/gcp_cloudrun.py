@@ -31,7 +31,11 @@ from typing import Any
 
 from adapters.gcp.adapter import GCPAdapter
 from core.agent.loop import AgentLoop
-from core.reports.delivery import SlackDeliveryError, post_to_slack
+from core.reports.delivery import (
+    SlackDeliveryError,
+    post_to_slack,
+    save_reports_locally,
+)
 from core.reports.generator import build_report, build_slack_payload
 from core.reports.html import build_html_report
 
@@ -83,6 +87,8 @@ def main() -> None:
     report_url: str | None = None
     if gcs_bucket:
         report_url = _save_reports_to_gcs(report, gcs_bucket)
+    else:
+        save_reports_locally(report)
 
     payload = build_slack_payload(report, report_url=report_url)
     try:
