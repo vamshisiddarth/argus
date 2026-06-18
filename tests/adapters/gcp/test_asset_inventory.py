@@ -2,8 +2,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from adapters.gcp.asset_inventory import _parse_asset, _to_region, list_resources
 from adapters.base import Resource
+from adapters.gcp.asset_inventory import _parse_asset, _to_region, list_resources
 
 
 # ---------------------------------------------------------------------------

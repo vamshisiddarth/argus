@@ -76,7 +76,11 @@ def build_slack_payload(
                 },
                 {
                     "type": "mrkdwn",
-                    "text": f":bar_chart: *{count}* idle resource{'s' if count != 1 else ''} across *{accounts}* account{'s' if accounts != 1 else ''}",
+                    "text": (
+                        f":bar_chart: *{count}* idle "
+                        f"resource{'s' if count != 1 else ''} across "
+                        f"*{accounts}* account{'s' if accounts != 1 else ''}"
+                    ),
                 },
             ],
         },
@@ -104,7 +108,8 @@ def build_slack_payload(
         remaining = count - SLACK_DIGEST_LIMIT
         if remaining > 0:
             lines.append(
-                f":white_circle: _+{remaining} more finding{'s' if remaining != 1 else ''} in the full report_"
+                f":white_circle: _+{remaining} more "
+                f"finding{'s' if remaining != 1 else ''} in the full report_"
             )
 
         blocks.append(

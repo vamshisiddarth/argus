@@ -1,6 +1,5 @@
 from datetime import datetime, timezone
 
-
 from core.models.finding import ResourceFinding
 
 SCAN_TIME = datetime(2026, 6, 6, 8, 0, 0, tzinfo=timezone.utc)

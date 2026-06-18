@@ -4,8 +4,8 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from google.cloud import monitoring_v3
 from google.api_core.exceptions import GoogleAPICallError
+from google.cloud import monitoring_v3
 from google.protobuf.timestamp_pb2 import Timestamp
 
 from adapters.base import MetricSummary
@@ -231,7 +231,8 @@ def _discover_metrics(
 def _resource_filter(resource_id: str, resource_type: str) -> str:
     """
     Build a Cloud Monitoring filter string to scope metrics to a specific resource.
-    Resource IDs are full asset names: //compute.googleapis.com/projects/p/zones/z/instances/name
+    Resource IDs are full asset names, e.g.:
+    //compute.googleapis.com/projects/p/zones/z/instances/name
     """
     # Extract the short resource name from the full asset name.
     name = resource_id.rstrip("/").split("/")[-1]

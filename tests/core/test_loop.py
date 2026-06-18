@@ -5,7 +5,7 @@ import pytest
 
 from adapters.base import CloudAdapter, MetricSummary, Resource
 from ai.base import AIProvider, AIResponse, ToolCall
-from core.agent.loop import AgentLoop, MAX_ITERATIONS, _compress_resource
+from core.agent.loop import MAX_ITERATIONS, AgentLoop, _compress_resource
 
 IGNORE_REGIONS: list[str] = []
 ACCOUNTS = [{"id": "123456789012", "name": "test-account"}]

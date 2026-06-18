@@ -4,9 +4,9 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from azure.identity import DefaultAzureCredential
-from azure.monitor.query import MetricsQueryClient, MetricAggregationType
 from azure.core.exceptions import HttpResponseError
+from azure.identity import DefaultAzureCredential
+from azure.monitor.query import MetricAggregationType, MetricsQueryClient
 
 from adapters.base import MetricSummary
 

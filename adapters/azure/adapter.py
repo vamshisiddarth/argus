@@ -4,8 +4,8 @@ import os
 from datetime import datetime
 from typing import Any
 
-from adapters.base import CloudAdapter, MetricSummary, Resource
 from adapters.azure import activity_log, cost_management, monitor, resource_graph
+from adapters.base import CloudAdapter, MetricSummary, Resource
 
 
 class AzureAdapter(CloudAdapter):

@@ -1,10 +1,11 @@
-import pytest
 from unittest.mock import MagicMock
+
+import pytest
 
 from adapters.aws.cloudwatch import (
     _dimension_value,
-    _region_from_arn,
     _enrich_instance_details,
+    _region_from_arn,
     get_metrics,
 )
 

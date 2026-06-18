@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 import logging
+import os as _os
 from datetime import datetime, timedelta, timezone
 from typing import Any
-
-import os as _os
 
 import boto3
 from botocore.exceptions import ClientError
@@ -412,9 +411,9 @@ def _enrich_instance_details(
                 clusters = resp.get("DBClusters", [])
                 if clusters:
                     cluster = clusters[0]
-                    metrics["engine"] = (
-                        f"{cluster.get('Engine')} {cluster.get('EngineVersion', '')}".strip()
-                    )
+                    engine = cluster.get("Engine", "")
+                    version = cluster.get("EngineVersion", "")
+                    metrics["engine"] = f"{engine} {version}".strip()
                     metrics["instance_count"] = len(cluster.get("DBClusterMembers", []))
                     # Fetch instance class from the writer instance
                     members = cluster.get("DBClusterMembers", [])
@@ -527,7 +526,7 @@ def _parse_results(
     metrics: dict[str, Any] = {}
     has_data = False
 
-    for result, (metric_name, _, stat, _) in zip(results, metric_defs):
+    for result, (metric_name, _, stat, _) in zip(results, metric_defs, strict=False):
         values: list[float] = result.get("Values", [])
         if not values:
             metrics[metric_name] = None

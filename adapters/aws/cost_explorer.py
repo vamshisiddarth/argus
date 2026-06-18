@@ -77,7 +77,8 @@ def get_cost(
                 extra={
                     "hint": (
                         "Cost Explorer has not been enabled for this AWS account. "
-                        "Activate it at: https://console.aws.amazon.com/cost-management/home "
+                        "Activate it at: "
+                        "https://console.aws.amazon.com/cost-management/home "
                         "(it takes up to 24 hours to show data after first activation)."
                     )
                 },
@@ -89,7 +90,8 @@ def get_cost(
                 "cost_explorer_access_denied",
                 extra={
                     "hint": (
-                        "IAM principal is missing ce:GetCostAndUsageWithResources permission. "
+                        "IAM principal is missing "
+                        "ce:GetCostAndUsageWithResources permission. "
                         "Add it to the Argus IAM role."
                     ),
                     "error": str(exc),

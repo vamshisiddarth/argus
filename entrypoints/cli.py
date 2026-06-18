@@ -26,7 +26,11 @@ def main(argv: list[str] | None = None) -> None:
         "--cloud",
         default="aws",
         choices=["aws"],
-        help="Cloud provider to scan (default: aws). GCP and Azure run via their own entrypoints (gcp_cloudrun.py / azure_function.py).",
+        help=(
+            "Cloud provider to scan (default: aws). "
+            "GCP and Azure run via their own entrypoints "
+            "(gcp_cloudrun.py / azure_function.py)."
+        ),
     )
     parser.add_argument(
         "--run-now",
@@ -44,7 +48,10 @@ def main(argv: list[str] | None = None) -> None:
         default=os.environ.get("IGNORE_REGIONS", ""),
         dest="ignore_regions",
         metavar="REGIONS",
-        help="Comma-separated regions to exclude from the scan (default: none, scan all)",
+        help=(
+            "Comma-separated regions to exclude from the scan "
+            "(default: none, scan all)"
+        ),
     )
     parser.add_argument(
         "--primary-region",

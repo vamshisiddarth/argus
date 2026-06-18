@@ -3,8 +3,8 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timedelta, timezone
 
-from google.cloud import logging as gcp_logging
 from google.api_core.exceptions import GoogleAPICallError
+from google.cloud import logging as gcp_logging
 
 logger = logging.getLogger(__name__)
 

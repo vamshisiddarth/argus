@@ -3,8 +3,8 @@ Tests for VertexAIProvider.
 All HTTP calls are mocked — no real GCP credentials required.
 """
 
-from unittest.mock import MagicMock, patch
 import json
+from unittest.mock import MagicMock, patch
 
 import pytest
 

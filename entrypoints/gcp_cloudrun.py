@@ -15,7 +15,7 @@ Environment variables:
   VERTEXAI_LOCATION           Vertex AI region (default: us-central1)
   SLACK_WEBHOOK_URL           Slack incoming webhook URL
   DRY_RUN                     "true" to skip Slack post (default: false)
-  REPORT_GCS_BUCKET           GCS bucket name for saving full reports (JSON + HTML) (optional)
+  REPORT_GCS_BUCKET           GCS bucket name for full reports (JSON + HTML) (optional)
   REPORT_URL_EXPIRY           Signed URL expiry in seconds (default: 604800 = 7 days)
   LOG_LEVEL                   DEBUG | INFO | WARNING | ERROR (default: INFO)
 """
@@ -115,8 +115,10 @@ def _build_ai_provider(project_id: str) -> Any:
 def _save_reports_to_gcs(report: dict[str, Any], bucket_name: str) -> str | None:
     """Upload JSON + HTML reports to GCS. Returns a signed URL for the HTML report."""
     try:
+        from google.api_core import (
+            exceptions as google_exceptions,  # type: ignore[import-untyped]
+        )
         from google.cloud import storage  # type: ignore[import-untyped]
-        from google.api_core import exceptions as google_exceptions  # type: ignore[import-untyped]
     except ImportError:
         logger.error(
             "google-cloud-storage is not installed — skipping GCS upload. "

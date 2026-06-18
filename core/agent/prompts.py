@@ -45,7 +45,8 @@ YOUR APPROACH
 3. For each candidate, call get_metrics to check actual usage over the past 90 days.
 4. Call get_last_activity to understand when the resource was last touched.
 5. Form a conclusion: is this resource idle, underutilized, or orphaned?
-6. When your analysis is complete, call submit_findings with all findings ranked by cost.
+6. When your analysis is complete, call submit_findings with all findings
+   ranked by cost.
 
 WHAT TO LOOK FOR
 ────────────────
@@ -157,10 +158,14 @@ def build_tool_schemas() -> list[dict]:
             "name": "get_metrics",
             "description": (
                 "Get usage metrics for a resource over the past N days. "
-                "The adapter automatically fetches the metrics relevant to the resource type "
-                "(CPU utilisation, network bytes, request count, IOPS, DB connections, etc.). "
-                "You do not need to specify which metrics — just provide the resource ID and type. "
-                "Do NOT pass a days value less than 90 — short windows produce false positives "
+                "The adapter automatically fetches the metrics relevant to "
+                "the resource type "
+                "(CPU utilisation, network bytes, request count, IOPS, "
+                "DB connections, etc.). "
+                "You do not need to specify which metrics — just provide "
+                "the resource ID and type. "
+                "Do NOT pass a days value less than 90 — short windows "
+                "produce false positives "
                 "by missing weekly, monthly, or quarterly usage patterns."
             ),
             "input_schema": {

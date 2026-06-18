@@ -3,10 +3,10 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from azure.core.exceptions import HttpResponseError
 from azure.identity import DefaultAzureCredential
 from azure.mgmt.resourcegraph import ResourceGraphClient
 from azure.mgmt.resourcegraph.models import QueryRequest, QueryRequestOptions
-from azure.core.exceptions import HttpResponseError
 
 from adapters.base import Resource
 
@@ -76,7 +76,8 @@ def list_resources(
     except HttpResponseError as exc:
         if exc.status_code == 403:
             raise PermissionError(
-                "Argus service principal is missing Reader role on the subscription(s). "
+                "Argus service principal is missing Reader role "
+                "on the subscription(s). "
                 "Assign 'Reader' at the subscription scope."
             ) from exc
         raise

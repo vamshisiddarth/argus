@@ -6,7 +6,8 @@ Deploy with the Bicep template in deploy/azure/function-app.bicep.
 
 Environment variables (set in Azure Function App Configuration):
   AZURE_SUBSCRIPTION_IDS           Comma-separated subscription IDs to scan (required)
-  AZURE_LOG_ANALYTICS_WORKSPACE_ID Log Analytics workspace ID (optional — for Activity Log KQL)
+  AZURE_LOG_ANALYTICS_WORKSPACE_ID Log Analytics workspace ID
+                                   (optional — for Activity Log KQL)
   AI_PROVIDER                      "anthropic" | "azure_openai" (default: azure_openai)
   ANTHROPIC_API_KEY                Required when AI_PROVIDER=anthropic
   AZURE_OPENAI_ENDPOINT            Required when AI_PROVIDER=azure_openai
@@ -115,18 +116,24 @@ def _build_ai_provider() -> Any:
 
 
 def _save_reports_to_blob(report: dict[str, Any], storage_account: str) -> str | None:
-    """Upload JSON + HTML reports to Azure Blob Storage. Returns a SAS URL for the HTML report."""
+    """Upload JSON + HTML reports to Azure Blob. Returns a SAS URL for the HTML."""
     try:
+        from azure.core.exceptions import (  # type: ignore[import-untyped]
+            AzureError,
+            ResourceExistsError,
+        )
+        from azure.identity import (
+            DefaultAzureCredential,  # type: ignore[import-untyped]
+        )
         from azure.storage.blob import (  # type: ignore[import-untyped]
+            BlobSasPermissions,
             BlobServiceClient,
             generate_blob_sas,
-            BlobSasPermissions,
         )
-        from azure.identity import DefaultAzureCredential  # type: ignore[import-untyped]
-        from azure.core.exceptions import AzureError, ResourceExistsError  # type: ignore[import-untyped]
     except ImportError:
         logger.error(
-            "azure-storage-blob or azure-identity is not installed — skipping Blob upload. "
+            "azure-storage-blob or azure-identity is not installed "
+            "— skipping Blob upload. "
             "Run: pip install azure-storage-blob azure-identity"
         )
         return None

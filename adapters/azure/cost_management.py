@@ -4,17 +4,17 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+from azure.core.exceptions import HttpResponseError
 from azure.identity import DefaultAzureCredential
 from azure.mgmt.costmanagement import CostManagementClient
 from azure.mgmt.costmanagement.models import (
-    QueryDefinition,
-    QueryTimePeriod,
-    QueryDataset,
-    QueryGrouping,
-    QueryFilter,
     QueryComparisonExpression,
+    QueryDataset,
+    QueryDefinition,
+    QueryFilter,
+    QueryGrouping,
+    QueryTimePeriod,
 )
-from azure.core.exceptions import HttpResponseError
 
 logger = logging.getLogger(__name__)
 

@@ -86,6 +86,11 @@ line-length = 88
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "BLE"]
 
+[tool.ruff.lint.per-file-ignores]
+"core/reports/html.py" = ["E501"]
+"core/agent/prompts.py" = ["E501"]
+"tests/adapters/azure/*.py" = ["E501"]
+
 [tool.mypy]
 python_version = "3.13"
 warn_return_any = true

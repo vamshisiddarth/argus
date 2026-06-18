@@ -2,7 +2,8 @@
 AWS Lambda entrypoint for Argus.
 
 Environment variables (set in CloudFormation template or .env for local):
-  IGNORE_REGIONS     Comma-separated regions to exclude from the scan (default: empty = scan all)
+  IGNORE_REGIONS     Comma-separated regions to exclude from the scan
+                     (default: empty = scan all)
   PRIMARY_REGION     AWS region for boto3 session and Bedrock calls (default: us-east-1)
   DRY_RUN            "true" to skip Slack post and S3 upload (default: false)
   SLACK_WEBHOOK_URL  Slack incoming webhook URL
@@ -135,7 +136,8 @@ def _run_multi_account(
 
     if not accounts:
         logger.warning(
-            "ACCOUNTS_MODE=multi but ACCOUNTS_CONFIG is empty — falling back to single-account mode"
+            "ACCOUNTS_MODE=multi but ACCOUNTS_CONFIG is empty "
+            "— falling back to single-account mode"
         )
         return _run_single_account(ai_provider, ignore_regions, primary_region, cloud)
 
@@ -194,7 +196,7 @@ def _get_current_account_id() -> str:
 
 
 def _save_reports_to_s3(report: dict[str, Any], bucket: str) -> str | None:
-    """Upload JSON + HTML reports to S3. Returns a pre-signed URL for the HTML report."""
+    """Upload JSON + HTML reports to S3. Returns a pre-signed URL for the HTML."""
     now = datetime.now(tz=timezone.utc)
     prefix = f"reports/{report['cloud']}/{now.strftime('%Y/%m/%d')}/{report['scan_id']}"
     json_key = f"{prefix}.json"

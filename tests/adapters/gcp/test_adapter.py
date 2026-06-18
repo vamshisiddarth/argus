@@ -3,8 +3,8 @@ from unittest.mock import patch
 
 import pytest
 
-from adapters.gcp.adapter import GCPAdapter
 from adapters.base import MetricSummary, Resource
+from adapters.gcp.adapter import GCPAdapter
 
 SAMPLE_ID = "//compute.googleapis.com/projects/p/zones/us-central1-a/instances/vm1"
 SAMPLE_TYPE = "compute.googleapis.com/Instance"

@@ -1,6 +1,5 @@
 from unittest.mock import MagicMock, patch
 
-
 from adapters.gcp.cloud_monitoring import _resource_filter, get_metrics
 
 

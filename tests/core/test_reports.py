@@ -189,7 +189,7 @@ class TestBuildSlackPayload:
         report = build_report(findings, cloud="aws", executive_summary="Many findings.")
         payload = build_slack_payload(report)
         text = _all_text(payload)
-        # Each finding row contains its resource id; only SLACK_DIGEST_LIMIT should appear
+        # Each finding row has its resource id; only SLACK_DIGEST_LIMIT appear
         visible_ids = [f"i-{i}" for i in range(SLACK_DIGEST_LIMIT)]
         hidden_ids = [
             f"i-{i}" for i in range(SLACK_DIGEST_LIMIT, SLACK_DIGEST_LIMIT + 5)

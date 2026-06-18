@@ -3,8 +3,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from google.cloud import asset_v1
 from google.api_core.exceptions import GoogleAPICallError, PermissionDenied
+from google.cloud import asset_v1
 
 from adapters.base import Resource
 

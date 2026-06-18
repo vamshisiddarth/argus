@@ -95,7 +95,8 @@ def list_resources(
     aggregator_region: str = DEFAULT_AGGREGATOR_REGION,
 ) -> list[Resource]:
     """
-    Return every resource in the account across ALL regions, minus any in ignore_regions.
+    Return every resource in the account across ALL regions,
+    minus any in ignore_regions.
     Uses AWS Resource Explorer v2 aggregator index — returns all resource
     types in a single paginated API call. No per-type enumeration needed.
 

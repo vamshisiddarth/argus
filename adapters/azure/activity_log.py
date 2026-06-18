@@ -4,9 +4,9 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+from azure.core.exceptions import HttpResponseError
 from azure.identity import DefaultAzureCredential
 from azure.monitor.query import LogsQueryClient, LogsQueryStatus
-from azure.core.exceptions import HttpResponseError
 
 logger = logging.getLogger(__name__)
 
@@ -103,7 +103,9 @@ def _fallback_from_activity_log_api(
     Only available if azure-mgmt-monitor is installed.
     """
     try:
-        from azure.mgmt.monitor import MonitorManagementClient  # type: ignore[import-untyped]
+        from azure.mgmt.monitor import (
+            MonitorManagementClient,  # type: ignore[import-untyped]
+        )
     except ImportError:
         return None
 

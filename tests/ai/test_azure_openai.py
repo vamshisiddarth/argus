@@ -8,8 +8,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from ai.base import Message, Tool, ToolResult
 from ai.azure_openai import AzureOpenAIProvider
+from ai.base import Message, Tool, ToolResult
 
 # ---------------------------------------------------------------------------
 # Helpers

@@ -4,9 +4,9 @@ from unittest.mock import MagicMock
 import pytest
 
 from adapters.aws.resource_explorer import (
-    _parse_tags,
-    _parse_resource,
     _is_billable,
+    _parse_resource,
+    _parse_tags,
     list_resources,
 )
 
