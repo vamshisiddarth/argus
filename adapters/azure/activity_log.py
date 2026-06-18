@@ -87,7 +87,7 @@ def get_last_activity(
                 event_time = parse(event_time)
             if event_time and event_time.tzinfo is None:
                 event_time = event_time.replace(tzinfo=timezone.utc)
-            return event_time
+            return event_time  # type: ignore[no-any-return]
 
     return None
 

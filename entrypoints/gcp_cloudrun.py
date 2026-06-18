@@ -118,7 +118,7 @@ def _save_reports_to_gcs(report: dict[str, Any], bucket_name: str) -> str | None
         from google.api_core import (
             exceptions as google_exceptions,  # type: ignore[import-untyped]
         )
-        from google.cloud import storage  # type: ignore[import-untyped]
+        from google.cloud import storage  # type: ignore[import-untyped,attr-defined]
     except ImportError:
         logger.error(
             "google-cloud-storage is not installed — skipping GCS upload. "

@@ -53,7 +53,7 @@ def get_last_activity(
     event_time = events[0]["EventTime"]
     if event_time.tzinfo is None:
         event_time = event_time.replace(tzinfo=timezone.utc)
-    return event_time
+    return event_time  # type: ignore[no-any-return]
 
 
 def _region_from_arn(arn: str) -> str:
