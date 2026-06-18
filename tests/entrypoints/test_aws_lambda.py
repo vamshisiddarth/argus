@@ -8,8 +8,6 @@ from __future__ import annotations
 import json
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from core.reports.delivery import SlackDeliveryError
 
 # ---------------------------------------------------------------------------
@@ -212,48 +210,26 @@ class TestHandlerMultiAccount:
         call_kwargs = mock_build_report.call_args
         assert call_kwargs.kwargs["accounts_scanned"] == ["111", "222"]
 
-    def test_invalid_accounts_config_raises_value_error(self, monkeypatch):
+    def test_invalid_accounts_config_returns_500(self, monkeypatch):
         monkeypatch.setenv("ACCOUNTS_MODE", "multi")
         monkeypatch.setenv("ACCOUNTS_CONFIG", "not valid json{{{")
 
-        with patch("entrypoints.aws_lambda._build_ai_provider"):
-            from entrypoints.aws_lambda import handler
+        from entrypoints.aws_lambda import handler
 
-            with pytest.raises(ValueError, match="ACCOUNTS_CONFIG is not valid JSON"):
-                handler({}, None)
+        result = handler({}, None)
+        assert result["statusCode"] == 500
+        assert "ACCOUNTS_CONFIG" in result["error"]
 
-    @patch("entrypoints.aws_lambda.post_to_slack")
-    @patch("entrypoints.aws_lambda.build_slack_payload", return_value={"blocks": []})
-    @patch("entrypoints.aws_lambda.build_report")
-    @patch("entrypoints.aws_lambda.AgentLoop")
-    @patch("entrypoints.aws_lambda.AWSAdapter")
-    @patch("entrypoints.aws_lambda._get_current_account_id", return_value="fallback-id")
-    @patch("entrypoints.aws_lambda._build_ai_provider")
-    def test_multi_account_empty_config_falls_back_to_single(
-        self,
-        mock_ai,
-        mock_acct_id,
-        mock_adapter_cls,
-        mock_loop_cls,
-        mock_build_report,
-        mock_build_payload,
-        mock_post,
-        monkeypatch,
-    ):
+    def test_multi_account_empty_config_returns_500(self, monkeypatch):
+        """Empty ACCOUNTS_CONFIG is a misconfiguration — fail fast at startup."""
         monkeypatch.setenv("ACCOUNTS_MODE", "multi")
         monkeypatch.setenv("ACCOUNTS_CONFIG", "[]")
 
-        mock_loop_cls.return_value.run.return_value = ([], "Fallback.")
-        mock_build_report.return_value = _fake_report()
-
         from entrypoints.aws_lambda import handler
 
-        handler({}, None)
-
-        # Falls back to single-account, so for_account gets account=None
-        mock_adapter_cls.for_account.assert_called_once_with(
-            account=None, region="us-east-1"
-        )
+        result = handler({}, None)
+        assert result["statusCode"] == 500
+        assert "non-empty" in result["error"]
 
 
 # ---------------------------------------------------------------------------

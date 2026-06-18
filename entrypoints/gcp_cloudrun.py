@@ -40,6 +40,7 @@ from core.reports.delivery import (
 )
 from core.reports.generator import build_report, build_slack_payload
 from core.reports.html import build_html_report
+from core.validation import ConfigurationError, validate_environment
 
 configure_logging()
 logger = structlog.get_logger(__name__)
@@ -48,14 +49,17 @@ logger = structlog.get_logger(__name__)
 def main() -> None:
     """Entry point for the Cloud Run Job. Runs once and exits."""
     cloud = "gcp"
+    try:
+        validate_environment(cloud)
+    except ConfigurationError as exc:
+        logger.error("startup_validation_failed", error=str(exc))
+        sys.exit(1)
+
     ignore_regions = [
         r.strip() for r in os.environ.get("IGNORE_REGIONS", "").split(",") if r.strip()
     ]
 
     project_id = os.environ.get("GCP_PROJECT_ID", "").strip()
-    if not project_id:
-        logger.error("GCP_PROJECT_ID is not set — cannot scan")
-        sys.exit(1)
 
     structlog.contextvars.bind_contextvars(cloud=cloud, account_id=project_id)
     logger.info("scan_start", ignore_regions=ignore_regions)

@@ -40,6 +40,7 @@ from core.reports.delivery import (
 )
 from core.reports.generator import build_report, build_slack_payload
 from core.reports.html import build_html_report
+from core.validation import ConfigurationError, validate_environment
 
 configure_logging()
 logger = structlog.get_logger(__name__)
@@ -57,14 +58,17 @@ def main(mytimer: Any) -> None:
         logger.warning("Timer is past due — running scan now")
 
     cloud = "azure"
+    try:
+        validate_environment(cloud)
+    except ConfigurationError as exc:
+        logger.error("startup_validation_failed", error=str(exc))
+        return
+
     ignore_regions = [
         r.strip() for r in os.environ.get("IGNORE_REGIONS", "").split(",") if r.strip()
     ]
 
     subscription_ids_raw = os.environ.get("AZURE_SUBSCRIPTION_IDS", "").strip()
-    if not subscription_ids_raw:
-        logger.error("AZURE_SUBSCRIPTION_IDS is not set — cannot scan")
-        return
 
     subscription_ids = [s.strip() for s in subscription_ids_raw.split(",") if s.strip()]
 
