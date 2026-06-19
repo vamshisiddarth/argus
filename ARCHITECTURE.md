@@ -47,10 +47,10 @@
 │  │  └─────────────────────────────────────────────────────────────┘    │   │
 │  │                                                                      │   │
 │  │  ┌──────────────────────┐   ┌───────────────────────────────────┐   │   │
-│  │  │  REPORT GENERATOR    │   │  SLACK DELIVERY                   │   │   │
+│  │  │  REPORT GENERATOR    │   │  NOTIFICATIONS                    │   │   │
 │  │  │  core/reports/       │   │  core/reports/delivery.py         │   │   │
-│  │  │  - JSON report       │   │  - summary block + top findings   │   │   │
-│  │  │  - ranked by cost    │   │  - ranked by monthly waste ($)    │   │   │
+│  │  │  - JSON/HTML/PDF/    │   │  - Slack / Teams / generic webhook│   │   │
+│  │  │    PPTX export       │   │  - ranked by monthly waste ($)    │   │   │
 │  │  └──────────────────────┘   └───────────────────────────────────┘   │   │
 │  └──────────────────────────────────────────────────────────────────────┘   │
 │                                                                             │
@@ -107,8 +107,8 @@
           ▼               ▼               ▼               ▼
   ┌─────────────┐ ┌─────────────┐ ┌────────────┐ ┌────────────────┐
   │  Bedrock    │ │  Vertex AI  │ │Azure OpenAI│ │ Anthropic API  │
-  │  ✅ built   │ │  Phase 8    │ │  Phase 8   │ │ ✅ built       │
-  │   on AWS)   │ │  (GCP)      │ │  (Azure)   │ │ (local dev /   │
+  │  ✅ built   │ │  ✅ built   │ │  ✅ built  │ │ ✅ built       │
+  │  (AWS)      │ │  (GCP)      │ │  (Azure)   │ │ (local dev /   │
   │             │ │             │ │            │ │  any cloud)    │
   │ Claude      │ │ Gemini 1.5  │ │  GPT-4o    │ │ Claude        │
   │ Sonnet 4.6  │ │ Pro         │ │            │ │ Sonnet 4.6    │
@@ -116,7 +116,6 @@
 
   AI_PROVIDER env var selects which one loads at runtime.
   Anthropic API works on any cloud — best for local dev.
-  Vertex AI and Azure OpenAI providers are planned for Phase 8.
 ```
 
 ---
@@ -219,10 +218,9 @@
   │          Inventory    Monitoring  (billing                       │
   │          (resources)  (metrics)   export)                       │
   │                           │                                      │
-  │                    Vertex AI (Gemini) — Phase 8                  │
-  │                    (Anthropic API in the meantime)               │
+  │                    Vertex AI (Gemini) or Anthropic API           │
   │                           │                                      │
-  │                    Slack (+ GCS report — Phase 8)               │
+  │                    Slack / Teams / Webhook (+ GCS report)        │
   └──────────────────────────────────────────────────────────────────┘
 ```
 
@@ -245,10 +243,9 @@
   │       Graph         Monitor     Management                      │
   │       (resources)   (metrics)   (cost)                          │
   │                        │                                         │
-  │                 Azure OpenAI (GPT-4o) — Phase 8                 │
-  │                 (Anthropic API in the meantime)                  │
+  │                 Azure OpenAI (GPT-4o) or Anthropic API           │
   │                        │                                         │
-  │                 Slack (+ Blob Storage report — Phase 8)         │
+  │                 Slack / Teams / Webhook (+ Blob Storage report)  │
   └──────────────────────────────────────────────────────────────────┘
 ```
 
@@ -322,10 +319,10 @@
   ReportGenerator sorts findings by estimated_monthly_cost desc
         │
         ▼
-  JSON report saved to S3 / GCS / Azure Blob
+  Reports saved to S3 / GCS / Azure Blob (JSON, HTML, PDF, PPTX)
         │
         ▼
-  Slack message: executive summary + top N findings by cost
+  Notifications: Slack / Teams / generic webhook — executive summary + top N findings
 ```
 
 ---
@@ -354,7 +351,7 @@ No per-type configuration needed — it finds everything.
 
 ---
 
-## Slack Report Format
+## Notification Format (Slack example)
 
 ```
   ┌──────────────────────────────────────────────────────────────┐

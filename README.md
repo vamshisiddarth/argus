@@ -24,7 +24,7 @@ Every week (or on demand), Argus:
 1. **Discovers** every resource in your cloud account using AWS Resource Explorer / GCP Asset Inventory / Azure Resource Graph
 2. **Analyzes** each candidate — CloudWatch/Cloud Monitoring/Azure Monitor metrics, Cost Explorer/BigQuery/Cost Management cost data, and CloudTrail/Audit Log/Activity Log last-activity timestamps
 3. **Reasons** about idleness using Claude (via AWS Bedrock, Anthropic API, or Vertex AI) — no hardcoded thresholds
-4. **Reports** a compact Slack digest with top findings and a link to a full self-contained HTML report
+4. **Reports** a compact digest (Slack, Microsoft Teams, or generic webhook) with top findings and a link to a full self-contained HTML report
 
 Example Slack output:
 
@@ -133,12 +133,12 @@ pip install -r requirements/dev.txt    # everything + dev tools
 ### Options
 
 ```
-python main.py --cloud aws --run-now [options]
+python main.py --cloud aws|gcp|azure --run-now [options]
 
-  --dry-run                  Print Slack payload instead of posting
+  --dry-run                  Print notification payload instead of posting
   --ignore-regions REGIONS   Comma-separated regions to skip (e.g. ap-east-1,me-south-1)
-  --ai-provider PROVIDER     anthropic | bedrock (default: anthropic)
-  --accounts PATH            Path to accounts.yaml for multi-account mode
+  --ai-provider PROVIDER     anthropic | bedrock | vertexai | azure_openai (default: anthropic)
+  --accounts PATH            Path to accounts.yaml for multi-account mode (AWS only)
 ```
 
 ---
@@ -230,7 +230,7 @@ az deployment group create \
 | Vertex AI (Gemini) | GCP production | ADC — no key needed |
 | Azure OpenAI (GPT-4o) | Azure production | Managed identity — no key needed |
 
-Set `AI_PROVIDER=anthropic\|bedrock` in `.env` or the Lambda environment.
+Set `AI_PROVIDER=anthropic|bedrock|vertexai|azure_openai` in `.env` or the deployment environment. Use `AI_MODEL` to override the model for any provider, and `AI_TEMPERATURE` to control creativity (default: `0.0`).
 
 ---
 
@@ -302,7 +302,7 @@ argus/
 │   ├── agent/loop.py      # ReAct agent loop
 │   ├── agent/prompts.py   # System prompt + tool schemas
 │   ├── models/finding.py  # ResourceFinding dataclass
-│   └── reports/           # Report generator + Slack delivery
+│   └── reports/           # Report generator, multi-cloud merge, export, notifications
 ├── adapters/
 │   ├── base.py            # CloudAdapter abstract class
 │   ├── aws/               # AWS adapter (Resource Explorer, CloudWatch, Cost Explorer, CloudTrail)
@@ -323,7 +323,7 @@ argus/
 │   ├── aws/               # CloudFormation templates
 │   ├── gcp/               # Cloud Run + Scheduler deploy script
 │   └── azure/             # Bicep templates
-└── tests/                 # 187 tests, all pass offline
+└── tests/                 # 383 tests, all pass offline
 ```
 
 ---

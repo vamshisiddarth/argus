@@ -25,12 +25,8 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument(
         "--cloud",
         default="aws",
-        choices=["aws"],
-        help=(
-            "Cloud provider to scan (default: aws). "
-            "GCP and Azure run via their own entrypoints "
-            "(gcp_cloudrun.py / azure_function.py)."
-        ),
+        choices=["aws", "gcp", "azure"],
+        help="Cloud provider to scan (default: aws)",
     )
     parser.add_argument(
         "--run-now",
@@ -62,7 +58,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument(
         "--ai-provider",
         default=os.environ.get("AI_PROVIDER", "anthropic"),
-        choices=["anthropic", "bedrock"],
+        choices=["anthropic", "bedrock", "vertexai", "azure_openai"],
         help="AI provider (default: anthropic — requires ANTHROPIC_API_KEY)",
     )
     parser.add_argument(
@@ -87,10 +83,20 @@ def main(argv: list[str] | None = None) -> None:
         from entrypoints.aws_lambda import handler
 
         result = handler({}, None)
-        print(json.dumps(result, indent=2))
+    elif args.cloud == "gcp":
+        from entrypoints.gcp_cloudrun import main as gcp_main
+
+        result = gcp_main()
+    elif args.cloud == "azure":
+        from entrypoints.azure_function import main as azure_main
+
+        result = azure_main(None)
     else:
-        print(f"Cloud {args.cloud!r} is not yet implemented.", file=sys.stderr)
+        print(f"Cloud {args.cloud!r} is not supported.", file=sys.stderr)
         sys.exit(1)
+
+    if result is not None:
+        print(json.dumps(result, indent=2))
 
 
 def _apply_accounts_config(path: str) -> None:
