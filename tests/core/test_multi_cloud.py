@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import pytest
-
 from core.reports.multi_cloud import merge_reports, normalize_resource_type
 
 

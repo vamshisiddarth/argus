@@ -19,9 +19,16 @@ import sys
 
 
 def main(argv: list[str] | None = None) -> None:
+    from core.__version__ import __version__
+
     parser = argparse.ArgumentParser(
         prog="argus",
         description="Argus — AI-powered cloud cost optimization agent",
+    )
+    parser.add_argument(
+        "--version", "-V",
+        action="version",
+        version=f"%(prog)s {__version__}",
     )
     parser.add_argument(
         "--cloud",

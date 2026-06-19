@@ -1,6 +1,6 @@
 [project]
 name = "argus-cloud-optimizer"
-version = "0.1.0"
+dynamic = ["version"]
 description = "AI-powered multi-cloud cost optimization agent"
 readme = "README.md"
 license = "MIT"
@@ -12,7 +12,6 @@ keywords = ["cloud", "cost-optimization", "aws", "gcp", "azure", "finops"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: System Administrators",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3.13",
     "Topic :: System :: Systems Administration",
 ]
@@ -36,6 +35,7 @@ gcp = [
     "google-cloud-monitoring>=2.23.0",
     "google-cloud-billing>=1.14.0",
     "google-cloud-logging>=3.11.3",
+    "google-cloud-secret-manager>=2.20.0",
     "openai>=1.55.0",
 ]
 azure = [
@@ -43,6 +43,7 @@ azure = [
     "azure-mgmt-resourcegraph>=8.0.0",
     "azure-monitor-query>=1.4.0",
     "azure-mgmt-costmanagement>=4.0.0",
+    "azure-keyvault-secrets>=4.8.0",
     "openai>=1.55.0",
 ]
 export = [
@@ -79,8 +80,14 @@ Issues = "https://github.com/vamshisiddarth/argus/issues"
 requires = ["setuptools>=75.0"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools.dynamic]
+version = {attr = "core.__version__.__version__"}
+
 [tool.setuptools.packages.find]
 include = ["core*", "adapters*", "ai*", "entrypoints*"]
+
+[tool.setuptools.package-data]
+core = ["py.typed"]
 
 [tool.black]
 line-length = 88
