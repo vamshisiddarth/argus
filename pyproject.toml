@@ -26,32 +26,26 @@ dependencies = [
     "pydantic-settings>=2.6.0",
     "python-dateutil>=2.9.0",
     "structlog>=24.4.0",
-]
-
-[project.optional-dependencies]
-aws = [
+    # AWS
     "boto3>=1.35.36",
     "botocore>=1.35.36",
-]
-gcp = [
+    # GCP
     "google-cloud-asset>=3.26.0",
     "google-cloud-monitoring>=2.23.0",
     "google-cloud-billing>=1.14.0",
     "google-cloud-logging>=3.11.3",
     "google-cloud-secret-manager>=2.20.0",
-    "openai>=1.55.0",
-]
-azure = [
+    # Azure
     "azure-identity>=1.19.0",
     "azure-mgmt-resourcegraph>=8.0.0",
     "azure-monitor-query>=1.4.0",
     "azure-mgmt-costmanagement>=4.0.0",
     "azure-keyvault-secrets>=4.8.0",
+    # AI providers (GCP Vertex AI + Azure OpenAI use openai SDK)
     "openai>=1.55.0",
 ]
-all = [
-    "argus-cloud-optimizer[aws,gcp,azure]",
-]
+
+[project.optional-dependencies]
 export = [
     "weasyprint>=62.0",
     "python-pptx>=1.0.0",

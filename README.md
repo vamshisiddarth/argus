@@ -100,12 +100,10 @@ docker run --rm \
 - An Anthropic API key **or** cloud-native AI access (Bedrock / Vertex AI / Azure OpenAI)
 
 ```bash
-# Install for your cloud:
-pip install argus-cloud-optimizer[aws]     # AWS
-pip install argus-cloud-optimizer[gcp]     # GCP
-pip install argus-cloud-optimizer[azure]   # Azure
-pip install argus-cloud-optimizer[all]     # all clouds
+pip install argus-cloud-optimizer
 ```
+
+One package — all three clouds included. No extras needed.
 
 > **AWS-specific setup:** Enable [Resource Explorer](https://docs.aws.amazon.com/resource-explorer/latest/userguide/) with an **aggregator index** in `us-east-1` (or set `RESOURCE_EXPLORER_REGION` to your aggregator region). Without this, Argus cannot discover resources.
 
