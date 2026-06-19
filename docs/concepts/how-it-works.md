@@ -105,7 +105,7 @@ build_html_report() → self-contained HTML file
         ↓ (if REPORT_*_BUCKET is set)
 upload to S3 / GCS / Azure Blob → pre-signed / SAS URL
         ↓
-build_slack_payload(report, report_url) → compact Slack digest
+build notification payloads (Slack / Teams / generic webhook)
         ↓
-post_to_slack() → Slack webhook
+notify_all() → delivers to all configured channels
 ```

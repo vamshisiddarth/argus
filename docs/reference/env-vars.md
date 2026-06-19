@@ -7,6 +7,8 @@ Complete reference for all Argus environment variables.
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `AI_PROVIDER` | `bedrock` (Lambda) · `anthropic` (CLI) | `anthropic` \| `bedrock` \| `vertexai` \| `azure_openai` |
+| `AI_MODEL` | _(per-provider default)_ | Override the model for any provider. Takes precedence over provider-specific model vars. |
+| `AI_TEMPERATURE` | `0.0` | Model temperature (0.0 = deterministic, 1.0 = creative). Applies to all providers. |
 | `ANTHROPIC_API_KEY` | — | Required when `AI_PROVIDER=anthropic` |
 | `ANTHROPIC_MODEL` | `claude-sonnet-4-6` | Model name when using Anthropic API directly |
 | `BEDROCK_MODEL_ID` | `anthropic.claude-sonnet-4-6` | Bedrock model ID |
@@ -51,7 +53,10 @@ Complete reference for all Argus environment variables.
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `SLACK_WEBHOOK_URL` | — | Slack incoming webhook URL |
-| `DRY_RUN` | `false` | `true` = log Slack payload to stdout, skip posting |
+| `TEAMS_WEBHOOK_URL` | — | Microsoft Teams incoming webhook URL |
+| `WEBHOOK_URL` | — | Generic webhook URL — receives the full JSON report as a POST body |
+| `REPORT_FORMAT` | `json,html` | Comma-separated export formats: `json`, `html`, `pdf`, `pptx`. PDF requires `weasyprint`; PPTX requires `python-pptx` (`pip install argus-cloud-optimizer[export]`). |
+| `DRY_RUN` | `false` | `true` = log notification payload to stdout, skip posting |
 | `REPORT_URL_EXPIRY` | `604800` | Pre-signed / SAS URL expiry in seconds (default: 7 days) |
 
 ### AWS report storage
@@ -85,3 +90,4 @@ Complete reference for all Argus environment variables.
 |----------|---------|-------------|
 | `MAX_RESOURCES_PER_SCAN` | `200` | Maximum resources handed to the AI after Phase 0 cost-sorting. Raise for very large accounts (increases AI token cost proportionally). |
 | `METRICS_LOOKBACK_DAYS` | `90` | CloudWatch / Cloud Monitoring / Azure Monitor lookback window. 90 days covers quarterly usage patterns and aligns with the CloudTrail lookback. Set to `14` for faster local dev runs — **not recommended in production** as short windows produce false-positive idle findings. |
+| `ADAPTER_CONCURRENCY` | `10` | Maximum parallel threads for metric and activity fetches during a scan. Increase for large accounts with many resources; decrease if you hit API rate limits. |

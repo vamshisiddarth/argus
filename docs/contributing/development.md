@@ -12,11 +12,12 @@ git clone https://github.com/vamshisiddarth/argus.git
 cd argus
 python3.13 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
+pre-commit install
 ```
 
 ## Running tests
 
-All 202 tests run offline — no cloud credentials needed:
+All tests run offline — no cloud credentials needed:
 
 ```bash
 pytest tests/ -v
@@ -40,10 +41,21 @@ pytest tests/ --cov=. --cov-report=term-missing
 
 ## Code style
 
+Pre-commit hooks run **ruff** (lint + format) and **mypy** automatically on each commit.
+To set them up:
+
 ```bash
-black .           # format
+pre-commit install          # one-time setup
+pre-commit run --all-files  # manual run on all files
+```
+
+You can also run the tools directly:
+
+```bash
+ruff format .     # format
 ruff check .      # lint
 ruff check --fix  # auto-fix lint issues
+mypy .            # type check
 ```
 
 Rules:
@@ -68,7 +80,7 @@ argus/
 ├── core/               # Pure Python — no cloud imports
 │   ├── agent/          # ReAct loop + system prompt + tool schemas
 │   ├── models/         # ResourceFinding dataclass
-│   └── reports/        # JSON report builder + Slack delivery
+│   └── reports/        # Report builder, multi-cloud merge, export, notifications
 ├── adapters/
 │   ├── base.py         # CloudAdapter abstract class
 │   ├── aws/            # AWS adapter

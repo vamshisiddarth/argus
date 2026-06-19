@@ -8,6 +8,8 @@ In Lambda / Cloud Run / Azure Function, set these as environment variables in th
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `AI_PROVIDER` | No | `bedrock` (Lambda) / `anthropic` (CLI) | `anthropic` \| `bedrock` \| `vertexai` \| `azure_openai` |
+| `AI_MODEL` | No | _(per-provider default)_ | Override model for any provider |
+| `AI_TEMPERATURE` | No | `0.0` | Model temperature (0.0–1.0) |
 | `ANTHROPIC_API_KEY` | When `AI_PROVIDER=anthropic` | — | Anthropic direct API key |
 | `BEDROCK_MODEL_ID` | No | `anthropic.claude-sonnet-4-6` | Bedrock model ID |
 | `BEDROCK_REGION` | No | `us-east-1` | Region where Bedrock is enabled |
@@ -82,11 +84,15 @@ You can pass accounts as a JSON env var or via a YAML file:
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `SLACK_WEBHOOK_URL` | Yes* | — | Slack incoming webhook URL |
-| `DRY_RUN` | No | `false` | `true` = log payload to stdout, skip Slack post |
+| `SLACK_WEBHOOK_URL` | No | — | Slack incoming webhook URL |
+| `TEAMS_WEBHOOK_URL` | No | — | Microsoft Teams incoming webhook URL |
+| `WEBHOOK_URL` | No | — | Generic webhook — receives full JSON report as POST |
+| `REPORT_FORMAT` | No | `json,html` | Export formats: `json`, `html`, `pdf`, `pptx` |
+| `DRY_RUN` | No | `false` | `true` = log payload to stdout, skip notifications |
 | `REPORT_URL_EXPIRY` | No | `604800` | Pre-signed / SAS URL expiry in seconds (default: 7 days) |
+| `ADAPTER_CONCURRENCY` | No | `10` | Max parallel metric/activity fetch threads |
 
-*Not required when `DRY_RUN=true`
+At least one notification channel (`SLACK_WEBHOOK_URL`, `TEAMS_WEBHOOK_URL`, or `WEBHOOK_URL`) is required unless `DRY_RUN=true`.
 
 ### HTML report storage (optional)
 
