@@ -33,9 +33,9 @@ import structlog
 from adapters.azure.adapter import AzureAdapter
 from core.agent.loop import AgentLoop
 from core.log import configure_logging
+from core.reports.comparison import compare_scans
 from core.reports.delivery import (
-    SlackDeliveryError,
-    post_to_slack,
+    notify_all,
     save_reports_locally,
 )
 from core.reports.generator import build_report, build_slack_payload
@@ -89,14 +89,17 @@ def main(mytimer: Any) -> None:
         accounts=[{"id": sid, "name": sid} for sid in subscription_ids],
     )
 
+    storage_account = os.environ.get("REPORT_STORAGE_ACCOUNT", "").strip()
+    previous_report = _load_previous_report(cloud, storage_account)
+    findings, scan_diff = compare_scans(findings, previous_report)
+
     report = build_report(
         findings,
         cloud=cloud,
         executive_summary=executive_summary,
         accounts_scanned=subscription_ids,
+        scan_diff=scan_diff,
     )
-
-    storage_account = os.environ.get("REPORT_STORAGE_ACCOUNT", "").strip()
     report_url: str | None = None
     if storage_account:
         report_url = _save_reports_to_blob(report, storage_account)
@@ -105,10 +108,7 @@ def main(mytimer: Any) -> None:
 
     structlog.contextvars.bind_contextvars(scan_id=report["scan_id"])
     payload = build_slack_payload(report, report_url=report_url)
-    try:
-        post_to_slack(payload)
-    except (SlackDeliveryError, OSError) as exc:
-        logger.error("slack_delivery_failed", error=str(exc))
+    notify_all(payload)
 
     logger.info(
         "scan_complete",
@@ -126,6 +126,46 @@ def _build_ai_provider() -> Any:
     from ai.azure_openai import AzureOpenAIProvider
 
     return AzureOpenAIProvider()
+
+
+def _load_previous_report(cloud: str, storage_account: str) -> dict[str, Any] | None:
+    """Load the most recent previous report from Azure Blob or local storage."""
+    if storage_account:
+        try:
+            from azure.identity import (
+                DefaultAzureCredential,  # type: ignore[import-untyped]
+            )
+            from azure.storage.blob import (
+                BlobServiceClient,  # type: ignore[import-untyped]
+            )
+
+            container = os.environ.get("REPORT_STORAGE_CONTAINER", "argus-reports")
+            credential = DefaultAzureCredential()
+            account_url = f"https://{storage_account}.blob.core.windows.net"
+            client = BlobServiceClient(account_url=account_url, credential=credential)
+            container_client = client.get_container_client(container)
+            blobs = sorted(
+                (
+                    b.name
+                    for b in container_client.list_blobs(prefix=f"reports/{cloud}/")
+                    if b.name.endswith(".json")
+                ),
+                reverse=True,
+            )
+            if blobs:
+                data = container_client.download_blob(blobs[0]).readall()
+                return json.loads(data)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("previous_report_load_failed", error=str(exc))
+    else:
+        from pathlib import Path
+
+        base = Path(os.environ.get("LOCAL_REPORT_DIR", "local_reports")) / cloud
+        if base.exists():
+            json_files = sorted(base.rglob("*.json"), reverse=True)
+            if json_files:
+                return json.loads(json_files[0].read_text(encoding="utf-8"))
+    return None
 
 
 def _save_reports_to_blob(report: dict[str, Any], storage_account: str) -> str | None:

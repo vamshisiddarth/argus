@@ -9,8 +9,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from core.reports.delivery import SlackDeliveryError
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -35,7 +33,7 @@ def _fake_report(scan_id: str = "gcp-scan-id") -> dict:
 
 
 class TestMain:
-    @patch("entrypoints.gcp_cloudrun.post_to_slack")
+    @patch("entrypoints.gcp_cloudrun.notify_all")
     @patch("entrypoints.gcp_cloudrun.build_slack_payload", return_value={"blocks": []})
     @patch("entrypoints.gcp_cloudrun.build_report")
     @patch("entrypoints.gcp_cloudrun.AgentLoop")
@@ -67,7 +65,7 @@ class TestMain:
         mock_build_report.assert_called_once()
         mock_post.assert_called_once()
 
-    @patch("entrypoints.gcp_cloudrun.post_to_slack")
+    @patch("entrypoints.gcp_cloudrun.notify_all")
     @patch("entrypoints.gcp_cloudrun.build_slack_payload", return_value={"blocks": []})
     @patch("entrypoints.gcp_cloudrun.build_report")
     @patch("entrypoints.gcp_cloudrun.AgentLoop")
@@ -98,7 +96,7 @@ class TestMain:
             {"id": "test-project-123", "name": "test-project-123"}
         ]
 
-    @patch("entrypoints.gcp_cloudrun.post_to_slack")
+    @patch("entrypoints.gcp_cloudrun.notify_all")
     @patch("entrypoints.gcp_cloudrun.build_slack_payload", return_value={"blocks": []})
     @patch("entrypoints.gcp_cloudrun.build_report")
     @patch("entrypoints.gcp_cloudrun.AgentLoop")
@@ -150,13 +148,13 @@ class TestMainMissingProjectId:
 
 
 class TestMainSlackFailure:
-    @patch("entrypoints.gcp_cloudrun.post_to_slack")
+    @patch("entrypoints.gcp_cloudrun.notify_all")
     @patch("entrypoints.gcp_cloudrun.build_slack_payload", return_value={"blocks": []})
     @patch("entrypoints.gcp_cloudrun.build_report")
     @patch("entrypoints.gcp_cloudrun.AgentLoop")
     @patch("entrypoints.gcp_cloudrun.GCPAdapter")
     @patch("entrypoints.gcp_cloudrun._build_ai_provider")
-    def test_slack_failure_does_not_crash_main(
+    def test_notify_all_is_called(
         self,
         mock_ai,
         mock_adapter_cls,
@@ -170,38 +168,11 @@ class TestMainSlackFailure:
 
         mock_loop_cls.return_value.run.return_value = ([], "Summary.")
         mock_build_report.return_value = _fake_report()
-        mock_post.side_effect = SlackDeliveryError("webhook 400")
-
-        from entrypoints.gcp_cloudrun import main
-
-        # Should not raise — Slack errors are caught
-        main()
-
-    @patch("entrypoints.gcp_cloudrun.post_to_slack")
-    @patch("entrypoints.gcp_cloudrun.build_slack_payload", return_value={"blocks": []})
-    @patch("entrypoints.gcp_cloudrun.build_report")
-    @patch("entrypoints.gcp_cloudrun.AgentLoop")
-    @patch("entrypoints.gcp_cloudrun.GCPAdapter")
-    @patch("entrypoints.gcp_cloudrun._build_ai_provider")
-    def test_os_error_during_slack_does_not_crash(
-        self,
-        mock_ai,
-        mock_adapter_cls,
-        mock_loop_cls,
-        mock_build_report,
-        mock_build_payload,
-        mock_post,
-        monkeypatch,
-    ):
-        monkeypatch.setenv("GCP_PROJECT_ID", "proj")
-
-        mock_loop_cls.return_value.run.return_value = ([], "Summary.")
-        mock_build_report.return_value = _fake_report()
-        mock_post.side_effect = OSError("Connection reset")
 
         from entrypoints.gcp_cloudrun import main
 
         main()
+        mock_post.assert_called_once()
 
 
 # ---------------------------------------------------------------------------

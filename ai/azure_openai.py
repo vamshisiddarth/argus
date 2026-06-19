@@ -44,6 +44,7 @@ class AzureOpenAIProvider(AIProvider):
     DEFAULT_DEPLOYMENT = "gpt-4o"
     DEFAULT_API_VERSION = "2024-10-21"
     DEFAULT_MAX_TOKENS = 4096
+    DEFAULT_TEMPERATURE = 0.0
 
     def __init__(
         self,
@@ -52,6 +53,7 @@ class AzureOpenAIProvider(AIProvider):
         api_version: str | None = None,
         max_tokens: int = DEFAULT_MAX_TOKENS,
         api_key: str | None = None,
+        temperature: float | None = None,
     ) -> None:
         self._endpoint = endpoint or os.environ.get("AZURE_OPENAI_ENDPOINT")
         if not self._endpoint:
@@ -61,12 +63,18 @@ class AzureOpenAIProvider(AIProvider):
                 "Example: https://my-resource.openai.azure.com/"
             )
         self._deployment = deployment or os.environ.get(
-            "AZURE_OPENAI_DEPLOYMENT", self.DEFAULT_DEPLOYMENT
+            "AI_MODEL",
+            os.environ.get("AZURE_OPENAI_DEPLOYMENT", self.DEFAULT_DEPLOYMENT),
         )
         self._api_version = api_version or os.environ.get(
             "AZURE_OPENAI_API_VERSION", self.DEFAULT_API_VERSION
         )
         self._max_tokens = max_tokens
+        self._temperature = (
+            temperature
+            if temperature is not None
+            else float(os.environ.get("AI_TEMPERATURE", str(self.DEFAULT_TEMPERATURE)))
+        )
 
         # Prefer explicit API key (local dev), otherwise use managed identity token
         resolved_key = api_key or os.environ.get("AZURE_OPENAI_API_KEY")
@@ -110,6 +118,7 @@ class AzureOpenAIProvider(AIProvider):
             "model": self._deployment,
             "messages": openai_messages,
             "max_tokens": self._max_tokens,
+            "temperature": self._temperature,
         }
         if openai_tools:
             kwargs["tools"] = openai_tools
@@ -230,8 +239,11 @@ class AzureOpenAIProvider(AIProvider):
         elif stop_reason == "length":
             stop_reason = "max_tokens"
 
+        usage = getattr(response, "usage", None)
         return AIResponse(
             stop_reason=stop_reason,
             text=text,
             tool_calls=tool_calls,
+            input_tokens=getattr(usage, "prompt_tokens", 0) if usage else 0,
+            output_tokens=getattr(usage, "completion_tokens", 0) if usage else 0,
         )

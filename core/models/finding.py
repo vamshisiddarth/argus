@@ -6,6 +6,7 @@ from typing import Any, Literal
 
 Cloud = Literal["aws", "gcp", "azure"]
 Priority = Literal["high", "medium", "low"]
+FindingStatus = Literal["new", "recurring", "resolved"]
 
 
 @dataclass
@@ -29,6 +30,7 @@ class ResourceFinding:
     scan_time: datetime
     name: str | None = None
     last_activity: datetime | None = None
+    status: FindingStatus = "new"
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -47,6 +49,7 @@ class ResourceFinding:
                 self.last_activity.isoformat() if self.last_activity else None
             ),
             "scan_time": self.scan_time.isoformat(),
+            "status": self.status,
         }
 
     @classmethod
@@ -69,4 +72,5 @@ class ResourceFinding:
             tags=data.get("tags", {}),
             last_activity=last_activity,
             scan_time=scan_time,
+            status=data.get("status", "new"),
         )

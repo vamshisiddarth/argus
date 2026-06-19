@@ -1,3 +1,4 @@
+import threading
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
@@ -5,7 +6,12 @@ import pytest
 
 from adapters.base import CloudAdapter, MetricSummary, Resource
 from ai.base import AIProvider, AIResponse, ToolCall
-from core.agent.loop import MAX_ITERATIONS, AgentLoop, _compress_resource
+from core.agent.loop import (
+    MAX_ITERATIONS,
+    AgentLoop,
+    _apply_exclusion_filters,
+    _compress_resource,
+)
 
 IGNORE_REGIONS: list[str] = []
 ACCOUNTS = [{"id": "123456789012", "name": "test-account"}]
@@ -302,3 +308,168 @@ class TestCompressResource:
         assert out["id"] == "arn:aws:ec2:us-east-1:123:instance/i-0abc"
         assert out["type"] == "AWS::EC2::Instance"
         assert out["region"] == "us-east-1"
+
+
+# ------------------------------------------------------------------
+# Exclusion filter tests
+# ------------------------------------------------------------------
+
+
+def _make_resources() -> list[Resource]:
+    return [
+        Resource(
+            resource_id="r1",
+            resource_type="AWS::EC2::Instance",
+            cloud="aws",
+            region="us-east-1",
+            tags={"env": "prod"},
+        ),
+        Resource(
+            resource_id="r2",
+            resource_type="AWS::Lambda::Function",
+            cloud="aws",
+            region="us-east-1",
+            tags={"cost-optimization": "excluded"},
+        ),
+        Resource(
+            resource_id="r3",
+            resource_type="AWS::RDS::DBInstance",
+            cloud="aws",
+            region="us-west-2",
+            tags={"env": "dev"},
+        ),
+    ]
+
+
+class TestExclusionFilters:
+    def test_no_filters_returns_all(self, monkeypatch):
+        monkeypatch.delenv("EXCLUDE_TAGS", raising=False)
+        monkeypatch.delenv("EXCLUDE_RESOURCE_TYPES", raising=False)
+        result = _apply_exclusion_filters(_make_resources())
+        assert len(result) == 3
+
+    def test_exclude_by_tag(self, monkeypatch):
+        monkeypatch.setenv("EXCLUDE_TAGS", '{"cost-optimization": "excluded"}')
+        monkeypatch.delenv("EXCLUDE_RESOURCE_TYPES", raising=False)
+        result = _apply_exclusion_filters(_make_resources())
+        assert len(result) == 2
+        assert all(r.resource_id != "r2" for r in result)
+
+    def test_exclude_by_resource_type(self, monkeypatch):
+        monkeypatch.delenv("EXCLUDE_TAGS", raising=False)
+        monkeypatch.setenv("EXCLUDE_RESOURCE_TYPES", "AWS::Lambda::Function")
+        result = _apply_exclusion_filters(_make_resources())
+        assert len(result) == 2
+        assert all(r.resource_type != "AWS::Lambda::Function" for r in result)
+
+    def test_exclude_multiple_types(self, monkeypatch):
+        monkeypatch.delenv("EXCLUDE_TAGS", raising=False)
+        monkeypatch.setenv(
+            "EXCLUDE_RESOURCE_TYPES", "AWS::Lambda::Function,AWS::RDS::DBInstance"
+        )
+        result = _apply_exclusion_filters(_make_resources())
+        assert len(result) == 1
+        assert result[0].resource_id == "r1"
+
+    def test_exclude_tags_and_types_combined(self, monkeypatch):
+        monkeypatch.setenv("EXCLUDE_TAGS", '{"env": "dev"}')
+        monkeypatch.setenv("EXCLUDE_RESOURCE_TYPES", "AWS::Lambda::Function")
+        result = _apply_exclusion_filters(_make_resources())
+        assert len(result) == 1
+        assert result[0].resource_id == "r1"
+
+    def test_invalid_json_in_exclude_tags_is_ignored(self, monkeypatch):
+        monkeypatch.setenv("EXCLUDE_TAGS", "not-json")
+        monkeypatch.delenv("EXCLUDE_RESOURCE_TYPES", raising=False)
+        result = _apply_exclusion_filters(_make_resources())
+        assert len(result) == 3
+
+
+class TestParallelExecution:
+    def _make_loop(self):
+        fake_ai = MagicMock(spec=AIProvider)
+        adapter = FakeCloudAdapter()
+        loop = AgentLoop(ai_provider=fake_ai, cloud_adapter=adapter)
+        loop._prefiltered_payload = []
+        return loop
+
+    def test_parallel_tools_execute_concurrently(self):
+        loop = self._make_loop()
+        seen_threads: set[int] = set()
+
+        original_execute = loop._execute
+
+        def tracking_execute(tc):
+            seen_threads.add(threading.current_thread().ident)
+            return original_execute(tc)
+
+        loop._execute = tracking_execute
+
+        tool_calls = [
+            ToolCall(
+                id=f"tc_{i}",
+                name="get_metrics",
+                arguments={
+                    "resource_id": f"r-{i}",
+                    "resource_type": "AWS::EC2::Instance",
+                },
+            )
+            for i in range(5)
+        ]
+
+        results = loop._execute_tool_calls(tool_calls)
+        assert len(results) == 5
+        assert all(not r.is_error for r in results)
+        assert len(seen_threads) > 1
+
+    def test_sequential_tools_stay_sequential(self):
+        loop = self._make_loop()
+        tool_calls = [
+            ToolCall(
+                id="tc_list",
+                name="list_resources",
+                arguments={"ignore_regions": []},
+            ),
+        ]
+        results = loop._execute_tool_calls(tool_calls)
+        assert len(results) == 1
+        assert not results[0].is_error
+
+    def test_mixed_parallel_and_sequential_preserves_order(self):
+        loop = self._make_loop()
+        tool_calls = [
+            ToolCall(
+                id="tc_1",
+                name="get_metrics",
+                arguments={
+                    "resource_id": "r-1",
+                    "resource_type": "AWS::EC2::Instance",
+                },
+            ),
+            ToolCall(
+                id="tc_2",
+                name="list_resources",
+                arguments={"ignore_regions": []},
+            ),
+            ToolCall(
+                id="tc_3",
+                name="get_last_activity",
+                arguments={
+                    "resource_id": "r-1",
+                    "resource_type": "AWS::EC2::Instance",
+                },
+            ),
+        ]
+        results = loop._execute_tool_calls(tool_calls)
+        assert [r.tool_call_id for r in results] == ["tc_1", "tc_2", "tc_3"]
+
+    def test_adapter_concurrency_env_var(self, monkeypatch):
+        monkeypatch.setenv("ADAPTER_CONCURRENCY", "5")
+        import importlib
+
+        import core.agent.loop as loop_mod
+
+        importlib.reload(loop_mod)
+        assert loop_mod.ADAPTER_CONCURRENCY == 5
+        monkeypatch.setenv("ADAPTER_CONCURRENCY", "10")
+        importlib.reload(loop_mod)

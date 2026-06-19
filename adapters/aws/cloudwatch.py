@@ -8,6 +8,8 @@ import boto3
 import structlog
 from botocore.exceptions import ClientError
 
+from adapters.aws.config import BOTO_TIMEOUT_CONFIG
+from adapters.aws.retry import retry_on_transient
 from adapters.base import MetricSummary
 
 logger = structlog.get_logger(__name__)
@@ -294,7 +296,9 @@ def get_metrics(
 
     region = _region_from_arn(resource_id)
     dim_value = _dimension_value(resource_id, resource_type)
-    client = session.client("cloudwatch", region_name=region)
+    client = session.client(
+        "cloudwatch", region_name=region, config=BOTO_TIMEOUT_CONFIG
+    )
 
     end_time = datetime.now(tz=timezone.utc)
     start_time = end_time - timedelta(days=days)
@@ -317,7 +321,8 @@ def get_metrics(
     ]
 
     try:
-        response = client.get_metric_data(
+        response = retry_on_transient(
+            client.get_metric_data,
             MetricDataQueries=queries,
             StartTime=start_time,
             EndTime=end_time,
@@ -376,7 +381,9 @@ def _enrich_instance_details(
     try:
         match resource_type:
             case "AWS::EC2::Instance":
-                ec2 = session.client("ec2", region_name=region)
+                ec2 = session.client(
+                    "ec2", region_name=region, config=BOTO_TIMEOUT_CONFIG
+                )
                 instance_id = resource_id.split("/")[-1].split(":")[-1]
                 resp = ec2.describe_instances(InstanceIds=[instance_id])
                 reservations = resp.get("Reservations", [])
@@ -391,7 +398,9 @@ def _enrich_instance_details(
                         )
 
             case "AWS::RDS::DBInstance":
-                rds = session.client("rds", region_name=region)
+                rds = session.client(
+                    "rds", region_name=region, config=BOTO_TIMEOUT_CONFIG
+                )
                 db_id = resource_id.split(":")[-1]
                 resp = rds.describe_db_instances(DBInstanceIdentifier=db_id)
                 instances = resp.get("DBInstances", [])
@@ -405,7 +414,9 @@ def _enrich_instance_details(
                     metrics["multi_az"] = db.get("MultiAZ", False)
 
             case "AWS::RDS::DBCluster":
-                rds = session.client("rds", region_name=region)
+                rds = session.client(
+                    "rds", region_name=region, config=BOTO_TIMEOUT_CONFIG
+                )
                 cluster_id = resource_id.split(":")[-1]
                 resp = rds.describe_db_clusters(DBClusterIdentifier=cluster_id)
                 clusters = resp.get("DBClusters", [])
@@ -431,7 +442,9 @@ def _enrich_instance_details(
                             )
 
             case "AWS::ElastiCache::CacheCluster":
-                ec = session.client("elasticache", region_name=region)
+                ec = session.client(
+                    "elasticache", region_name=region, config=BOTO_TIMEOUT_CONFIG
+                )
                 cluster_id = resource_id.split(":")[-1]
                 resp = ec.describe_cache_clusters(CacheClusterId=cluster_id)
                 clusters = resp.get("CacheClusters", [])
@@ -444,7 +457,9 @@ def _enrich_instance_details(
                     )
 
             case "AWS::ElastiCache::ReplicationGroup":
-                ec = session.client("elasticache", region_name=region)
+                ec = session.client(
+                    "elasticache", region_name=region, config=BOTO_TIMEOUT_CONFIG
+                )
                 rg_id = resource_id.split(":")[-1]
                 resp = ec.describe_replication_groups(ReplicationGroupId=rg_id)
                 groups = resp.get("ReplicationGroups", [])
@@ -457,7 +472,9 @@ def _enrich_instance_details(
                     )
 
             case "AWS::Redshift::Cluster":
-                rs = session.client("redshift", region_name=region)
+                rs = session.client(
+                    "redshift", region_name=region, config=BOTO_TIMEOUT_CONFIG
+                )
                 cluster_id = resource_id.split(":")[-1]
                 resp = rs.describe_clusters(ClusterIdentifier=cluster_id)
                 clusters = resp.get("Clusters", [])
@@ -467,7 +484,9 @@ def _enrich_instance_details(
                     metrics["instance_count"] = c.get("NumberOfNodes")
 
             case "AWS::OpenSearchService::Domain":
-                oss = session.client("opensearch", region_name=region)
+                oss = session.client(
+                    "opensearch", region_name=region, config=BOTO_TIMEOUT_CONFIG
+                )
                 domain_name = resource_id.split("/")[-1]
                 resp = oss.describe_domain(DomainName=domain_name)
                 config = resp.get("DomainStatus", {}).get("ClusterConfig", {})
@@ -479,7 +498,9 @@ def _enrich_instance_details(
                     )
 
             case "AWS::Lambda::Function":
-                lam = session.client("lambda", region_name=region)
+                lam = session.client(
+                    "lambda", region_name=region, config=BOTO_TIMEOUT_CONFIG
+                )
                 func_name = resource_id.split(":")[-1]
                 resp = lam.get_function_configuration(FunctionName=func_name)
                 metrics["memory_mb"] = resp.get("MemorySize")
@@ -489,7 +510,9 @@ def _enrich_instance_details(
                 metrics["runtime"] = resp.get("Runtime")
 
             case "AWS::DMS::ReplicationInstance":
-                dms = session.client("dms", region_name=region)
+                dms = session.client(
+                    "dms", region_name=region, config=BOTO_TIMEOUT_CONFIG
+                )
                 # DMS uses the ARN as the filter
                 resp = dms.describe_replication_instances(
                     Filters=[
@@ -560,7 +583,9 @@ def _discover_metrics(
     Uses the ARN as a dimension value where possible.
     """
     region = _region_from_arn(resource_id)
-    client = session.client("cloudwatch", region_name=region)
+    client = session.client(
+        "cloudwatch", region_name=region, config=BOTO_TIMEOUT_CONFIG
+    )
 
     # Try to find metrics that reference this resource by ARN or last-segment name.
     dim_value = _dimension_value(resource_id, resource_type)
@@ -644,7 +669,9 @@ def _dimension_value(arn: str, resource_type: str) -> str:
             # arn:aws:glue:region:account:job/name
             return resource_part.split("/")[-1]
         case (
-            "AWS::RDS::DBCluster" | "AWS::Neptune::DBCluster" | "AWS::DocDB::DBCluster"
+            "AWS::RDS::DBCluster"
+            | "AWS::Neptune::DBCluster"
+            | "AWS::DocDB::DBCluster"
         ):
             # arn:...:cluster:name
             return resource_part.split(":")[-1]

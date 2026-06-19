@@ -6,6 +6,9 @@ import boto3
 import structlog
 from botocore.exceptions import ClientError
 
+from adapters.aws.config import BOTO_TIMEOUT_CONFIG
+from adapters.aws.retry import retry_on_transient
+
 logger = structlog.get_logger(__name__)
 
 # Cost Explorer is a global service — always us-east-1
@@ -31,13 +34,14 @@ def get_cost(
     if not resource_ids:
         return {}
 
-    client = session.client("ce", region_name=_CE_REGION)
+    client = session.client("ce", region_name=_CE_REGION, config=BOTO_TIMEOUT_CONFIG)
 
     end_date = datetime.now(tz=timezone.utc).date()
     start_date = end_date - timedelta(days=days)
 
     try:
-        response = client.get_cost_and_usage_with_resources(
+        response = retry_on_transient(
+            client.get_cost_and_usage_with_resources,
             TimePeriod={
                 "Start": start_date.strftime("%Y-%m-%d"),
                 "End": end_date.strftime("%Y-%m-%d"),

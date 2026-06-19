@@ -7,6 +7,7 @@ import boto3
 import structlog
 from botocore.exceptions import ClientError
 
+from adapters.aws.config import BOTO_TIMEOUT_CONFIG
 from adapters.base import Resource
 
 logger = structlog.get_logger(__name__)
@@ -106,7 +107,9 @@ def list_resources(
     Any region not in ignore_regions is scanned automatically — including newly
     launched AWS regions — so regional failures never block the scan.
     """
-    client = session.client("resource-explorer-2", region_name=aggregator_region)
+    client = session.client(
+        "resource-explorer-2", region_name=aggregator_region, config=BOTO_TIMEOUT_CONFIG
+    )
     ignore_set = set(ignore_regions) if ignore_regions else set()
     resources: list[Resource] = []
 

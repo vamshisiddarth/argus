@@ -59,6 +59,7 @@ class TestToDict:
             "tags",
             "last_activity",
             "scan_time",
+            "status",
         }
         assert expected_keys == set(result.keys())
 

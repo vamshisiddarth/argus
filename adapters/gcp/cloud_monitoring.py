@@ -9,6 +9,7 @@ from google.cloud import monitoring_v3
 from google.protobuf.timestamp_pb2 import Timestamp
 
 from adapters.base import MetricSummary
+from adapters.gcp.retry import retry_on_transient
 
 logger = structlog.get_logger(__name__)
 
@@ -147,7 +148,9 @@ def get_metrics(
         )
 
         try:
-            series = list(client.list_time_series(request=request))
+            series = list(
+                retry_on_transient(client.list_time_series, request=request, timeout=60)
+            )
         except GoogleAPICallError as exc:
             logger.warning(
                 "cloud_monitoring_failed",
@@ -206,7 +209,7 @@ def _discover_metrics(
 
     discovered: list[tuple[str, str]] = []
     try:
-        for descriptor in client.list_metric_descriptors(request=request):
+        for descriptor in client.list_metric_descriptors(request=request, timeout=60):
             metric_type: str = descriptor.type
             stat = (
                 "sum"

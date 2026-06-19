@@ -6,6 +6,8 @@ import structlog
 from google.api_core.exceptions import GoogleAPICallError
 from google.cloud import logging as gcp_logging
 
+from adapters.gcp.retry import retry_on_transient
+
 logger = structlog.get_logger(__name__)
 
 _LOOKBACK_DAYS = 90  # Cloud Logging retention default is 30-400 days depending on tier
@@ -45,10 +47,12 @@ def get_last_activity(
 
     try:
         entries = list(
-            client.list_entries(
+            retry_on_transient(
+                client.list_entries,
                 filter_=log_filter,
                 order_by=gcp_logging.DESCENDING,
                 page_size=1,
+                timeout=60,
             )
         )
     except GoogleAPICallError as exc:

@@ -1,11 +1,19 @@
 from __future__ import annotations
 
 import os
+import random
+import time
 from typing import Any
 
 import anthropic as anthropic_sdk
+import structlog
 
 from ai.base import AIProvider, AIResponse, Message, Tool, ToolCall
+
+logger = structlog.get_logger(__name__)
+
+_MAX_RETRIES = 3
+_BASE_DELAY = 1.0
 
 
 class AnthropicProvider(AIProvider):
@@ -18,12 +26,14 @@ class AnthropicProvider(AIProvider):
 
     DEFAULT_MODEL = "claude-sonnet-4-6"
     DEFAULT_MAX_TOKENS = 4096
+    DEFAULT_TEMPERATURE = 0.0
 
     def __init__(
         self,
         api_key: str | None = None,
         model: str | None = None,
         max_tokens: int = DEFAULT_MAX_TOKENS,
+        temperature: float | None = None,
     ) -> None:
         resolved_key = api_key or os.environ.get("ANTHROPIC_API_KEY")
         if not resolved_key:
@@ -31,9 +41,16 @@ class AnthropicProvider(AIProvider):
                 "ANTHROPIC_API_KEY is not set. "
                 "Export it or pass api_key= explicitly."
             )
-        self._client = anthropic_sdk.Anthropic(api_key=resolved_key)
-        self._model = model or os.environ.get("ANTHROPIC_MODEL", self.DEFAULT_MODEL)
+        self._client = anthropic_sdk.Anthropic(api_key=resolved_key, timeout=60.0)
+        self._model = model or os.environ.get(
+            "AI_MODEL", os.environ.get("ANTHROPIC_MODEL", self.DEFAULT_MODEL)
+        )
         self._max_tokens = max_tokens
+        self._temperature = (
+            temperature
+            if temperature is not None
+            else float(os.environ.get("AI_TEMPERATURE", str(self.DEFAULT_TEMPERATURE)))
+        )
 
     def chat(
         self,
@@ -44,6 +61,7 @@ class AnthropicProvider(AIProvider):
         kwargs: dict[str, Any] = {
             "model": self._model,
             "max_tokens": self._max_tokens,
+            "temperature": self._temperature,
             "messages": [self._to_anthropic_message(m) for m in messages],
             "tools": [self._to_anthropic_tool(t) for t in tools],
         }
@@ -59,8 +77,37 @@ class AnthropicProvider(AIProvider):
                 }
             ]
 
-        response = self._client.messages.create(**kwargs)
+        response = self._call_with_retry(kwargs)
         return self._parse_response(response)
+
+    # ------------------------------------------------------------------
+    # Retry logic
+    # ------------------------------------------------------------------
+
+    def _call_with_retry(self, kwargs: dict[str, Any]) -> Any:
+        delay = _BASE_DELAY
+        for attempt in range(_MAX_RETRIES):
+            try:
+                return self._client.messages.create(**kwargs)
+            except (
+                anthropic_sdk.RateLimitError,
+                anthropic_sdk.InternalServerError,
+            ) as exc:
+                if attempt < _MAX_RETRIES - 1:
+                    jitter = random.uniform(0, delay * 0.5)  # noqa: S311
+                    sleep_time = delay + jitter
+                    logger.warning(
+                        "anthropic_api_retrying",
+                        error_type=type(exc).__name__,
+                        attempt=attempt + 1,
+                        max_retries=_MAX_RETRIES,
+                        retry_in=round(sleep_time, 1),
+                    )
+                    time.sleep(sleep_time)
+                    delay *= 2
+                else:
+                    raise
+        raise RuntimeError("Unreachable")  # pragma: no cover
 
     # ------------------------------------------------------------------
     # Internal conversion helpers
@@ -121,8 +168,11 @@ class AnthropicProvider(AIProvider):
             elif block.type == "text":
                 text = block.text
 
+        usage = getattr(response, "usage", None)
         return AIResponse(
             stop_reason=response.stop_reason,
             text=text,
             tool_calls=tool_calls,
+            input_tokens=getattr(usage, "input_tokens", 0) if usage else 0,
+            output_tokens=getattr(usage, "output_tokens", 0) if usage else 0,
         )

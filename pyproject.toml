@@ -3,7 +3,7 @@ name = "argus-cloud-optimizer"
 version = "0.1.0"
 description = "AI-powered multi-cloud cost optimization agent"
 readme = "README.md"
-license = "Apache-2.0"
+license = "MIT"
 requires-python = ">=3.13"
 authors = [
     { name = "Vamshi Siddarth Gaddam", email = "vamshisiddarth02@gmail.com" },
@@ -43,6 +43,10 @@ azure = [
     "azure-monitor-query>=1.4.0",
     "azure-mgmt-costmanagement>=4.0.0",
     "openai>=1.55.0",
+]
+export = [
+    "weasyprint>=62.0",
+    "python-pptx>=1.0.0",
 ]
 dev = [
     "pytest>=8.3.3",

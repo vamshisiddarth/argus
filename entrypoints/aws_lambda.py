@@ -31,9 +31,9 @@ from adapters.aws.adapter import AWSAdapter
 from core.agent.loop import AgentLoop
 from core.log import configure_logging
 from core.models.finding import ResourceFinding
+from core.reports.comparison import compare_scans
 from core.reports.delivery import (
-    SlackDeliveryError,
-    post_to_slack,
+    notify_all,
     save_reports_locally,
 )
 from core.reports.generator import build_report, build_slack_payload
@@ -78,14 +78,17 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
             ai_provider, ignore_regions, primary_region, cloud
         )
 
+    s3_bucket = os.environ.get("REPORT_S3_BUCKET", "").strip()
+    previous_report = _load_previous_report(cloud, s3_bucket)
+    all_findings, scan_diff = compare_scans(all_findings, previous_report)
+
     report = build_report(
         all_findings,
         cloud=cloud,
         executive_summary=executive_summary,
         accounts_scanned=account_ids,
+        scan_diff=scan_diff,
     )
-
-    s3_bucket = os.environ.get("REPORT_S3_BUCKET", "").strip()
     report_url: str | None = None
     if s3_bucket:
         report_url = _save_reports_to_s3(report, s3_bucket)
@@ -94,10 +97,7 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
 
     structlog.contextvars.bind_contextvars(scan_id=report["scan_id"])
     payload = build_slack_payload(report, report_url=report_url)
-    try:
-        post_to_slack(payload)
-    except (SlackDeliveryError, OSError) as exc:
-        logger.error("slack_delivery_failed", error=str(exc))
+    notify_all(payload)
 
     logger.info(
         "scan_complete",
@@ -204,6 +204,47 @@ def _get_current_account_id() -> str:
     except ClientError as exc:
         logger.warning("sts_get_account_id_failed", error=str(exc))
         return "unknown"
+
+
+def _load_previous_report(cloud: str, s3_bucket: str) -> dict[str, Any] | None:
+    """Load the most recent previous report from S3 or local storage."""
+    if s3_bucket:
+        try:
+            s3 = boto3.client("s3")
+            resp = s3.list_objects_v2(
+                Bucket=s3_bucket,
+                Prefix=f"reports/{cloud}/",
+                MaxKeys=1000,
+            )
+            json_keys = sorted(
+                (
+                    obj["Key"]
+                    for obj in resp.get("Contents", [])
+                    if obj["Key"].endswith(".json")
+                ),
+                reverse=True,
+            )
+            if json_keys:
+                body = s3.get_object(Bucket=s3_bucket, Key=json_keys[0])["Body"].read()
+                return json.loads(body)
+        except ClientError as exc:
+            logger.warning("previous_report_load_failed", error=str(exc))
+    else:
+        return _load_previous_report_local(cloud)
+    return None
+
+
+def _load_previous_report_local(cloud: str) -> dict[str, Any] | None:
+    """Load the most recent previous report from local_reports/."""
+    from pathlib import Path
+
+    base = Path(os.environ.get("LOCAL_REPORT_DIR", "local_reports")) / cloud
+    if not base.exists():
+        return None
+    json_files = sorted(base.rglob("*.json"), reverse=True)
+    if json_files:
+        return json.loads(json_files[0].read_text(encoding="utf-8"))
+    return None
 
 
 def _save_reports_to_s3(report: dict[str, Any], bucket: str) -> str | None:

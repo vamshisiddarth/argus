@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os as _os
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from typing import Any
 
@@ -18,6 +19,10 @@ MAX_ITERATIONS = 50
 
 # Override via MAX_RESOURCES_PER_SCAN env var for large accounts.
 MAX_RESOURCES_PER_SCAN: int = int(_os.environ.get("MAX_RESOURCES_PER_SCAN", "200"))
+
+ADAPTER_CONCURRENCY: int = int(_os.environ.get("ADAPTER_CONCURRENCY", "10"))
+
+_PARALLELIZABLE_TOOLS = frozenset({"get_metrics", "get_last_activity"})
 
 
 class AgentLoop:
@@ -68,6 +73,9 @@ class AgentLoop:
         # ------------------------------------------------------------------
         self._prefilter_resources(ignore_regions)
 
+        self.total_input_tokens = 0
+        self.total_output_tokens = 0
+
         messages: list[Message] = [
             Message(role="user", text="Begin your cloud cost analysis now.")
         ]
@@ -76,6 +84,8 @@ class AgentLoop:
             logger.info("agent_iteration", iteration=iteration)
 
             response = self._ai.chat(messages, self._tools, system_prompt=system_prompt)
+            self.total_input_tokens += response.input_tokens
+            self.total_output_tokens += response.output_tokens
 
             if response.stop_reason == "tool_use":
                 # Check first — submit_findings terminates the loop immediately
@@ -96,18 +106,8 @@ class AgentLoop:
                     )
                 )
 
-                # Execute every tool call; collect all results into one user turn
-                tool_results: list[ToolResult] = []
-                for tc in response.tool_calls:
-                    content, is_error = self._execute(tc)
-                    logger.info("tool_executed", tool=tc.name, is_error=is_error)
-                    tool_results.append(
-                        ToolResult(
-                            tool_call_id=tc.id,
-                            content=content,
-                            is_error=is_error,
-                        )
-                    )
+                # Parallel for metrics/activity, sequential for the rest
+                tool_results = self._execute_tool_calls(response.tool_calls)
 
                 messages.append(Message(role="user", tool_results=tool_results))
 
@@ -125,6 +125,42 @@ class AgentLoop:
             "without submitting findings. "
             "Check the system prompt or increase MAX_ITERATIONS."
         )
+
+    def _execute_tool_calls(self, tool_calls: list[ToolCall]) -> list[ToolResult]:
+        parallel = [tc for tc in tool_calls if tc.name in _PARALLELIZABLE_TOOLS]
+        sequential = [tc for tc in tool_calls if tc.name not in _PARALLELIZABLE_TOOLS]
+
+        results_by_id: dict[str, ToolResult] = {}
+
+        for tc in sequential:
+            content, is_error = self._execute(tc)
+            logger.info("tool_executed", tool=tc.name, is_error=is_error)
+            results_by_id[tc.id] = ToolResult(
+                tool_call_id=tc.id, content=content, is_error=is_error
+            )
+
+        if parallel:
+            results_by_id.update(self._execute_parallel(parallel))
+
+        return [results_by_id[tc.id] for tc in tool_calls]
+
+    def _execute_parallel(self, tool_calls: list[ToolCall]) -> dict[str, ToolResult]:
+        results: dict[str, ToolResult] = {}
+        max_workers = min(ADAPTER_CONCURRENCY, len(tool_calls))
+
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_tc = {executor.submit(self._execute, tc): tc for tc in tool_calls}
+            for future in as_completed(future_to_tc):
+                tc = future_to_tc[future]
+                content, is_error = future.result()
+                logger.info(
+                    "tool_executed", tool=tc.name, is_error=is_error, parallel=True
+                )
+                results[tc.id] = ToolResult(
+                    tool_call_id=tc.id, content=content, is_error=is_error
+                )
+
+        return results
 
     def _prefilter_resources(self, ignore_regions: list[str]) -> list[dict]:
         """
@@ -144,6 +180,7 @@ class AgentLoop:
         logger.info("prefilter_start")
 
         resources = self._adapter.list_resources(ignore_regions=ignore_regions or None)
+        resources = _apply_exclusion_filters(resources)
         total_discovered = len(resources)
 
         if not resources:
@@ -240,6 +277,60 @@ class AgentLoop:
 # ------------------------------------------------------------------
 # Internal helpers
 # ------------------------------------------------------------------
+
+
+def _apply_exclusion_filters(resources: list[Any]) -> list[Any]:
+    exclude_tags = _parse_exclude_tags()
+    exclude_types = _parse_exclude_types()
+
+    if not exclude_tags and not exclude_types:
+        return resources
+
+    filtered = []
+    excluded_count = 0
+    for r in resources:
+        if exclude_types and r.resource_type in exclude_types:
+            excluded_count += 1
+            continue
+        if exclude_tags and _tags_match(r.tags, exclude_tags):
+            excluded_count += 1
+            continue
+        filtered.append(r)
+
+    if excluded_count > 0:
+        logger.info(
+            "exclusion_filter_applied",
+            excluded=excluded_count,
+            remaining=len(filtered),
+        )
+    return filtered
+
+
+def _parse_exclude_tags() -> dict[str, str]:
+    raw = _os.environ.get("EXCLUDE_TAGS", "").strip()
+    if not raw:
+        return {}
+    try:
+        parsed = json.loads(raw)
+        if isinstance(parsed, dict):
+            return {str(k): str(v) for k, v in parsed.items()}
+    except (json.JSONDecodeError, TypeError):
+        logger.warning("exclude_tags_invalid_json", raw=raw)
+    return {}
+
+
+def _parse_exclude_types() -> set[str]:
+    raw = _os.environ.get("EXCLUDE_RESOURCE_TYPES", "").strip()
+    if not raw:
+        return set()
+    return {t.strip() for t in raw.split(",") if t.strip()}
+
+
+def _tags_match(resource_tags: dict[str, str], exclude_tags: dict[str, str]) -> bool:
+    for key, value in exclude_tags.items():
+        if resource_tags.get(key) == value:
+            return True
+    return False
 
 
 def _compress_resource(r: dict) -> dict:

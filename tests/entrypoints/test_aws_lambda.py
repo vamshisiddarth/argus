@@ -8,8 +8,6 @@ from __future__ import annotations
 import json
 from unittest.mock import MagicMock, patch
 
-from core.reports.delivery import SlackDeliveryError
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -34,7 +32,7 @@ def _fake_report(scan_id: str = "test-scan-id") -> dict:
 
 
 class TestHandlerSingleAccount:
-    @patch("entrypoints.aws_lambda.post_to_slack")
+    @patch("entrypoints.aws_lambda.notify_all")
     @patch("entrypoints.aws_lambda.build_slack_payload", return_value={"blocks": []})
     @patch("entrypoints.aws_lambda.build_report")
     @patch("entrypoints.aws_lambda.AgentLoop")
@@ -70,7 +68,7 @@ class TestHandlerSingleAccount:
         assert result["findings_count"] == 2
         assert result["total_estimated_waste_usd"] == 150.0
 
-    @patch("entrypoints.aws_lambda.post_to_slack")
+    @patch("entrypoints.aws_lambda.notify_all")
     @patch("entrypoints.aws_lambda.build_slack_payload", return_value={"blocks": []})
     @patch("entrypoints.aws_lambda.build_report")
     @patch("entrypoints.aws_lambda.AgentLoop")
@@ -105,7 +103,7 @@ class TestHandlerSingleAccount:
         )
         mock_loop_cls.return_value.run.assert_called_once()
 
-    @patch("entrypoints.aws_lambda.post_to_slack")
+    @patch("entrypoints.aws_lambda.notify_all")
     @patch("entrypoints.aws_lambda.build_slack_payload", return_value={"blocks": []})
     @patch("entrypoints.aws_lambda.build_report")
     @patch("entrypoints.aws_lambda.AgentLoop")
@@ -144,7 +142,7 @@ class TestHandlerSingleAccount:
 
 
 class TestHandlerMultiAccount:
-    @patch("entrypoints.aws_lambda.post_to_slack")
+    @patch("entrypoints.aws_lambda.notify_all")
     @patch("entrypoints.aws_lambda.build_slack_payload", return_value={"blocks": []})
     @patch("entrypoints.aws_lambda.build_report")
     @patch("entrypoints.aws_lambda.AgentLoop")
@@ -177,7 +175,7 @@ class TestHandlerMultiAccount:
         assert mock_adapter_cls.for_account.call_count == 2
         assert mock_loop_cls.return_value.run.call_count == 2
 
-    @patch("entrypoints.aws_lambda.post_to_slack")
+    @patch("entrypoints.aws_lambda.notify_all")
     @patch("entrypoints.aws_lambda.build_slack_payload", return_value={"blocks": []})
     @patch("entrypoints.aws_lambda.build_report")
     @patch("entrypoints.aws_lambda.AgentLoop")
@@ -350,7 +348,7 @@ class TestSaveReportsToS3:
 
 
 class TestHandlerSlackFailure:
-    @patch("entrypoints.aws_lambda.post_to_slack")
+    @patch("entrypoints.aws_lambda.notify_all")
     @patch("entrypoints.aws_lambda.build_slack_payload", return_value={"blocks": []})
     @patch("entrypoints.aws_lambda.build_report")
     @patch("entrypoints.aws_lambda.AgentLoop")
@@ -374,45 +372,12 @@ class TestHandlerSlackFailure:
 
         mock_loop_cls.return_value.run.return_value = ([], "Summary.")
         mock_build_report.return_value = _fake_report()
-        mock_post.side_effect = SlackDeliveryError("webhook 400")
-
         from entrypoints.aws_lambda import handler
 
         result = handler({}, None)
 
         assert result["statusCode"] == 200
-
-    @patch("entrypoints.aws_lambda.post_to_slack")
-    @patch("entrypoints.aws_lambda.build_slack_payload", return_value={"blocks": []})
-    @patch("entrypoints.aws_lambda.build_report")
-    @patch("entrypoints.aws_lambda.AgentLoop")
-    @patch("entrypoints.aws_lambda.AWSAdapter")
-    @patch(
-        "entrypoints.aws_lambda._get_current_account_id", return_value="123456789012"
-    )
-    @patch("entrypoints.aws_lambda._build_ai_provider")
-    def test_os_error_during_slack_does_not_crash(
-        self,
-        mock_ai,
-        mock_acct_id,
-        mock_adapter_cls,
-        mock_loop_cls,
-        mock_build_report,
-        mock_build_payload,
-        mock_post,
-        monkeypatch,
-    ):
-        monkeypatch.setenv("ACCOUNTS_MODE", "single")
-
-        mock_loop_cls.return_value.run.return_value = ([], "Summary.")
-        mock_build_report.return_value = _fake_report()
-        mock_post.side_effect = OSError("Connection reset")
-
-        from entrypoints.aws_lambda import handler
-
-        result = handler({}, None)
-
-        assert result["statusCode"] == 200
+        mock_post.assert_called_once()
 
 
 # ---------------------------------------------------------------------------

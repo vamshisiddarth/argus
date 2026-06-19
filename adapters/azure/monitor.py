@@ -8,6 +8,7 @@ from azure.core.exceptions import HttpResponseError
 from azure.identity import DefaultAzureCredential
 from azure.monitor.query import MetricAggregationType, MetricsQueryClient
 
+from adapters.azure.retry import retry_on_transient
 from adapters.base import MetricSummary
 
 logger = structlog.get_logger(__name__)
@@ -198,7 +199,7 @@ def get_metrics(
         )
 
     cred = credential or DefaultAzureCredential()
-    client = MetricsQueryClient(cred)
+    client = MetricsQueryClient(cred, connection_timeout=10, read_timeout=60)
 
     end_time = datetime.now(tz=timezone.utc)
     start_time = end_time - timedelta(days=days)
@@ -207,7 +208,8 @@ def get_metrics(
     metric_names = [name for name, _ in metric_defs]
 
     try:
-        response = client.query_resource(
+        response = retry_on_transient(
+            client.query_resource,
             resource_uri=resource_id,
             metric_names=metric_names,
             timespan=(start_time, end_time),
@@ -279,11 +281,13 @@ def _discover_metrics(
     from azure.monitor.query import MetricsQueryClient
 
     cred = credential or DefaultAzureCredential()
-    client = MetricsQueryClient(cred)
+    client = MetricsQueryClient(cred, connection_timeout=10, read_timeout=60)
     discovered: list[tuple[str, str]] = []
 
     try:
-        definitions = client.list_metric_definitions(resource_uri=resource_id)
+        definitions = retry_on_transient(
+            client.list_metric_definitions, resource_uri=resource_id
+        )
         for defn in definitions:
             metric_name: str = defn.name or ""
             # Pick aggregation based on metric name heuristics

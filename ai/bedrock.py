@@ -26,24 +26,28 @@ class BedrockProvider(AIProvider):
     DEFAULT_MODEL = "anthropic.claude-sonnet-4-6"
     DEFAULT_REGION = "us-east-1"
     DEFAULT_MAX_TOKENS = 4096
-    DEFAULT_TEMPERATURE = 0.3
+    DEFAULT_TEMPERATURE = 0.0
 
     def __init__(
         self,
         model_id: str | None = None,
         region: str | None = None,
         max_tokens: int = DEFAULT_MAX_TOKENS,
-        temperature: float = DEFAULT_TEMPERATURE,
+        temperature: float | None = None,
         session: Any = None,
     ) -> None:
         self._model_id = model_id or os.environ.get(
-            "BEDROCK_MODEL_ID", self.DEFAULT_MODEL
+            "AI_MODEL", os.environ.get("BEDROCK_MODEL_ID", self.DEFAULT_MODEL)
         )
         resolved_region = region or os.environ.get(
             "BEDROCK_REGION", self.DEFAULT_REGION
         )
         self._max_tokens = max_tokens
-        self._temperature = temperature
+        self._temperature = (
+            temperature
+            if temperature is not None
+            else float(os.environ.get("AI_TEMPERATURE", str(self.DEFAULT_TEMPERATURE)))
+        )
 
         boto_session = session or boto3.Session(region_name=resolved_region)
         self._client = boto_session.client(
@@ -161,8 +165,11 @@ class BedrockProvider(AIProvider):
             elif "text" in block:
                 text = block["text"]
 
+        usage = response.get("usage", {})
         return AIResponse(
             stop_reason=stop_reason,
             text=text,
             tool_calls=tool_calls,
+            input_tokens=usage.get("inputTokens", 0),
+            output_tokens=usage.get("outputTokens", 0),
         )

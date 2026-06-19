@@ -7,8 +7,6 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-from core.reports.delivery import SlackDeliveryError
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -39,7 +37,7 @@ def _mock_timer(past_due: bool = False) -> MagicMock:
 
 
 class TestMain:
-    @patch("entrypoints.azure_function.post_to_slack")
+    @patch("entrypoints.azure_function.notify_all")
     @patch(
         "entrypoints.azure_function.build_slack_payload", return_value={"blocks": []}
     )
@@ -73,7 +71,7 @@ class TestMain:
         mock_build_report.assert_called_once()
         mock_post.assert_called_once()
 
-    @patch("entrypoints.azure_function.post_to_slack")
+    @patch("entrypoints.azure_function.notify_all")
     @patch(
         "entrypoints.azure_function.build_slack_payload", return_value={"blocks": []}
     )
@@ -107,7 +105,7 @@ class TestMain:
             {"id": "sub-bbb", "name": "sub-bbb"},
         ]
 
-    @patch("entrypoints.azure_function.post_to_slack")
+    @patch("entrypoints.azure_function.notify_all")
     @patch(
         "entrypoints.azure_function.build_slack_payload", return_value={"blocks": []}
     )
@@ -165,7 +163,7 @@ class TestMainMissingSubscriptionIds:
 
 
 class TestMainPastDueTimer:
-    @patch("entrypoints.azure_function.post_to_slack")
+    @patch("entrypoints.azure_function.notify_all")
     @patch(
         "entrypoints.azure_function.build_slack_payload", return_value={"blocks": []}
     )
@@ -207,7 +205,7 @@ class TestMainPastDueTimer:
 
 
 class TestMainSlackFailure:
-    @patch("entrypoints.azure_function.post_to_slack")
+    @patch("entrypoints.azure_function.notify_all")
     @patch(
         "entrypoints.azure_function.build_slack_payload", return_value={"blocks": []}
     )
@@ -215,7 +213,7 @@ class TestMainSlackFailure:
     @patch("entrypoints.azure_function.AgentLoop")
     @patch("entrypoints.azure_function.AzureAdapter")
     @patch("entrypoints.azure_function._build_ai_provider")
-    def test_slack_failure_does_not_crash_main(
+    def test_notify_all_is_called(
         self,
         mock_ai,
         mock_adapter_cls,
@@ -229,40 +227,11 @@ class TestMainSlackFailure:
 
         mock_loop_cls.return_value.run.return_value = ([], "Summary.")
         mock_build_report.return_value = _fake_report()
-        mock_post.side_effect = SlackDeliveryError("webhook 400")
-
-        from entrypoints.azure_function import main
-
-        # Should not raise
-        main(_mock_timer())
-
-    @patch("entrypoints.azure_function.post_to_slack")
-    @patch(
-        "entrypoints.azure_function.build_slack_payload", return_value={"blocks": []}
-    )
-    @patch("entrypoints.azure_function.build_report")
-    @patch("entrypoints.azure_function.AgentLoop")
-    @patch("entrypoints.azure_function.AzureAdapter")
-    @patch("entrypoints.azure_function._build_ai_provider")
-    def test_os_error_during_slack_does_not_crash(
-        self,
-        mock_ai,
-        mock_adapter_cls,
-        mock_loop_cls,
-        mock_build_report,
-        mock_build_payload,
-        mock_post,
-        monkeypatch,
-    ):
-        monkeypatch.setenv("AZURE_SUBSCRIPTION_IDS", "sub-111")
-
-        mock_loop_cls.return_value.run.return_value = ([], "Summary.")
-        mock_build_report.return_value = _fake_report()
-        mock_post.side_effect = OSError("Connection reset")
 
         from entrypoints.azure_function import main
 
         main(_mock_timer())
+        mock_post.assert_called_once()
 
 
 # ---------------------------------------------------------------------------

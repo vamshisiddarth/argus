@@ -12,7 +12,17 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from core.models.finding import ResourceFinding
-from core.reports.delivery import SlackDeliveryError, post_to_slack
+from core.reports.delivery import (
+    SlackDeliveryError,
+    SlackNotificationProvider,
+    TeamsDeliveryError,
+    TeamsNotificationProvider,
+    WebhookDeliveryError,
+    WebhookNotificationProvider,
+    build_notification_providers,
+    notify_all,
+    post_to_slack,
+)
 from core.reports.generator import SLACK_DIGEST_LIMIT, build_report, build_slack_payload
 from core.reports.html import build_html_report
 
@@ -65,6 +75,7 @@ class TestBuildReport:
             _sample_findings(), cloud="aws", executive_summary="All bad."
         )
         for key in (
+            "schema_version",
             "scan_id",
             "generated_at",
             "cloud",
@@ -108,6 +119,28 @@ class TestBuildReport:
         assert report["findings_count"] == 0
         assert report["total_estimated_waste_usd"] == 0.0
         assert report["findings"] == []
+
+    def test_token_usage_fields_present(self):
+        report = build_report(
+            _sample_findings(),
+            cloud="aws",
+            executive_summary="x",
+            agent_input_tokens=5000,
+            agent_output_tokens=1500,
+        )
+        assert report["agent_input_tokens"] == 5000
+        assert report["agent_output_tokens"] == 1500
+        assert report["estimated_agent_cost_usd"] > 0
+
+    def test_token_usage_defaults_to_zero(self):
+        report = build_report([], cloud="aws", executive_summary="x")
+        assert report["agent_input_tokens"] == 0
+        assert report["agent_output_tokens"] == 0
+        assert report["estimated_agent_cost_usd"] == 0.0
+
+    def test_schema_version_is_1_0(self):
+        report = build_report([], cloud="aws", executive_summary="x")
+        assert report["schema_version"] == "1.0"
 
     def test_scan_id_is_unique_per_call(self):
         r1 = build_report([], cloud="aws", executive_summary="x")
@@ -376,3 +409,123 @@ class TestPostToSlack:
         with patch("urllib.request.urlopen", return_value=mock_resp):
             with pytest.raises(SlackDeliveryError, match="Unexpected Slack response"):
                 post_to_slack(SAMPLE_PAYLOAD, webhook_url=WEBHOOK, dry_run=False)
+
+
+class TestTeamsNotificationProvider:
+    def test_delivers_to_teams_webhook(self):
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = b"1"
+        mock_resp.__enter__ = lambda s: s
+        mock_resp.__exit__ = MagicMock(return_value=False)
+
+        with patch("urllib.request.urlopen", return_value=mock_resp) as mock_open:
+            provider = TeamsNotificationProvider(
+                webhook_url="https://teams.example.com/hook"
+            )
+            provider.notify(SAMPLE_PAYLOAD)
+
+        mock_open.assert_called_once()
+        req = mock_open.call_args.args[0]
+        body = json.loads(req.data.decode())
+        assert body["@type"] == "MessageCard"
+        assert body["title"] == "Argus Cost Optimization Report"
+
+    def test_raises_without_url(self):
+        provider = TeamsNotificationProvider(webhook_url="")
+        with pytest.raises(EnvironmentError, match="TEAMS_WEBHOOK_URL"):
+            provider.notify(SAMPLE_PAYLOAD)
+
+    def test_http_error_raises_teams_delivery_error(self):
+        import urllib.error
+
+        http_err = urllib.error.HTTPError(
+            "https://teams.example.com", 400, "Bad", {}, None
+        )
+        with patch("urllib.request.urlopen", side_effect=http_err):
+            provider = TeamsNotificationProvider(
+                webhook_url="https://teams.example.com/hook"
+            )
+            with pytest.raises(TeamsDeliveryError, match="HTTP 400"):
+                provider.notify(SAMPLE_PAYLOAD)
+
+
+class TestWebhookNotificationProvider:
+    def test_delivers_raw_json(self):
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = b"ok"
+        mock_resp.__enter__ = lambda s: s
+        mock_resp.__exit__ = MagicMock(return_value=False)
+
+        with patch("urllib.request.urlopen", return_value=mock_resp) as mock_open:
+            provider = WebhookNotificationProvider(
+                webhook_url="https://hook.example.com/endpoint"
+            )
+            provider.notify(SAMPLE_PAYLOAD)
+
+        req = mock_open.call_args.args[0]
+        body = json.loads(req.data.decode())
+        assert body == SAMPLE_PAYLOAD
+
+    def test_raises_without_url(self):
+        provider = WebhookNotificationProvider(webhook_url="")
+        with pytest.raises(EnvironmentError, match="WEBHOOK_URL"):
+            provider.notify(SAMPLE_PAYLOAD)
+
+    def test_http_error_raises_webhook_delivery_error(self):
+        import urllib.error
+
+        http_err = urllib.error.HTTPError(
+            "https://hook.example.com", 500, "Error", {}, None
+        )
+        with patch("urllib.request.urlopen", side_effect=http_err):
+            provider = WebhookNotificationProvider(
+                webhook_url="https://hook.example.com/endpoint"
+            )
+            with pytest.raises(WebhookDeliveryError, match="HTTP 500"):
+                provider.notify(SAMPLE_PAYLOAD)
+
+
+class TestBuildNotificationProviders:
+    def test_default_is_slack(self, monkeypatch):
+        monkeypatch.delenv("NOTIFICATION_PROVIDER", raising=False)
+        providers = build_notification_providers()
+        assert len(providers) == 1
+        assert isinstance(providers[0], SlackNotificationProvider)
+
+    def test_comma_separated_multi_provider(self, monkeypatch):
+        monkeypatch.setenv("NOTIFICATION_PROVIDER", "slack,teams,webhook")
+        providers = build_notification_providers()
+        assert len(providers) == 3
+        assert isinstance(providers[0], SlackNotificationProvider)
+        assert isinstance(providers[1], TeamsNotificationProvider)
+        assert isinstance(providers[2], WebhookNotificationProvider)
+
+    def test_unknown_provider_skipped(self, monkeypatch):
+        monkeypatch.setenv("NOTIFICATION_PROVIDER", "slack,email")
+        providers = build_notification_providers()
+        assert len(providers) == 1
+        assert isinstance(providers[0], SlackNotificationProvider)
+
+
+class TestNotifyAll:
+    def test_dry_run_skips_delivery(self, monkeypatch):
+        monkeypatch.setenv("NOTIFICATION_PROVIDER", "slack")
+        monkeypatch.setenv("SLACK_WEBHOOK_URL", "https://slack.example.com/hook")
+        with patch("urllib.request.urlopen") as mock_open:
+            notify_all(SAMPLE_PAYLOAD, dry_run=True)
+        mock_open.assert_not_called()
+
+    def test_delivers_to_all_providers(self, monkeypatch):
+        monkeypatch.setenv("NOTIFICATION_PROVIDER", "slack,webhook")
+        monkeypatch.setenv("SLACK_WEBHOOK_URL", "https://slack.example.com/hook")
+        monkeypatch.setenv("WEBHOOK_URL", "https://hook.example.com/endpoint")
+
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = b"ok"
+        mock_resp.__enter__ = lambda s: s
+        mock_resp.__exit__ = MagicMock(return_value=False)
+
+        with patch("urllib.request.urlopen", return_value=mock_resp) as mock_open:
+            notify_all(SAMPLE_PAYLOAD, dry_run=False)
+
+        assert mock_open.call_count == 2

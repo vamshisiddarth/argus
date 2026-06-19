@@ -16,6 +16,8 @@ from azure.mgmt.costmanagement.models import (
     QueryTimePeriod,
 )
 
+from adapters.azure.retry import retry_on_transient
+
 logger = structlog.get_logger(__name__)
 
 _BATCH_SIZE = 50  # Cost Management API supports up to ~100 resource IDs per filter
@@ -38,7 +40,7 @@ def get_cost(
         return {}
 
     cred = credential or DefaultAzureCredential()
-    client = CostManagementClient(cred)
+    client = CostManagementClient(cred, connection_timeout=10, read_timeout=60)
     scope = f"/subscriptions/{subscription_id}"
 
     costs: dict[str, float] = {rid: 0.0 for rid in resource_ids}
@@ -109,7 +111,7 @@ def _query_batch(
         ),
     )
 
-    result = client.query.usage(scope=scope, parameters=query)
+    result = retry_on_transient(client.query.usage, scope=scope, parameters=query)
 
     # Result rows: [cost, currency, resourceId]
     for row in result.rows if result and result.rows else []:

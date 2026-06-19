@@ -33,9 +33,9 @@ import structlog
 from adapters.gcp.adapter import GCPAdapter
 from core.agent.loop import AgentLoop
 from core.log import configure_logging
+from core.reports.comparison import compare_scans
 from core.reports.delivery import (
-    SlackDeliveryError,
-    post_to_slack,
+    notify_all,
     save_reports_locally,
 )
 from core.reports.generator import build_report, build_slack_payload
@@ -74,14 +74,17 @@ def main() -> None:
         accounts=[{"id": project_id, "name": project_id}],
     )
 
+    gcs_bucket = os.environ.get("REPORT_GCS_BUCKET", "").strip()
+    previous_report = _load_previous_report(cloud, gcs_bucket)
+    findings, scan_diff = compare_scans(findings, previous_report)
+
     report = build_report(
         findings,
         cloud=cloud,
         executive_summary=executive_summary,
         accounts_scanned=[project_id],
+        scan_diff=scan_diff,
     )
-
-    gcs_bucket = os.environ.get("REPORT_GCS_BUCKET", "").strip()
     report_url: str | None = None
     if gcs_bucket:
         report_url = _save_reports_to_gcs(report, gcs_bucket)
@@ -90,10 +93,7 @@ def main() -> None:
 
     structlog.contextvars.bind_contextvars(scan_id=report["scan_id"])
     payload = build_slack_payload(report, report_url=report_url)
-    try:
-        post_to_slack(payload)
-    except (SlackDeliveryError, OSError) as exc:
-        logger.error("slack_delivery_failed", error=str(exc))
+    notify_all(payload)
 
     logger.info(
         "scan_complete",
@@ -114,6 +114,40 @@ def _build_ai_provider(project_id: str) -> Any:
         project=os.environ.get("VERTEXAI_PROJECT", project_id),
         location=os.environ.get("VERTEXAI_LOCATION", "us-central1"),
     )
+
+
+def _load_previous_report(cloud: str, gcs_bucket: str) -> dict[str, Any] | None:
+    """Load the most recent previous report from GCS or local storage."""
+    if gcs_bucket:
+        try:
+            from google.cloud import (
+                storage,  # type: ignore[import-untyped,attr-defined]
+            )
+
+            client = storage.Client()
+            bucket = client.bucket(gcs_bucket)
+            blobs = sorted(
+                (
+                    b
+                    for b in bucket.list_blobs(prefix=f"reports/{cloud}/")
+                    if b.name.endswith(".json")
+                ),
+                key=lambda b: b.name,
+                reverse=True,
+            )
+            if blobs:
+                return json.loads(blobs[0].download_as_bytes())
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("previous_report_load_failed", error=str(exc))
+    else:
+        from pathlib import Path
+
+        base = Path(os.environ.get("LOCAL_REPORT_DIR", "local_reports")) / cloud
+        if base.exists():
+            json_files = sorted(base.rglob("*.json"), reverse=True)
+            if json_files:
+                return json.loads(json_files[0].read_text(encoding="utf-8"))
+    return None
 
 
 def _save_reports_to_gcs(report: dict[str, Any], bucket_name: str) -> str | None:

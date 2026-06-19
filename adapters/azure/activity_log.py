@@ -8,6 +8,8 @@ from azure.core.exceptions import HttpResponseError
 from azure.identity import DefaultAzureCredential
 from azure.monitor.query import LogsQueryClient, LogsQueryStatus
 
+from adapters.azure.retry import retry_on_transient
+
 logger = structlog.get_logger(__name__)
 
 _LOOKBACK_DAYS = 90  # Azure Activity Log retention is 90 days
@@ -32,7 +34,7 @@ def get_last_activity(
     /subscriptions/{sub}/resourceGroups/{rg}/providers/{type}/{name}
     """
     cred = credential or DefaultAzureCredential()
-    client = LogsQueryClient(cred)
+    client = LogsQueryClient(cred, connection_timeout=10, read_timeout=60)
 
     # Log Analytics workspace for the subscription — set via env var.
     import os
@@ -63,7 +65,8 @@ def get_last_activity(
     """
 
     try:
-        response = client.query_workspace(
+        response = retry_on_transient(
+            client.query_workspace,
             workspace_id=workspace_id,
             query=query,
             timespan=(start_time, end_time),
@@ -110,7 +113,9 @@ def _fallback_from_activity_log_api(
         return None
 
     cred = credential or DefaultAzureCredential()
-    client = MonitorManagementClient(cred, subscription_id)
+    client = MonitorManagementClient(
+        cred, subscription_id, connection_timeout=10, read_timeout=60
+    )
 
     end_time = datetime.now(tz=timezone.utc)
     start_time = end_time - timedelta(days=_LOOKBACK_DAYS)
@@ -123,7 +128,8 @@ def _fallback_from_activity_log_api(
 
     try:
         events = list(
-            client.activity_logs.list(
+            retry_on_transient(
+                client.activity_logs.list,
                 filter=filter_str,
                 select="eventTimestamp,operationName",
             )

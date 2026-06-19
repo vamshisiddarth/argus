@@ -53,6 +53,8 @@ class AIResponse:
     stop_reason: str  # "tool_use" | "end_turn" | "max_tokens"
     text: str | None
     tool_calls: list[ToolCall]
+    input_tokens: int = 0
+    output_tokens: int = 0
 
 
 class AIProvider(ABC):

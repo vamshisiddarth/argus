@@ -1,5 +1,6 @@
 from unittest.mock import MagicMock, patch
 
+import anthropic as anthropic_sdk
 import pytest
 
 from ai.anthropic import AnthropicProvider
@@ -81,6 +82,44 @@ class TestAnthropicProviderInit:
         with patch("ai.anthropic.anthropic_sdk.Anthropic"):
             provider = AnthropicProvider(api_key="sk-ant-test")
         assert provider._model == AnthropicProvider.DEFAULT_MODEL
+
+    def test_default_temperature_is_zero(self):
+        with patch("ai.anthropic.anthropic_sdk.Anthropic"):
+            provider = AnthropicProvider(api_key="sk-ant-test")
+        assert provider._temperature == 0.0
+
+    def test_temperature_from_env(self, monkeypatch):
+        monkeypatch.setenv("AI_TEMPERATURE", "0.7")
+        with patch("ai.anthropic.anthropic_sdk.Anthropic"):
+            provider = AnthropicProvider(api_key="sk-ant-test")
+        assert provider._temperature == 0.7
+
+    def test_explicit_temperature_overrides_env(self, monkeypatch):
+        monkeypatch.setenv("AI_TEMPERATURE", "0.9")
+        with patch("ai.anthropic.anthropic_sdk.Anthropic"):
+            provider = AnthropicProvider(api_key="sk-ant-test", temperature=0.2)
+        assert provider._temperature == 0.2
+
+    def test_ai_model_env_overrides_default(self, monkeypatch):
+        monkeypatch.setenv("AI_MODEL", "claude-opus-4-6")
+        with patch("ai.anthropic.anthropic_sdk.Anthropic"):
+            provider = AnthropicProvider(api_key="sk-ant-test")
+        assert provider._model == "claude-opus-4-6"
+
+    def test_temperature_passed_to_api(self):
+        with patch("ai.anthropic.anthropic_sdk.Anthropic") as mock_anthropic:
+            mock_client = MagicMock()
+            mock_anthropic.return_value = mock_client
+            mock_client.messages.create.return_value = _make_sdk_text_response("hi")
+
+            provider = AnthropicProvider(api_key="sk-ant-test", temperature=0.5)
+            provider.chat(
+                [Message(role="user", text="hello")],
+                [Tool(name="t", description="d", input_schema={})],
+            )
+
+            call_kwargs = mock_client.messages.create.call_args[1]
+            assert call_kwargs["temperature"] == 0.5
 
 
 class TestChatEndTurn:
@@ -248,3 +287,62 @@ class TestMessageConversion:
         assert content[1]["type"] == "tool_use"
         assert content[1]["id"] == "toolu_01"
         assert content[1]["input"] == {"regions": ["us-east-1"]}
+
+
+class TestRetryBehavior:
+    @patch("ai.anthropic.time.sleep")
+    def test_retries_on_rate_limit_then_succeeds(self, mock_sleep):
+        with patch("ai.anthropic.anthropic_sdk.Anthropic") as mock_anthropic:
+            mock_client = MagicMock()
+            mock_anthropic.return_value = mock_client
+            mock_client.messages.create.side_effect = [
+                anthropic_sdk.RateLimitError(
+                    message="rate limited",
+                    response=MagicMock(status_code=429, headers={}),
+                    body=None,
+                ),
+                _make_sdk_text_response("ok"),
+            ]
+
+            provider = AnthropicProvider(api_key="sk-ant-test")
+            result = provider.chat([Message(role="user", text="go")], [SAMPLE_TOOL])
+
+        assert result.text == "ok"
+        assert mock_client.messages.create.call_count == 2
+        mock_sleep.assert_called_once()
+
+    @patch("ai.anthropic.time.sleep")
+    def test_retries_on_internal_server_error(self, mock_sleep):
+        with patch("ai.anthropic.anthropic_sdk.Anthropic") as mock_anthropic:
+            mock_client = MagicMock()
+            mock_anthropic.return_value = mock_client
+            mock_client.messages.create.side_effect = [
+                anthropic_sdk.InternalServerError(
+                    message="internal error",
+                    response=MagicMock(status_code=500, headers={}),
+                    body=None,
+                ),
+                _make_sdk_text_response("recovered"),
+            ]
+
+            provider = AnthropicProvider(api_key="sk-ant-test")
+            result = provider.chat([Message(role="user", text="go")], [SAMPLE_TOOL])
+
+        assert result.text == "recovered"
+
+    @patch("ai.anthropic.time.sleep")
+    def test_raises_after_max_retries(self, mock_sleep):
+        with patch("ai.anthropic.anthropic_sdk.Anthropic") as mock_anthropic:
+            mock_client = MagicMock()
+            mock_anthropic.return_value = mock_client
+            mock_client.messages.create.side_effect = anthropic_sdk.RateLimitError(
+                message="rate limited",
+                response=MagicMock(status_code=429, headers={}),
+                body=None,
+            )
+
+            provider = AnthropicProvider(api_key="sk-ant-test")
+            with pytest.raises(anthropic_sdk.RateLimitError):
+                provider.chat([Message(role="user", text="go")], [SAMPLE_TOOL])
+
+        assert mock_client.messages.create.call_count == 3

@@ -45,6 +45,7 @@ class VertexAIProvider(AIProvider):
     DEFAULT_MODEL = "gemini-1.5-pro-002"
     DEFAULT_LOCATION = "us-central1"
     DEFAULT_MAX_TOKENS = 4096
+    DEFAULT_TEMPERATURE = 0.0
 
     def __init__(
         self,
@@ -52,6 +53,7 @@ class VertexAIProvider(AIProvider):
         location: str | None = None,
         model: str | None = None,
         max_tokens: int = DEFAULT_MAX_TOKENS,
+        temperature: float | None = None,
     ) -> None:
         self._project = project or os.environ.get("VERTEXAI_PROJECT")
         if not self._project:
@@ -62,8 +64,15 @@ class VertexAIProvider(AIProvider):
         self._location = location or os.environ.get(
             "VERTEXAI_LOCATION", self.DEFAULT_LOCATION
         )
-        self._model = model or os.environ.get("VERTEXAI_MODEL", self.DEFAULT_MODEL)
+        self._model = model or os.environ.get(
+            "AI_MODEL", os.environ.get("VERTEXAI_MODEL", self.DEFAULT_MODEL)
+        )
         self._max_tokens = max_tokens
+        self._temperature = (
+            temperature
+            if temperature is not None
+            else float(os.environ.get("AI_TEMPERATURE", str(self.DEFAULT_TEMPERATURE)))
+        )
 
         # Use openai SDK with the Vertex AI endpoint.
         # This avoids adding google-cloud-aiplatform as a dependency.
@@ -98,6 +107,7 @@ class VertexAIProvider(AIProvider):
             "model": self._model,
             "messages": openai_messages,
             "max_tokens": self._max_tokens,
+            "temperature": self._temperature,
         }
         if openai_tools:
             kwargs["tools"] = openai_tools
@@ -220,8 +230,11 @@ class VertexAIProvider(AIProvider):
         elif stop_reason == "length":
             stop_reason = "max_tokens"
 
+        usage = getattr(response, "usage", None)
         return AIResponse(
             stop_reason=stop_reason,
             text=text,
             tool_calls=tool_calls,
+            input_tokens=getattr(usage, "prompt_tokens", 0) if usage else 0,
+            output_tokens=getattr(usage, "completion_tokens", 0) if usage else 0,
         )

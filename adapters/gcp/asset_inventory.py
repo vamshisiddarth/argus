@@ -7,6 +7,7 @@ from google.api_core.exceptions import GoogleAPICallError, PermissionDenied
 from google.cloud import asset_v1
 
 from adapters.base import Resource
+from adapters.gcp.retry import retry_on_transient
 
 logger = structlog.get_logger(__name__)
 
@@ -58,7 +59,9 @@ def list_resources(
     )
 
     try:
-        for asset in client.list_assets(request=request):
+        for asset in retry_on_transient(
+            client.list_assets, request=request, timeout=60
+        ):
             parsed = _parse_asset(asset, ignore_set)
             if parsed:
                 resources.append(parsed)

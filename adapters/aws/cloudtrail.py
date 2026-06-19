@@ -6,6 +6,9 @@ import boto3
 import structlog
 from botocore.exceptions import ClientError
 
+from adapters.aws.config import BOTO_TIMEOUT_CONFIG
+from adapters.aws.retry import retry_on_transient
+
 logger = structlog.get_logger(__name__)
 
 _LOOKBACK_DAYS = 90  # CloudTrail LookupEvents max window is 90 days
@@ -25,13 +28,16 @@ def get_last_activity(
     """
     region = _region_from_arn(resource_id)
     resource_name = _resource_name_from_arn(resource_id)
-    client = session.client("cloudtrail", region_name=region)
+    client = session.client(
+        "cloudtrail", region_name=region, config=BOTO_TIMEOUT_CONFIG
+    )
 
     end_time = datetime.now(tz=timezone.utc)
     start_time = end_time - timedelta(days=_LOOKBACK_DAYS)
 
     try:
-        response = client.lookup_events(
+        response = retry_on_transient(
+            client.lookup_events,
             LookupAttributes=[
                 {"AttributeKey": "ResourceName", "AttributeValue": resource_name}
             ],

@@ -15,6 +15,9 @@ def build_report(
     cloud: str,
     executive_summary: str,
     accounts_scanned: list[str] | None = None,
+    agent_input_tokens: int = 0,
+    agent_output_tokens: int = 0,
+    scan_diff: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """
     Convert a list of ResourceFinding objects into the canonical JSON report.
@@ -26,6 +29,7 @@ def build_report(
     total_waste = sum(f.estimated_monthly_cost for f in sorted_findings)
 
     return {
+        "schema_version": "1.0",
         "scan_id": str(uuid.uuid4()),
         "generated_at": datetime.now(tz=timezone.utc).isoformat(),
         "cloud": cloud,
@@ -34,7 +38,22 @@ def build_report(
         "findings_count": len(sorted_findings),
         "findings": [f.to_dict() for f in sorted_findings],
         "executive_summary": executive_summary,
+        "agent_input_tokens": agent_input_tokens,
+        "agent_output_tokens": agent_output_tokens,
+        "estimated_agent_cost_usd": _estimate_cost(
+            agent_input_tokens, agent_output_tokens
+        ),
+        "scan_diff": scan_diff,
     }
+
+
+def _estimate_cost(input_tokens: int, output_tokens: int) -> float:
+    input_cost_per_m = 3.0
+    output_cost_per_m = 15.0
+    cost = (input_tokens / 1_000_000 * input_cost_per_m) + (
+        output_tokens / 1_000_000 * output_cost_per_m
+    )
+    return round(cost, 4)
 
 
 def build_slack_payload(

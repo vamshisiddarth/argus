@@ -8,6 +8,7 @@ from azure.identity import DefaultAzureCredential
 from azure.mgmt.resourcegraph import ResourceGraphClient
 from azure.mgmt.resourcegraph.models import QueryRequest, QueryRequestOptions
 
+from adapters.azure.retry import retry_on_transient
 from adapters.base import Resource
 
 logger = structlog.get_logger(__name__)
@@ -42,7 +43,7 @@ def list_resources(
     az login / env vars for local dev.
     """
     cred = credential or DefaultAzureCredential()
-    client = ResourceGraphClient(cred)
+    client = ResourceGraphClient(cred, connection_timeout=10, read_timeout=60)
     ignore_set = {r.lower() for r in (ignore_regions or [])}
     resources: list[Resource] = []
 
@@ -59,7 +60,7 @@ def list_resources(
             if skip_token:
                 request.options.skip_token = skip_token
 
-            response = client.resources(request)
+            response = retry_on_transient(client.resources, request)
 
             for raw in response.data or []:
                 parsed = _parse_resource(raw, ignore_set)
