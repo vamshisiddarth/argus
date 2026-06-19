@@ -51,7 +51,13 @@ class NotificationProvider(ABC):
 
 class SlackNotificationProvider(NotificationProvider):
     def __init__(self, webhook_url: str | None = None) -> None:
-        self._url = webhook_url or os.environ.get("SLACK_WEBHOOK_URL", "")
+        from core.config import get_settings
+
+        self._url = (
+            webhook_url
+            if webhook_url is not None
+            else get_settings().report.slack_webhook_url
+        )
 
     def notify(self, payload: dict[str, Any]) -> None:
         if not self._url:
@@ -91,7 +97,13 @@ class SlackNotificationProvider(NotificationProvider):
 
 class TeamsNotificationProvider(NotificationProvider):
     def __init__(self, webhook_url: str | None = None) -> None:
-        self._url = webhook_url or os.environ.get("TEAMS_WEBHOOK_URL", "")
+        from core.config import get_settings
+
+        self._url = (
+            webhook_url
+            if webhook_url is not None
+            else get_settings().report.teams_webhook_url
+        )
 
     def notify(self, payload: dict[str, Any]) -> None:
         if not self._url:
@@ -148,7 +160,13 @@ class TeamsNotificationProvider(NotificationProvider):
 
 class WebhookNotificationProvider(NotificationProvider):
     def __init__(self, webhook_url: str | None = None) -> None:
-        self._url = webhook_url or os.environ.get("WEBHOOK_URL", "")
+        from core.config import get_settings
+
+        self._url = (
+            webhook_url
+            if webhook_url is not None
+            else get_settings().report.webhook_url
+        )
 
     def notify(self, payload: dict[str, Any]) -> None:
         if not self._url:
@@ -202,10 +220,10 @@ def build_notification_providers() -> list[NotificationProvider]:
 
 
 def notify_all(payload: dict[str, Any], dry_run: bool | None = None) -> None:
+    from core.config import get_settings
+
     resolved_dry_run = (
-        dry_run
-        if dry_run is not None
-        else os.environ.get("DRY_RUN", "").lower() == "true"
+        dry_run if dry_run is not None else get_settings().report.dry_run
     )
 
     if resolved_dry_run:
@@ -237,10 +255,10 @@ def post_to_slack(
     webhook_url: str | None = None,
     dry_run: bool | None = None,
 ) -> None:
+    from core.config import get_settings
+
     resolved_dry_run = (
-        dry_run
-        if dry_run is not None
-        else os.environ.get("DRY_RUN", "").lower() == "true"
+        dry_run if dry_run is not None else get_settings().report.dry_run
     )
 
     if resolved_dry_run:
@@ -262,9 +280,10 @@ def save_reports_locally(
     report: dict[str, Any],
     base_dir: str | None = None,
 ) -> str:
+    from core.config import get_settings
     from core.reports.export import export_pdf, export_pptx, get_report_formats
 
-    resolved_dir = Path(base_dir or os.environ.get("LOCAL_REPORT_DIR", "local_reports"))
+    resolved_dir = Path(base_dir or get_settings().report.local_report_dir)
     now = datetime.now(tz=timezone.utc)
     prefix = (
         resolved_dir / report["cloud"] / now.strftime("%Y/%m/%d") / report["scan_id"]

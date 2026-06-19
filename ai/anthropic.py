@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import random
 import time
 from typing import Any
@@ -35,22 +34,19 @@ class AnthropicProvider(AIProvider):
         max_tokens: int = DEFAULT_MAX_TOKENS,
         temperature: float | None = None,
     ) -> None:
-        resolved_key = api_key or os.environ.get("ANTHROPIC_API_KEY")
+        from core.config import get_settings
+
+        cfg = get_settings().ai
+        resolved_key = api_key or cfg.anthropic_api_key
         if not resolved_key:
             raise EnvironmentError(
                 "ANTHROPIC_API_KEY is not set. "
                 "Export it or pass api_key= explicitly."
             )
         self._client = anthropic_sdk.Anthropic(api_key=resolved_key, timeout=60.0)
-        self._model = model or os.environ.get(
-            "AI_MODEL", os.environ.get("ANTHROPIC_MODEL", self.DEFAULT_MODEL)
-        )
+        self._model = model or cfg.resolved_model("anthropic")
         self._max_tokens = max_tokens
-        self._temperature = (
-            temperature
-            if temperature is not None
-            else float(os.environ.get("AI_TEMPERATURE", str(self.DEFAULT_TEMPERATURE)))
-        )
+        self._temperature = temperature if temperature is not None else cfg.temperature
 
     def chat(
         self,

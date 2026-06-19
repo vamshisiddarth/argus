@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import os as _os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from typing import Any
@@ -11,16 +10,12 @@ import structlog
 from adapters.base import CloudAdapter
 from ai.base import AIProvider, Message, Tool, ToolCall, ToolResult
 from core.agent.prompts import build_system_prompt, build_tool_schemas
+from core.config import get_settings
 from core.models.finding import ResourceFinding
 
 logger = structlog.get_logger(__name__)
 
 MAX_ITERATIONS = 50
-
-# Override via MAX_RESOURCES_PER_SCAN env var for large accounts.
-MAX_RESOURCES_PER_SCAN: int = int(_os.environ.get("MAX_RESOURCES_PER_SCAN", "200"))
-
-ADAPTER_CONCURRENCY: int = int(_os.environ.get("ADAPTER_CONCURRENCY", "10"))
 
 _PARALLELIZABLE_TOOLS = frozenset({"get_metrics", "get_last_activity"})
 
@@ -146,7 +141,7 @@ class AgentLoop:
 
     def _execute_parallel(self, tool_calls: list[ToolCall]) -> dict[str, ToolResult]:
         results: dict[str, ToolResult] = {}
-        max_workers = min(ADAPTER_CONCURRENCY, len(tool_calls))
+        max_workers = min(get_settings().scan.adapter_concurrency, len(tool_calls))
 
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_to_tc = {executor.submit(self._execute, tc): tc for tc in tool_calls}
@@ -169,7 +164,7 @@ class AgentLoop:
         Steps:
           1. list_resources — discovers all billable resources
           2. get_cost (one batched call) — fetches USD cost for all of them
-          3. Sort by cost descending, keep top MAX_RESOURCES_PER_SCAN
+          3. Sort by cost descending, keep top get_settings().scan.max_resources
           4. Build the compact payload that will be handed to the AI on its
              first list_resources call
 
@@ -200,8 +195,8 @@ class AgentLoop:
         resources_with_cost = [(r, costs.get(r.resource_id, 0.0)) for r in resources]
         resources_with_cost.sort(key=lambda x: x[1], reverse=True)
 
-        # Cap at MAX_RESOURCES_PER_SCAN
-        capped = resources_with_cost[:MAX_RESOURCES_PER_SCAN]
+        # Cap at get_settings().scan.max_resources
+        capped = resources_with_cost[:get_settings().scan.max_resources]
         dropped = total_discovered - len(capped)
 
         if dropped > 0:
@@ -210,7 +205,7 @@ class AgentLoop:
                 discovered=total_discovered,
                 sent_to_ai=len(capped),
                 dropped_zero_cost=dropped,
-                cap=MAX_RESOURCES_PER_SCAN,
+                cap=get_settings().scan.max_resources,
             )
 
         # Build compact payload — include cost so AI doesn't need to call get_cost
@@ -307,7 +302,7 @@ def _apply_exclusion_filters(resources: list[Any]) -> list[Any]:
 
 
 def _parse_exclude_tags() -> dict[str, str]:
-    raw = _os.environ.get("EXCLUDE_TAGS", "").strip()
+    raw = get_settings().scan.exclude_tags.strip()
     if not raw:
         return {}
     try:
@@ -320,10 +315,7 @@ def _parse_exclude_tags() -> dict[str, str]:
 
 
 def _parse_exclude_types() -> set[str]:
-    raw = _os.environ.get("EXCLUDE_RESOURCE_TYPES", "").strip()
-    if not raw:
-        return set()
-    return {t.strip() for t in raw.split(",") if t.strip()}
+    return set(get_settings().scan.exclude_resource_types_list)
 
 
 def _tags_match(resource_tags: dict[str, str], exclude_tags: dict[str, str]) -> bool:

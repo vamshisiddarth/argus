@@ -15,7 +15,6 @@ Environment variables:
 from __future__ import annotations
 
 import json
-import os
 import time
 from typing import Any
 
@@ -55,24 +54,19 @@ class VertexAIProvider(AIProvider):
         max_tokens: int = DEFAULT_MAX_TOKENS,
         temperature: float | None = None,
     ) -> None:
-        self._project = project or os.environ.get("VERTEXAI_PROJECT")
+        from core.config import get_settings
+
+        cfg = get_settings().ai
+        self._project = project or cfg.vertexai_project
         if not self._project:
             raise EnvironmentError(
                 "VERTEXAI_PROJECT is not set. "
                 "Set it in .env or pass project= explicitly."
             )
-        self._location = location or os.environ.get(
-            "VERTEXAI_LOCATION", self.DEFAULT_LOCATION
-        )
-        self._model = model or os.environ.get(
-            "AI_MODEL", os.environ.get("VERTEXAI_MODEL", self.DEFAULT_MODEL)
-        )
+        self._location = location or cfg.vertexai_location
+        self._model = model or cfg.resolved_model("vertexai")
         self._max_tokens = max_tokens
-        self._temperature = (
-            temperature
-            if temperature is not None
-            else float(os.environ.get("AI_TEMPERATURE", str(self.DEFAULT_TEMPERATURE)))
-        )
+        self._temperature = temperature if temperature is not None else cfg.temperature
 
         # Use openai SDK with the Vertex AI endpoint.
         # This avoids adding google-cloud-aiplatform as a dependency.

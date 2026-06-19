@@ -17,7 +17,6 @@ Environment variables:
 from __future__ import annotations
 
 import json
-import os
 import time
 from typing import Any
 
@@ -55,29 +54,22 @@ class AzureOpenAIProvider(AIProvider):
         api_key: str | None = None,
         temperature: float | None = None,
     ) -> None:
-        self._endpoint = endpoint or os.environ.get("AZURE_OPENAI_ENDPOINT")
+        from core.config import get_settings
+
+        cfg = get_settings().ai
+        self._endpoint = endpoint or cfg.azure_openai_endpoint
         if not self._endpoint:
             raise EnvironmentError(
                 "AZURE_OPENAI_ENDPOINT is not set. "
                 "Set it in .env or pass endpoint= explicitly. "
                 "Example: https://my-resource.openai.azure.com/"
             )
-        self._deployment = deployment or os.environ.get(
-            "AI_MODEL",
-            os.environ.get("AZURE_OPENAI_DEPLOYMENT", self.DEFAULT_DEPLOYMENT),
-        )
-        self._api_version = api_version or os.environ.get(
-            "AZURE_OPENAI_API_VERSION", self.DEFAULT_API_VERSION
-        )
+        self._deployment = deployment or cfg.resolved_model("azure_openai")
+        self._api_version = api_version or cfg.azure_openai_api_version
         self._max_tokens = max_tokens
-        self._temperature = (
-            temperature
-            if temperature is not None
-            else float(os.environ.get("AI_TEMPERATURE", str(self.DEFAULT_TEMPERATURE)))
-        )
+        self._temperature = temperature if temperature is not None else cfg.temperature
 
-        # Prefer explicit API key (local dev), otherwise use managed identity token
-        resolved_key = api_key or os.environ.get("AZURE_OPENAI_API_KEY")
+        resolved_key = api_key or cfg.azure_openai_api_key
         if resolved_key:
             self._client = openai.AzureOpenAI(
                 azure_endpoint=self._endpoint,

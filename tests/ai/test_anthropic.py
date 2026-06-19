@@ -69,7 +69,7 @@ SAMPLE_TOOL = Tool(
 
 class TestAnthropicProviderInit:
     def test_raises_without_api_key(self, monkeypatch):
-        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "")
         with pytest.raises(EnvironmentError, match="ANTHROPIC_API_KEY"):
             AnthropicProvider(api_key=None)
 

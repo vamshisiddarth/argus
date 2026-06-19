@@ -6,5 +6,6 @@ python-dotenv==1.0.1            # loads .env into os.environ
 PyYAML==6.0.2                   # accounts.yaml parsing
 slack-sdk==3.33.1               # Slack webhook delivery
 pydantic==2.9.2                 # ResourceFinding dataclass validation
+pydantic-settings==2.6.1        # Centralized env var config layer
 python-dateutil==2.9.0          # date arithmetic for lookback windows
 structlog==24.4.0               # structured JSON logging

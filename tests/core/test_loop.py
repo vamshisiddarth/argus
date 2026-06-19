@@ -465,11 +465,9 @@ class TestParallelExecution:
 
     def test_adapter_concurrency_env_var(self, monkeypatch):
         monkeypatch.setenv("ADAPTER_CONCURRENCY", "5")
-        import importlib
+        from core.config import ScanSettings, clear_settings_cache
 
-        import core.agent.loop as loop_mod
-
-        importlib.reload(loop_mod)
-        assert loop_mod.ADAPTER_CONCURRENCY == 5
-        monkeypatch.setenv("ADAPTER_CONCURRENCY", "10")
-        importlib.reload(loop_mod)
+        clear_settings_cache()
+        cfg = ScanSettings()
+        assert cfg.adapter_concurrency == 5
+        clear_settings_cache()

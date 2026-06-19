@@ -7,7 +7,6 @@ Install with: pip install weasyprint python-pptx
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import Any
 
@@ -17,8 +16,9 @@ logger = structlog.get_logger(__name__)
 
 
 def get_report_formats() -> set[str]:
-    raw = os.environ.get("REPORT_FORMAT", "json,html").strip()
-    return {f.strip().lower() for f in raw.split(",") if f.strip()}
+    from core.config import get_settings
+
+    return get_settings().report.formats
 
 
 def export_pdf(report: dict[str, Any], output_path: Path) -> Path:
