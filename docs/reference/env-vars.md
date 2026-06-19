@@ -91,3 +91,17 @@ Complete reference for all Argus environment variables.
 | `MAX_RESOURCES_PER_SCAN` | `200` | Maximum resources handed to the AI after Phase 0 cost-sorting. Raise for very large accounts (increases AI token cost proportionally). |
 | `METRICS_LOOKBACK_DAYS` | `90` | CloudWatch / Cloud Monitoring / Azure Monitor lookback window. 90 days covers quarterly usage patterns and aligns with the CloudTrail lookback. Set to `14` for faster local dev runs — **not recommended in production** as short windows produce false-positive idle findings. |
 | `ADAPTER_CONCURRENCY` | `10` | Maximum parallel threads for metric and activity fetches during a scan. Increase for large accounts with many resources; decrease if you hit API rate limits. |
+
+## :material-key-variant: Secret manager integration
+
+Instead of storing sensitive values directly in environment variables, you can point them to a cloud secret manager. Argus resolves secret references at startup before any other processing.
+
+**Supported variables:** `ANTHROPIC_API_KEY`, `SLACK_WEBHOOK_URL`, `TEAMS_WEBHOOK_URL`, `WEBHOOK_URL`, `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_ENDPOINT`
+
+| Cloud | Pattern | Example |
+|-------|---------|---------|
+| AWS Secrets Manager | `arn:aws:secretsmanager:<region>:<account>:secret:<name>` | `ANTHROPIC_API_KEY=arn:aws:secretsmanager:us-east-1:123456789012:secret:argus/api-key` |
+| GCP Secret Manager | `gcp-secret://<project>/<secret>[/<version>]` | `SLACK_WEBHOOK_URL=gcp-secret://my-project/slack-webhook` |
+| Azure Key Vault | `akv://<vault-name>/<secret-name>` | `ANTHROPIC_API_KEY=akv://my-vault/anthropic-key` |
+
+The required SDK must be installed for the cloud you reference — `boto3` for AWS, `google-cloud-secret-manager` for GCP, `azure-keyvault-secrets` + `azure-identity` for Azure. If the value doesn't match any pattern, it's used as-is (no SDK required).

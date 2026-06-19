@@ -38,6 +38,7 @@ from core.reports.delivery import (
 )
 from core.reports.generator import build_report, build_slack_payload
 from core.reports.html import build_html_report
+from core.secrets import resolve_secrets
 from core.validation import ConfigurationError, validate_environment
 
 configure_logging()
@@ -48,6 +49,7 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     """Lambda entry point. Triggered by EventBridge on a schedule."""
     cloud = "aws"
     try:
+        resolve_secrets()
         validate_environment(cloud)
     except ConfigurationError as exc:
         logger.error("startup_validation_failed", error=str(exc))
