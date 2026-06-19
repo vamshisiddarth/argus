@@ -38,7 +38,7 @@ dependencies = [
     # Azure
     "azure-identity>=1.19.0",
     "azure-mgmt-resourcegraph>=8.0.0",
-    "azure-monitor-query>=1.4.0",
+    "azure-monitor-query>=1.4.0,<2.0.0",
     "azure-mgmt-costmanagement>=4.0.0",
     "azure-keyvault-secrets>=4.8.0",
     # AI providers (GCP Vertex AI + Azure OpenAI use openai SDK)
