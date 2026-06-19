@@ -7,7 +7,8 @@
 Argus finds idle and wasted cloud resources — stopped EC2 instances, unattached EBS volumes, orphaned Elastic IPs, underutilized RDS databases — and delivers a prioritized, AI-reasoned report to Slack every week.
 
 [![CI](https://github.com/vamshisiddarth/argus/actions/workflows/ci.yml/badge.svg)](https://github.com/vamshisiddarth/argus/actions/workflows/ci.yml)
-[![Python 3.13+](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![PyPI](https://img.shields.io/pypi/v/argus-cloud-optimizer.svg)](https://pypi.org/project/argus-cloud-optimizer/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Docs](https://img.shields.io/badge/docs-vamshisiddarth.github.io%2Fargus-blue)](https://vamshisiddarth.github.io/argus/)
 
@@ -91,50 +92,51 @@ docker run --rm \
   argus --cloud aws --run-now --dry-run
 ```
 
-### Option B — Local Python
+### Option B — Install from PyPI
 
 **Prerequisites**
-- Python 3.13+
-- AWS credentials configured (`~/.aws/credentials` or env vars)
-- AWS Resource Explorer enabled with an **aggregator index** in `us-east-1`
-  (or set `RESOURCE_EXPLORER_REGION` to your aggregator region)
-- An Anthropic API key **or** AWS Bedrock access
+- Python 3.11+
+- Cloud credentials configured (see below)
+- An Anthropic API key **or** cloud-native AI access (Bedrock / Vertex AI / Azure OpenAI)
+
+```bash
+# Install for your cloud:
+pip install argus-cloud-optimizer[aws]     # AWS
+pip install argus-cloud-optimizer[gcp]     # GCP
+pip install argus-cloud-optimizer[azure]   # Azure
+pip install argus-cloud-optimizer[all]     # all clouds
+```
+
+> **AWS-specific setup:** Enable [Resource Explorer](https://docs.aws.amazon.com/resource-explorer/latest/userguide/) with an **aggregator index** in `us-east-1` (or set `RESOURCE_EXPLORER_REGION` to your aggregator region). Without this, Argus cannot discover resources.
+
+Set minimum env vars:
+
+```bash
+export AI_PROVIDER=anthropic
+export ANTHROPIC_API_KEY=sk-ant-...
+export DRY_RUN=true                        # remove to post to Slack
+```
+
+```bash
+argus --cloud aws --run-now --dry-run
+```
+
+### Option C — Clone and develop
 
 ```bash
 git clone https://github.com/vamshisiddarth/argus.git
 cd argus
-make setup          # creates .venv, installs deps, copies .env.example
+pip install -e ".[all,dev]"
+cp .env.example .env                       # edit with your values
+argus --cloud aws --run-now
 ```
 
-Edit `.env` — minimum required:
-
-```ini
-AI_PROVIDER=anthropic
-ANTHROPIC_API_KEY=sk-ant-...
-
-# Remove DRY_RUN or set to false to post to Slack
-DRY_RUN=true
-SLACK_WEBHOOK_URL=https://hooks.slack.com/services/T.../B.../...
-```
-
-```bash
-make scan-aws       # runs --dry-run by default
-```
-
-**Install only what you need:**
-
-```bash
-pip install -r requirements/aws.txt    # AWS only
-pip install -r requirements/gcp.txt    # GCP only
-pip install -r requirements/azure.txt  # Azure only
-pip install -r requirements/dev.txt    # everything + dev tools
-```
-
-### Options
+### CLI Options
 
 ```
-python main.py --cloud aws|gcp|azure --run-now [options]
+argus --cloud aws|gcp|azure --run-now [options]
 
+  -V, --version              Show version and exit
   --dry-run                  Print notification payload instead of posting
   --ignore-regions REGIONS   Comma-separated regions to skip (e.g. ap-east-1,me-south-1)
   --ai-provider PROVIDER     anthropic | bedrock | vertexai | azure_openai (default: anthropic)
@@ -255,7 +257,7 @@ accounts:
 Then run:
 
 ```bash
-python main.py --cloud aws --run-now --accounts accounts.yaml
+argus --cloud aws --run-now --accounts accounts.yaml
 ```
 
 ---
@@ -317,7 +319,7 @@ argus/
 │   ├── vertexai.py        # Vertex AI / Gemini (GCP)
 │   └── azure_openai.py    # Azure OpenAI / GPT-4o (Azure)
 ├── entrypoints/
-│   ├── cli.py             # python main.py --cloud aws --run-now
+│   ├── cli.py             # argus --cloud aws --run-now
 │   ├── aws_lambda.py      # AWS Lambda handler
 │   ├── gcp_cloudrun.py    # GCP Cloud Run Job handler
 │   └── azure_function.py  # Azure Function timer trigger
