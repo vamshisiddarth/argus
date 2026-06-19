@@ -1,4 +1,4 @@
-.PHONY: setup test lint fmt scan-aws scan-gcp scan-azure docs deploy-aws deploy-aws-multi
+.PHONY: setup test test-integration test-all lint fmt scan-aws scan-gcp scan-azure docs deploy-aws deploy-aws-multi
 
 setup:
 	python -m venv .venv
@@ -8,6 +8,12 @@ setup:
 
 test:
 	pytest tests/ -v --tb=short
+
+test-integration:
+	pytest tests/ -m integration -v --tb=short
+
+test-all:
+	pytest tests/ -m "" -v --tb=short
 
 lint:
 	ruff check .
