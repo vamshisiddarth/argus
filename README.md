@@ -48,6 +48,8 @@ Top findings
 
 The **Full report** button links to a self-contained HTML file (S3 / GCS / Azure Blob) with a filterable/sortable table and expandable AI reasoning per finding. Works offline, no login required.
 
+> **See a realistic example:** [`examples/sample-report-aws.json`](examples/sample-report-aws.json) — 5 findings from a real-looking AWS scan with AI-written reasoning, metrics, and cost data.
+
 ---
 
 ## Architecture
@@ -284,12 +286,41 @@ No write permissions are ever requested.
 
 ---
 
+## Limitations & known issues
+
+Before you invest time deploying Argus, know what it **can't** do yet:
+
+| Area | Status | Details |
+|------|--------|---------|
+| **Resource discovery** | AWS: strong, GCP/Azure: adequate | AWS covers 43 resource types via Resource Explorer. GCP covers 22 asset types; Azure covers 25 via Resource Graph. Some niche resource types (e.g. AWS Glue, SageMaker endpoints) are not yet mapped. |
+| **Cost accuracy** | Best-effort | AWS Cost Explorer charges $0.01/API call — Argus batches aggressively (max 2 calls/scan). GCP requires BigQuery billing export enabled. Azure cost data depends on subscription-level access. Resource-level cost allocation must be enabled in AWS for per-resource costs; without it, costs show $0.00. |
+| **AI non-determinism** | By design | The AI decides what's idle — different runs may produce slightly different findings or reasoning. Set `AI_TEMPERATURE=0.0` (default) for most consistent results. |
+| **LLM cost** | Configurable | A full scan of ~200 resources costs ~$0.05–$0.50 in LLM API fees depending on provider. Use `--llm-budget` to set a hard cap (default: $2.00/scan). Large estates (1000+ resources) will hit the budget limit — increase it or use `--max-resources`. |
+| **AWS Resource Explorer setup** | Manual step | You must enable Resource Explorer with an **aggregator index** (typically in `us-east-1`). Without this, Argus cannot discover resources. This is a one-time setup but is easy to miss. |
+| **Write actions** | None | Argus is read-only. It reports findings but never deletes, stops, or modifies resources. Remediation is manual. |
+| **Multi-cloud in one scan** | Not yet | Each `argus` invocation scans one cloud. Use the merge report feature (`core/reports/multi_cloud.py`) to combine results after separate runs. |
+| **Notifications** | Slack + Teams + webhook | No email. Slack/Teams delivery requires a webhook URL. |
+
+### Multi-cloud parity
+
+| Capability | AWS | GCP | Azure |
+|-----------|-----|-----|-------|
+| Resource discovery | 43 types (Resource Explorer) | 22 types (Asset Inventory) | 25 types (Resource Graph) |
+| Metrics | CloudWatch (43 types + fallback) | Cloud Monitoring (15 types + fallback) | Azure Monitor (25 types + fallback) |
+| Cost data | Cost Explorer (batched) | BigQuery billing export | Cost Management API |
+| Last activity | CloudTrail (90-day lookback) | Cloud Audit Logs | Activity Log / Log Analytics |
+| Deployment | Lambda (SAM) | Cloud Run Job | Azure Function (Bicep) |
+| Multi-account | Hub/spoke with STS | Single project only | Cross-subscription via Resource Graph |
+| Secret management | Secrets Manager | Secret Manager | Key Vault |
+
+---
+
 ## Running tests
 
 ```bash
-make test                                          # all tests, no cloud credentials needed
-pytest tests/adapters/aws/ -v                      # just AWS adapter tests
-pytest tests/ --cov=. --cov-report=term-missing    # with coverage
+make test                  # unit tests only (431 tests, no cloud creds needed)
+make test-integration      # integration tests (32 tests — adapter contracts, report schema)
+make test-all              # everything (463 tests)
 ```
 
 Tests use `unittest.mock` throughout — no real AWS/GCP/Azure calls are made.
@@ -325,7 +356,7 @@ argus/
 │   ├── aws/               # CloudFormation templates
 │   ├── gcp/               # Cloud Run + Scheduler deploy script
 │   └── azure/             # Bicep templates
-└── tests/                 # 383 tests, all pass offline
+└── tests/                 # 463 tests, all pass offline
 ```
 
 ---

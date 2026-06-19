@@ -1,5 +1,37 @@
 # Changelog
 
+All notable changes to this project are documented here.
+Format follows [Keep a Changelog](https://keepachangelog.com/).
+
+## v0.2.0 (2026-06-19)
+
+### Added
+
+- **PyPI packaging** — `pip install argus-cloud-optimizer` installs all three clouds in one package. `argus` CLI entrypoint replaces `python main.py`.
+- **LLM token/cost tracking** — every scan logs input/output tokens and estimated LLM cost. Reports include `agent_input_tokens`, `agent_output_tokens`, and `estimated_agent_cost_usd`.
+- **Hard budget enforcement** — `--llm-budget` flag (default: $2.00/scan) stops the agent if LLM cost exceeds the limit. Set to 0 for unlimited.
+- **Centralized config** — `pydantic-settings` config layer with env var validation on startup. All settings documented in `.env.example`.
+- **Secret manager integration** — AWS Secrets Manager, GCP Secret Manager, and Azure Key Vault support for storing API keys and webhook URLs.
+- **CLI flags** — `--max-resources`, `--lookback-days`, `--llm-budget`, `--version`/`-V`.
+- **Integration test layer** — 32 tests behind `@pytest.mark.integration`: adapter contract tests, report schema validation, Slack payload structure, scan comparison. Run with `make test-integration`.
+- **Publish workflow** — GitHub Actions trusted publisher for PyPI releases.
+- **Example report** — `examples/sample-report-aws.json` with realistic findings and AI reasoning.
+- **Limitations & parity docs** — honest limitations table and multi-cloud parity matrix in README.
+
+### Changed
+
+- Python requirement relaxed from 3.13 to **3.11+** (CI tests 3.11/3.12/3.13).
+- All cloud SDKs moved into core dependencies — no extras needed for basic usage.
+- Test count: 208 → **463** (431 unit + 32 integration).
+
+### Fixed
+
+- **azure-monitor-query v2.0 breaking change** — pinned to `>=1.4.0,<2.0.0` to avoid removed `MetricAggregationType` and `MetricsQueryClient`.
+- PEP 639 license classifier conflict with setuptools.
+- CLI smoke tests for all three clouds now pass end-to-end.
+
+---
+
 ## v0.1.0 (2026-06-15)
 
 Initial release.

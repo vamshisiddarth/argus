@@ -1,0 +1,140 @@
+{
+  "schema_version": "1.0",
+  "scan_id": "e074052a-0c71-4d51-9df7-399dcd4a5797",
+  "generated_at": "2026-06-19T16:26:42.794191+00:00",
+  "cloud": "aws",
+  "accounts_scanned": [
+    "123456789012"
+  ],
+  "total_estimated_waste_usd": 504.35,
+  "findings_count": 5,
+  "findings": [
+    {
+      "resource_id": "arn:aws:rds:us-east-1:123456789012:db:analytics-postgres",
+      "resource_type": "RDS",
+      "cloud": "aws",
+      "region": "us-east-1",
+      "name": "analytics-postgres",
+      "estimated_monthly_cost": 230.4,
+      "waste_reason": "db.r5.large RDS instance averaging 0.3% CPU and 2 database connections over 90 days. Storage I/O is near zero. The database appears to be provisioned for a workload that either migrated or was decommissioned.",
+      "recommendation": "Take a final snapshot and delete the instance. If the data is still needed, consider exporting to S3 via RDS snapshot export.",
+      "priority": "high",
+      "metrics_summary": {
+        "cpu_avg_pct": 0.3,
+        "cpu_max_pct": 1.8,
+        "db_connections_avg": 2,
+        "storage_read_iops": 0.1,
+        "storage_write_iops": 0.0,
+        "instance_class": "db.r5.large"
+      },
+      "tags": {
+        "Env": "prod",
+        "Team": "data"
+      },
+      "last_activity": "2026-04-12T09:00:00+00:00",
+      "scan_time": "2026-06-17T08:00:00+00:00",
+      "status": "new"
+    },
+    {
+      "resource_id": "i-0a1b2c3d4e5f67890",
+      "resource_type": "EC2",
+      "cloud": "aws",
+      "region": "us-east-1",
+      "name": "staging-api-server",
+      "estimated_monthly_cost": 156.82,
+      "waste_reason": "Instance has been in stopped state for 47 days. No CloudTrail activity since May 1. The associated EBS volumes (120 GiB gp3) continue accruing charges while the instance is stopped.",
+      "recommendation": "Terminate the instance and delete attached EBS volumes. Create an AMI first if you need to preserve the configuration for future use.",
+      "priority": "high",
+      "metrics_summary": {
+        "state": "stopped",
+        "days_stopped": 47,
+        "ebs_size_gib": 120,
+        "ebs_monthly_cost": 9.6
+      },
+      "tags": {
+        "Env": "staging",
+        "Team": "backend",
+        "Owner": "alice@example.com"
+      },
+      "last_activity": "2026-05-01T14:22:00+00:00",
+      "scan_time": "2026-06-17T08:00:00+00:00",
+      "status": "new"
+    },
+    {
+      "resource_id": "vol-0123456789abcdef0",
+      "resource_type": "EBS",
+      "cloud": "aws",
+      "region": "us-east-1",
+      "name": "orphaned-data-vol",
+      "estimated_monthly_cost": 80.0,
+      "waste_reason": "1000 GiB gp3 EBS volume has been unattached for 62 days. Zero read/write operations. No EC2 instance is associated.",
+      "recommendation": "Snapshot the volume for archival, then delete it. If the data is no longer needed, delete directly.",
+      "priority": "high",
+      "metrics_summary": {
+        "volume_size_gib": 1000,
+        "volume_type": "gp3",
+        "days_unattached": 62,
+        "read_ops": 0,
+        "write_ops": 0
+      },
+      "tags": {
+        "Env": "prod",
+        "Team": "ml-platform"
+      },
+      "last_activity": "2026-04-16T00:00:00+00:00",
+      "scan_time": "2026-06-17T08:00:00+00:00",
+      "status": "new"
+    },
+    {
+      "resource_id": "nat-0fedcba9876543210",
+      "resource_type": "NATGateway",
+      "cloud": "aws",
+      "region": "us-west-2",
+      "name": null,
+      "estimated_monthly_cost": 33.48,
+      "waste_reason": "NAT Gateway processed 0 bytes over 90 days. The associated private subnet has no running instances. The gateway is incurring hourly charges ($0.045/hr) with zero data transfer.",
+      "recommendation": "Delete the NAT Gateway and release the associated Elastic IP. Verify the private subnet route table no longer references it.",
+      "priority": "medium",
+      "metrics_summary": {
+        "bytes_in": 0,
+        "bytes_out": 0,
+        "active_connections": 0,
+        "hourly_rate": 0.045
+      },
+      "tags": {},
+      "last_activity": null,
+      "scan_time": "2026-06-17T08:00:00+00:00",
+      "status": "new"
+    },
+    {
+      "resource_id": "eipalloc-0abcdef1234567890",
+      "resource_type": "ElasticIP",
+      "cloud": "aws",
+      "region": "us-east-1",
+      "name": null,
+      "estimated_monthly_cost": 3.65,
+      "waste_reason": "Elastic IP not associated with any running instance. AWS charges $0.005/hr for unattached EIPs.",
+      "recommendation": "Release the Elastic IP. If it was reserved for a specific service, update the service configuration to use a new allocation when needed.",
+      "priority": "low",
+      "metrics_summary": {
+        "associated": false,
+        "hourly_charge": 0.005
+      },
+      "tags": {},
+      "last_activity": null,
+      "scan_time": "2026-06-17T08:00:00+00:00",
+      "status": "new"
+    }
+  ],
+  "executive_summary": "Scanned 847 resources across 1 AWS account (us-east-1, us-west-2). Found 5 idle resources with $504.35/month estimated waste. Two high-priority findings \u2014 a stopped EC2 instance and an underutilized RDS database \u2014 account for 77% of total waste. Recommend immediate cleanup of the unattached EBS volume and orphaned NAT Gateway.",
+  "agent_input_tokens": 12840,
+  "agent_output_tokens": 3920,
+  "estimated_agent_cost_usd": 0.0973,
+  "scan_diff": {
+    "previous_scan_id": null,
+    "new_findings": 5,
+    "recurring_findings": 0,
+    "resolved_findings": 0,
+    "resolved_resource_ids": []
+  }
+}
