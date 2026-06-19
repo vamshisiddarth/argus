@@ -7,11 +7,11 @@ import pytest
 from adapters.base import CloudAdapter, MetricSummary, Resource
 from ai.base import AIProvider, AIResponse, ToolCall
 from core.agent.loop import (
-    MAX_ITERATIONS,
     AgentLoop,
     _apply_exclusion_filters,
     _compress_resource,
 )
+from core.config import ScanSettings
 
 IGNORE_REGIONS: list[str] = []
 ACCOUNTS = [{"id": "123456789012", "name": "test-account"}]
@@ -265,7 +265,7 @@ class TestAgentLoopEdgeCases:
         with pytest.raises(RuntimeError, match="exceeded"):
             loop.run(cloud="aws", ignore_regions=IGNORE_REGIONS, accounts=ACCOUNTS)
 
-        assert fake_ai.chat.call_count == MAX_ITERATIONS
+        assert fake_ai.chat.call_count == ScanSettings().max_iterations
 
 
 class TestCompressResource:

@@ -90,6 +90,14 @@ def main(argv: list[str] | None = None) -> None:
         metavar="DAYS",
         help="Metrics lookback window in days (default: 90)",
     )
+    parser.add_argument(
+        "--llm-budget",
+        default=os.environ.get("LLM_BUDGET_USD", "2.0"),
+        dest="llm_budget",
+        type=float,
+        metavar="USD",
+        help="Hard budget for LLM cost per scan in USD (default: 2.00, 0=unlimited)",
+    )
 
     args = parser.parse_args(argv)
 
@@ -99,6 +107,7 @@ def main(argv: list[str] | None = None) -> None:
     os.environ["AI_PROVIDER"] = args.ai_provider
     os.environ["MAX_RESOURCES_PER_SCAN"] = str(args.max_resources)
     os.environ["METRICS_LOOKBACK_DAYS"] = str(args.lookback_days)
+    os.environ["LLM_BUDGET_USD"] = str(args.llm_budget)
     if args.dry_run:
         os.environ["DRY_RUN"] = "true"
 

@@ -12,10 +12,9 @@ from ai.base import AIProvider, Message, Tool, ToolCall, ToolResult
 from core.agent.prompts import build_system_prompt, build_tool_schemas
 from core.config import get_settings
 from core.models.finding import ResourceFinding
+from core.token_tracker import BudgetExceededError, TokenTracker
 
 logger = structlog.get_logger(__name__)
-
-MAX_ITERATIONS = 50
 
 _PARALLELIZABLE_TOOLS = frozenset({"get_metrics", "get_last_activity"})
 
@@ -68,19 +67,36 @@ class AgentLoop:
         # ------------------------------------------------------------------
         self._prefilter_resources(ignore_regions)
 
-        self.total_input_tokens = 0
-        self.total_output_tokens = 0
+        settings = get_settings()
+        self.tracker = TokenTracker(
+            budget_usd=settings.scan.llm_budget_usd,
+            provider=settings.ai.provider,
+        )
+        max_iterations = settings.scan.max_iterations
 
         messages: list[Message] = [
             Message(role="user", text="Begin your cloud cost analysis now.")
         ]
 
-        for iteration in range(1, MAX_ITERATIONS + 1):
+        for iteration in range(1, max_iterations + 1):
             logger.info("agent_iteration", iteration=iteration)
 
             response = self._ai.chat(messages, self._tools, system_prompt=system_prompt)
-            self.total_input_tokens += response.input_tokens
-            self.total_output_tokens += response.output_tokens
+
+            try:
+                self.tracker.record(response.input_tokens, response.output_tokens)
+            except BudgetExceededError:
+                logger.warning(
+                    "budget_exceeded_stopping",
+                    **self.tracker.summary(),
+                )
+                return [], (
+                    f"Scan aborted: LLM budget of "
+                    f"${self.tracker.budget_usd:.2f} exceeded "
+                    f"(${self.tracker.estimated_cost_usd:.4f} spent "
+                    f"after {self.tracker.iteration_count} iterations). "
+                    f"Increase LLM_BUDGET_USD or reduce MAX_RESOURCES_PER_SCAN."
+                )
 
             if response.stop_reason == "tool_use":
                 # Check first — submit_findings terminates the loop immediately
@@ -89,6 +105,7 @@ class AgentLoop:
                         logger.info(
                             "agent_complete",
                             findings_count=len(tc.arguments.get("findings", [])),
+                            **self.tracker.summary(),
                         )
                         return _parse_findings(tc.arguments, cloud=cloud)
 
@@ -112,13 +129,14 @@ class AgentLoop:
                 logger.warning(
                     "agent_stopped_without_findings",
                     stop_reason=response.stop_reason,
+                    **self.tracker.summary(),
                 )
                 return [], response.text or ""
 
         raise RuntimeError(
-            f"Agent loop exceeded {MAX_ITERATIONS} iterations "
+            f"Agent loop exceeded {max_iterations} iterations "
             "without submitting findings. "
-            "Check the system prompt or increase MAX_ITERATIONS."
+            "Check the system prompt or increase MAX_AGENT_ITERATIONS."
         )
 
     def _execute_tool_calls(self, tool_calls: list[ToolCall]) -> list[ToolResult]:

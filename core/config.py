@@ -176,6 +176,8 @@ class ScanSettings(BaseSettings):
     max_resources: int = Field(200, alias="MAX_RESOURCES_PER_SCAN")
     metrics_lookback_days: int = Field(90, alias="METRICS_LOOKBACK_DAYS")
     adapter_concurrency: int = Field(10, alias="ADAPTER_CONCURRENCY")
+    max_iterations: int = Field(50, alias="MAX_AGENT_ITERATIONS")
+    llm_budget_usd: float = Field(2.0, alias="LLM_BUDGET_USD")
     exclude_tags: str = Field("", alias="EXCLUDE_TAGS")
     exclude_resource_types: str = Field("", alias="EXCLUDE_RESOURCE_TYPES")
 

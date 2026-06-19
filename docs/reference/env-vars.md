@@ -91,6 +91,8 @@ Complete reference for all Argus environment variables.
 | `MAX_RESOURCES_PER_SCAN` | `200` | Maximum resources handed to the AI after Phase 0 cost-sorting. Raise for very large accounts (increases AI token cost proportionally). |
 | `METRICS_LOOKBACK_DAYS` | `90` | CloudWatch / Cloud Monitoring / Azure Monitor lookback window. 90 days covers quarterly usage patterns and aligns with the CloudTrail lookback. Set to `14` for faster local dev runs — **not recommended in production** as short windows produce false-positive idle findings. |
 | `ADAPTER_CONCURRENCY` | `10` | Maximum parallel threads for metric and activity fetches during a scan. Increase for large accounts with many resources; decrease if you hit API rate limits. |
+| `MAX_AGENT_ITERATIONS` | `50` | Maximum ReAct loop iterations before the agent is forced to stop. Increase only if the agent is consistently hitting the limit on very large accounts. |
+| `LLM_BUDGET_USD` | `2.00` | Hard budget for LLM cost per scan in USD. The scan aborts gracefully if this limit is exceeded and returns partial results. Set to `0` to disable the budget check. |
 
 ## :material-key-variant: Secret manager integration
 

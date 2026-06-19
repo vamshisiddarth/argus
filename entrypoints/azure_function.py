@@ -95,11 +95,14 @@ def main(mytimer: Any) -> None:
     previous_report = _load_previous_report(cloud, storage_account)
     findings, scan_diff = compare_scans(findings, previous_report)
 
+    token_summary = loop.tracker.summary()
     report = build_report(
         findings,
         cloud=cloud,
         executive_summary=executive_summary,
         accounts_scanned=subscription_ids,
+        agent_input_tokens=token_summary["total_input_tokens"],
+        agent_output_tokens=token_summary["total_output_tokens"],
         scan_diff=scan_diff,
     )
     report_url: str | None = None

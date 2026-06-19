@@ -72,12 +72,12 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     ai_provider = _build_ai_provider()
 
     if accounts_mode == "multi":
-        all_findings, executive_summary, account_ids = _run_multi_account(
-            ai_provider, ignore_regions, primary_region, cloud
+        all_findings, executive_summary, account_ids, token_summary = (
+            _run_multi_account(ai_provider, ignore_regions, primary_region, cloud)
         )
     else:
-        all_findings, executive_summary, account_ids = _run_single_account(
-            ai_provider, ignore_regions, primary_region, cloud
+        all_findings, executive_summary, account_ids, token_summary = (
+            _run_single_account(ai_provider, ignore_regions, primary_region, cloud)
         )
 
     s3_bucket = os.environ.get("REPORT_S3_BUCKET", "").strip()
@@ -89,6 +89,8 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         cloud=cloud,
         executive_summary=executive_summary,
         accounts_scanned=account_ids,
+        agent_input_tokens=token_summary.get("total_input_tokens", 0),
+        agent_output_tokens=token_summary.get("total_output_tokens", 0),
         scan_diff=scan_diff,
     )
     report_url: str | None = None
@@ -125,14 +127,14 @@ def _run_single_account(
     ignore_regions: list[str],
     primary_region: str,
     cloud: str,
-) -> tuple[list[ResourceFinding], str, list[str]]:
+) -> tuple[list[ResourceFinding], str, list[str], dict]:
     account_id = _get_current_account_id()
     adapter = AWSAdapter.for_account(account=None, region=primary_region)
     loop = AgentLoop(ai_provider=ai_provider, cloud_adapter=adapter)
     findings, summary = loop.run(
         cloud=cloud, ignore_regions=ignore_regions, accounts=[{"id": account_id}]
     )
-    return findings, summary, [account_id]
+    return findings, summary, [account_id], loop.tracker.summary()
 
 
 def _run_multi_account(
@@ -140,7 +142,7 @@ def _run_multi_account(
     ignore_regions: list[str],
     primary_region: str,
     cloud: str,
-) -> tuple[list[ResourceFinding], str, list[str]]:
+) -> tuple[list[ResourceFinding], str, list[str], dict]:
     raw = os.environ.get("ACCOUNTS_CONFIG", "[]")
     try:
         accounts: list[dict[str, Any]] = json.loads(raw)
@@ -157,6 +159,8 @@ def _run_multi_account(
     all_findings: list[ResourceFinding] = []
     all_summaries: list[str] = []
     account_ids: list[str] = []
+    total_input = 0
+    total_output = 0
 
     for account in accounts:
         acct_id = account["id"]
@@ -174,13 +178,19 @@ def _run_multi_account(
             all_findings.extend(findings)
             all_summaries.append(f"[{acct_name}] {summary}")
             account_ids.append(acct_id)
+            total_input += loop.tracker.total_input_tokens
+            total_output += loop.tracker.total_output_tokens
         except (PermissionError, ClientError) as exc:
             logger.error("account_scan_failed", account_id=acct_id, error=str(exc))
 
     executive_summary = (
         " ".join(all_summaries) if all_summaries else "No findings across all accounts."
     )
-    return all_findings, executive_summary, account_ids
+    token_summary = {
+        "total_input_tokens": total_input,
+        "total_output_tokens": total_output,
+    }
+    return all_findings, executive_summary, account_ids, token_summary
 
 
 # ---------------------------------------------------------------------------
