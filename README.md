@@ -139,6 +139,8 @@ python main.py --cloud aws|gcp|azure --run-now [options]
   --ignore-regions REGIONS   Comma-separated regions to skip (e.g. ap-east-1,me-south-1)
   --ai-provider PROVIDER     anthropic | bedrock | vertexai | azure_openai (default: anthropic)
   --accounts PATH            Path to accounts.yaml for multi-account mode (AWS only)
+  --max-resources N          Maximum resources to analyze per scan (default: 200)
+  --lookback-days DAYS       Metrics lookback window in days (default: 90, use 14 for faster local dev)
 ```
 
 ---

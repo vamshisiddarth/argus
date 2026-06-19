@@ -7,6 +7,7 @@ Usage:
   python main.py --cloud aws --run-now --dry-run --ignore-regions ap-east-1,me-south-1
   python main.py --cloud aws --run-now --ai-provider anthropic
   python main.py --cloud aws --run-now --accounts accounts.yaml
+  python main.py --cloud aws --run-now --max-resources 50 --lookback-days 14
 """
 
 from __future__ import annotations
@@ -66,6 +67,22 @@ def main(argv: list[str] | None = None) -> None:
         metavar="PATH",
         help="Path to accounts.yaml for multi-account mode",
     )
+    parser.add_argument(
+        "--max-resources",
+        default=os.environ.get("MAX_RESOURCES_PER_SCAN", "200"),
+        dest="max_resources",
+        type=int,
+        metavar="N",
+        help="Maximum resources to analyze per scan (default: 200)",
+    )
+    parser.add_argument(
+        "--lookback-days",
+        default=os.environ.get("METRICS_LOOKBACK_DAYS", "90"),
+        dest="lookback_days",
+        type=int,
+        metavar="DAYS",
+        help="Metrics lookback window in days (default: 90)",
+    )
 
     args = parser.parse_args(argv)
 
@@ -73,6 +90,8 @@ def main(argv: list[str] | None = None) -> None:
     os.environ["IGNORE_REGIONS"] = args.ignore_regions
     os.environ["PRIMARY_REGION"] = args.primary_region
     os.environ["AI_PROVIDER"] = args.ai_provider
+    os.environ["MAX_RESOURCES_PER_SCAN"] = str(args.max_resources)
+    os.environ["METRICS_LOOKBACK_DAYS"] = str(args.lookback_days)
     if args.dry_run:
         os.environ["DRY_RUN"] = "true"
 
