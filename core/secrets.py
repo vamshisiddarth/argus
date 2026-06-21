@@ -95,7 +95,7 @@ def _resolve_aws(var: str, arn: str) -> str:
         raise RuntimeError(
             f"Failed to resolve {var} from AWS Secrets Manager: {exc}"
         ) from exc
-    return resp["SecretString"]
+    return str(resp["SecretString"])
 
 
 def _resolve_gcp(var: str, project: str, name: str, version: str) -> str:
@@ -117,7 +117,7 @@ def _resolve_gcp(var: str, project: str, name: str, version: str) -> str:
         raise RuntimeError(
             f"Failed to resolve {var} from GCP Secret Manager: {exc}"
         ) from exc
-    return resp.payload.data.decode("utf-8")
+    return str(resp.payload.data.decode("utf-8"))
 
 
 def _resolve_azure(var: str, vault_name: str, secret_name: str) -> str:
@@ -140,4 +140,4 @@ def _resolve_azure(var: str, vault_name: str, secret_name: str) -> str:
         raise RuntimeError(
             f"Failed to resolve {var} from Azure Key Vault: {exc}"
         ) from exc
-    return secret.value
+    return str(secret.value)

@@ -101,8 +101,8 @@ def main(mytimer: Any) -> None:
         cloud=cloud,
         executive_summary=executive_summary,
         accounts_scanned=subscription_ids,
-        agent_input_tokens=token_summary["total_input_tokens"],
-        agent_output_tokens=token_summary["total_output_tokens"],
+        agent_input_tokens=int(token_summary["total_input_tokens"]),
+        agent_output_tokens=int(token_summary["total_output_tokens"]),
         scan_diff=scan_diff,
     )
     report_url: str | None = None
@@ -159,7 +159,7 @@ def _load_previous_report(cloud: str, storage_account: str) -> dict[str, Any] | 
             )
             if blobs:
                 data = container_client.download_blob(blobs[0]).readall()
-                return json.loads(data)
+                return json.loads(data)  # type: ignore[no-any-return]
         except Exception as exc:  # noqa: BLE001
             logger.warning("previous_report_load_failed", error=str(exc))
     else:
@@ -169,7 +169,7 @@ def _load_previous_report(cloud: str, storage_account: str) -> dict[str, Any] | 
         if base.exists():
             json_files = sorted(base.rglob("*.json"), reverse=True)
             if json_files:
-                return json.loads(json_files[0].read_text(encoding="utf-8"))
+                return json.loads(json_files[0].read_text(encoding="utf-8"))  # type: ignore[no-any-return]
     return None
 
 

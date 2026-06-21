@@ -48,7 +48,7 @@ def retry_on_transient(
 def _parse_retry_after(exc: HttpResponseError) -> float | None:
     if exc.response is None:
         return None
-    header = exc.response.headers.get("Retry-After")
+    header = exc.response.headers.get("Retry-After")  # type: ignore[attr-defined,union-attr]
     if header is None:
         return None
     try:

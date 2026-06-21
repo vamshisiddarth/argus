@@ -94,7 +94,7 @@ class AWSSettings(BaseSettings):
     def accounts_list(self) -> list[dict[str, str]]:
         if not self.accounts_config:
             return []
-        return json.loads(self.accounts_config)
+        return list(json.loads(self.accounts_config))
 
 
 # ---------------------------------------------------------------------------
@@ -179,7 +179,7 @@ class ScanSettings(BaseSettings):
     def exclude_tags_dict(self) -> dict[str, str]:
         if not self.exclude_tags:
             return {}
-        return json.loads(self.exclude_tags)
+        return dict(json.loads(self.exclude_tags))
 
     @property
     def exclude_resource_types_list(self) -> list[str]:
@@ -205,13 +205,13 @@ class LogSettings(BaseSettings):
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    ai: AISettings = Field(default_factory=AISettings)
-    aws: AWSSettings = Field(default_factory=AWSSettings)
-    gcp: GCPSettings = Field(default_factory=GCPSettings)
-    azure: AzureSettings = Field(default_factory=AzureSettings)
-    report: ReportSettings = Field(default_factory=ReportSettings)
-    scan: ScanSettings = Field(default_factory=ScanSettings)
-    log: LogSettings = Field(default_factory=LogSettings)
+    ai: AISettings = Field(default_factory=AISettings)  # type: ignore[arg-type]
+    aws: AWSSettings = Field(default_factory=AWSSettings)  # type: ignore[arg-type]
+    gcp: GCPSettings = Field(default_factory=GCPSettings)  # type: ignore[arg-type]
+    azure: AzureSettings = Field(default_factory=AzureSettings)  # type: ignore[arg-type]
+    report: ReportSettings = Field(default_factory=ReportSettings)  # type: ignore[arg-type]
+    scan: ScanSettings = Field(default_factory=ScanSettings)  # type: ignore[arg-type]
+    log: LogSettings = Field(default_factory=LogSettings)  # type: ignore[arg-type]
 
 
 @lru_cache(maxsize=1)

@@ -122,11 +122,11 @@ def main(argv: list[str] | None = None) -> None:
     elif args.cloud == "gcp":
         from entrypoints.gcp_cloudrun import main as gcp_main
 
-        result = gcp_main()
+        result = gcp_main()  # type: ignore[assignment,func-returns-value]
     elif args.cloud == "azure":
         from entrypoints.azure_function import main as azure_main
 
-        result = azure_main(None)
+        result = azure_main(None)  # type: ignore[assignment,func-returns-value]
     else:
         print(f"Cloud {args.cloud!r} is not supported.", file=sys.stderr)
         sys.exit(1)

@@ -238,7 +238,7 @@ def _load_previous_report(cloud: str, s3_bucket: str) -> dict[str, Any] | None:
             )
             if json_keys:
                 body = s3.get_object(Bucket=s3_bucket, Key=json_keys[0])["Body"].read()
-                return json.loads(body)
+                return json.loads(body)  # type: ignore[no-any-return]
         except ClientError as exc:
             logger.warning("previous_report_load_failed", error=str(exc))
     else:
@@ -255,7 +255,7 @@ def _load_previous_report_local(cloud: str) -> dict[str, Any] | None:
         return None
     json_files = sorted(base.rglob("*.json"), reverse=True)
     if json_files:
-        return json.loads(json_files[0].read_text(encoding="utf-8"))
+        return json.loads(json_files[0].read_text(encoding="utf-8"))  # type: ignore[no-any-return]
     return None
 
 
