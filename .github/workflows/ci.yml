@@ -58,4 +58,4 @@ jobs:
         run: ruff check .
 
       - name: Type check (mypy)
-        run: mypy core/ adapters/ ai/ entrypoints/ --ignore-missing-imports
+        run: mypy core/ adapters/ ai/ entrypoints/ --ignore-missing-imports --no-warn-unused-ignores

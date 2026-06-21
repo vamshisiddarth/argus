@@ -125,9 +125,7 @@ def _load_previous_report(cloud: str, gcs_bucket: str) -> dict[str, Any] | None:
     """Load the most recent previous report from GCS or local storage."""
     if gcs_bucket:
         try:
-            from google.cloud import (
-                storage,  # type: ignore[import-untyped,attr-defined]
-            )
+            from google.cloud import storage  # type: ignore[no-redef]
 
             client = storage.Client()
             bucket = client.bucket(gcs_bucket)
