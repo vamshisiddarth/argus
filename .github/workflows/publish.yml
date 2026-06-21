@@ -4,7 +4,9 @@ on:
   release:
     types: [published]
 
+# Minimal permissions — only request id-token for OIDC publish
 permissions:
+  contents: read
   id-token: write
 
 jobs:
@@ -17,7 +19,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.11"
 
       - name: Install build tools
         run: pip install build
@@ -25,17 +27,25 @@ jobs:
       - name: Build sdist and wheel
         run: python -m build
 
+      - name: Verify wheel installs and CLI works
+        run: |
+          pip install dist/argus_cloud_optimizer-*.whl
+          argus --version
+          argus --help
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: dist
           path: dist/
+          if-no-files-found: error
+          retention-days: 1
 
   publish:
     name: Publish to PyPI
     needs: build
     runs-on: ubuntu-latest
-    environment: pypi
+    environment: pypi   # must match the environment name on PyPI trusted publisher config
     steps:
       - name: Download artifacts
         uses: actions/download-artifact@v4
@@ -45,3 +55,5 @@ jobs:
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          print-hash: true   # logs SHA256 of uploaded files for audit trail
