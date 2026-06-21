@@ -58,7 +58,7 @@ dev = [
     "moto[s3,sts]>=5.0.16",
     "freezegun>=1.5.1",
     "black>=24.10.0",
-    "ruff>=0.7.1",
+    "ruff>=0.7.1,<0.8.0",
     "mypy>=1.13.0",
     "types-PyYAML>=6.0.12",
     "types-python-dateutil>=2.9.0",
@@ -110,14 +110,4 @@ warn_unused_configs = true
 disallow_untyped_defs = true
 ignore_missing_imports = true
 
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-pythonpath = ["."]
-addopts = "--tb=short --timeout=30 --strict-markers -m 'not integration'"
-markers = [
-    "integration: end-to-end tests exercising full adapter→loop→report path with mock data",
-]
-filterwarnings = [
-    "error",
-    "ignore::DeprecationWarning",
-]
+# pytest config lives in pytest.ini (takes precedence over this section)
