@@ -1,4 +1,3 @@
-import threading
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
@@ -395,12 +394,14 @@ class TestParallelExecution:
 
     def test_parallel_tools_execute_concurrently(self):
         loop = self._make_loop()
-        seen_threads: set[int] = set()
+        import time
 
+        call_times: list[float] = []
         original_execute = loop._execute
 
         def tracking_execute(tc):
-            seen_threads.add(threading.current_thread().ident)
+            time.sleep(0.05)  # simulate work so threads overlap
+            call_times.append(time.monotonic())
             return original_execute(tc)
 
         loop._execute = tracking_execute
@@ -417,10 +418,14 @@ class TestParallelExecution:
             for i in range(5)
         ]
 
+        start = time.monotonic()
         results = loop._execute_tool_calls(tool_calls)
+        elapsed = time.monotonic() - start
+
         assert len(results) == 5
         assert all(not r.is_error for r in results)
-        assert len(seen_threads) > 1
+        # If truly parallel, 5×50ms tasks should complete well under 5×50ms=250ms
+        assert elapsed < 0.20, f"Expected parallel execution, took {elapsed:.2f}s"
 
     def test_sequential_tools_stay_sequential(self):
         loop = self._make_loop()

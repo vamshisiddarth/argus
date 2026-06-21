@@ -57,13 +57,13 @@ def list_resources(
 
     try:
         while True:
-            if skip_token:
+            if skip_token and request.options is not None:
                 request.options.skip_token = skip_token
 
             response = retry_on_transient(client.resources, request)
 
             for raw in response.data or []:
-                parsed = _parse_resource(raw, ignore_set)
+                parsed = _parse_resource(raw, ignore_set)  # type: ignore[arg-type]
                 if parsed:
                     resources.append(parsed)
 
