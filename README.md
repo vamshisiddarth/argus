@@ -7,8 +7,10 @@
 Argus finds idle and wasted cloud resources — stopped EC2 instances, unattached EBS volumes, orphaned Elastic IPs, underutilized RDS databases — and delivers a prioritized, AI-reasoned report to Slack every week.
 
 [![CI](https://github.com/vamshisiddarth/argus/actions/workflows/ci.yml/badge.svg)](https://github.com/vamshisiddarth/argus/actions/workflows/ci.yml)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![Publish](https://github.com/vamshisiddarth/argus/actions/workflows/publish.yml/badge.svg)](https://github.com/vamshisiddarth/argus/actions/workflows/publish.yml)
 [![PyPI](https://img.shields.io/pypi/v/argus-cloud-optimizer.svg)](https://pypi.org/project/argus-cloud-optimizer/)
+[![PyPI Downloads](https://img.shields.io/pypi/dm/argus-cloud-optimizer.svg)](https://pypi.org/project/argus-cloud-optimizer/)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Docs](https://img.shields.io/badge/docs-vamshisiddarth.github.io%2Fargus-blue)](https://vamshisiddarth.github.io/argus/)
 
@@ -103,9 +105,13 @@ docker run --rm \
 
 ```bash
 pip install argus-cloud-optimizer
+argus --version   # argus 0.2.0
+argus --help
 ```
 
 One package — all three clouds included. No extras needed.
+
+> **Verified 2026-06-21:** `pip install argus-cloud-optimizer && argus --version` works on a clean Python 3.11/3.12/3.13 venv with no project files.
 
 > **AWS-specific setup:** Enable [Resource Explorer](https://docs.aws.amazon.com/resource-explorer/latest/userguide/) with an **aggregator index** in `us-east-1` (or set `RESOURCE_EXPLORER_REGION` to your aggregator region). Without this, Argus cannot discover resources.
 
