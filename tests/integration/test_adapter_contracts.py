@@ -18,7 +18,6 @@ from adapters.base import MetricSummary, Resource
 from tests.integration.conftest import (
     AWS_RESOURCES,
     AZURE_RESOURCES,
-    COSTS,
     GCP_RESOURCES,
 )
 

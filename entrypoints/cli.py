@@ -26,7 +26,8 @@ def main(argv: list[str] | None = None) -> None:
         description="Argus — AI-powered cloud cost optimization agent",
     )
     parser.add_argument(
-        "--version", "-V",
+        "--version",
+        "-V",
         action="version",
         version=f"%(prog)s {__version__}",
     )

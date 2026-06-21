@@ -113,7 +113,10 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
-addopts = "--tb=short --timeout=30 --strict-markers"
+addopts = "--tb=short --timeout=30 --strict-markers -m 'not integration'"
+markers = [
+    "integration: end-to-end tests exercising full adapter→loop→report path with mock data",
+]
 filterwarnings = [
     "error",
     "ignore::DeprecationWarning",

@@ -80,9 +80,12 @@ class TestReportSchema:
     def test_report_has_all_required_fields(self):
         findings = [_make_finding()]
         report = build_report(
-            findings, cloud="aws", executive_summary="Test.",
+            findings,
+            cloud="aws",
+            executive_summary="Test.",
             accounts_scanned=["123456789012"],
-            agent_input_tokens=1000, agent_output_tokens=500,
+            agent_input_tokens=1000,
+            agent_output_tokens=500,
         )
         missing = REQUIRED_REPORT_FIELDS - set(report.keys())
         assert not missing, f"Missing report fields: {missing}"
@@ -122,8 +125,11 @@ class TestReportSchema:
 
     def test_token_counts_flow_into_report(self):
         report = build_report(
-            [_make_finding()], cloud="aws", executive_summary="Test.",
-            agent_input_tokens=5000, agent_output_tokens=2000,
+            [_make_finding()],
+            cloud="aws",
+            executive_summary="Test.",
+            agent_input_tokens=5000,
+            agent_output_tokens=2000,
         )
         assert report["agent_input_tokens"] == 5000
         assert report["agent_output_tokens"] == 2000
@@ -131,8 +137,11 @@ class TestReportSchema:
 
     def test_agent_cost_estimate_is_reasonable(self):
         report = build_report(
-            [], cloud="aws", executive_summary="Test.",
-            agent_input_tokens=1_000_000, agent_output_tokens=100_000,
+            [],
+            cloud="aws",
+            executive_summary="Test.",
+            agent_input_tokens=1_000_000,
+            agent_output_tokens=100_000,
         )
         # 1M input * $3/M + 100K output * $15/M = $3 + $1.5 = $4.5
         assert report["estimated_agent_cost_usd"] == 4.5
@@ -140,6 +149,7 @@ class TestReportSchema:
     def test_scan_id_is_uuid_format(self):
         report = build_report([], cloud="aws", executive_summary="Test.")
         import uuid
+
         uuid.UUID(report["scan_id"])  # raises if invalid
 
     def test_generated_at_is_iso_format(self):
@@ -167,7 +177,9 @@ class TestReportSchema:
 class TestSlackPayloadSchema:
     def test_payload_has_blocks(self):
         report = build_report(
-            [_make_finding()], cloud="aws", executive_summary="Test.",
+            [_make_finding()],
+            cloud="aws",
+            executive_summary="Test.",
             accounts_scanned=["123"],
         )
         payload = build_slack_payload(report)
@@ -177,7 +189,9 @@ class TestSlackPayloadSchema:
 
     def test_header_block_exists(self):
         report = build_report(
-            [_make_finding()], cloud="aws", executive_summary="Test.",
+            [_make_finding()],
+            cloud="aws",
+            executive_summary="Test.",
             accounts_scanned=["123"],
         )
         payload = build_slack_payload(report)
@@ -186,18 +200,17 @@ class TestSlackPayloadSchema:
 
     def test_report_url_adds_button(self):
         report = build_report([], cloud="aws", executive_summary="Test.")
-        payload_no_url = build_slack_payload(report)
-        payload_with_url = build_slack_payload(report, report_url="https://example.com/report.html")
+        payload_with_url = build_slack_payload(
+            report, report_url="https://example.com/report.html"
+        )
 
-        actions_no = [b for b in payload_no_url["blocks"] if b.get("type") == "actions"]
-        actions_with = [b for b in payload_with_url["blocks"] if b.get("type") == "actions"]
+        actions_with = [
+            b for b in payload_with_url["blocks"] if b.get("type") == "actions"
+        ]
 
         assert len(actions_with) >= 1
         urls = [
-            e["url"]
-            for a in actions_with
-            for e in a.get("elements", [])
-            if "url" in e
+            e["url"] for a in actions_with for e in a.get("elements", []) if "url" in e
         ]
         assert "https://example.com/report.html" in urls
 
@@ -257,6 +270,11 @@ class TestScanComparison:
 
     def test_diff_summary_schema(self):
         _, diff = compare_scans([_make_finding()], None)
-        required = {"previous_scan_id", "new_findings", "recurring_findings",
-                     "resolved_findings", "resolved_resource_ids"}
+        required = {
+            "previous_scan_id",
+            "new_findings",
+            "recurring_findings",
+            "resolved_findings",
+            "resolved_resource_ids",
+        }
         assert required.issubset(set(diff.keys()))

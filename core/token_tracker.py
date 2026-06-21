@@ -60,9 +60,7 @@ class TokenTracker:
         self.total_input_tokens += input_tokens
         self.total_output_tokens += output_tokens
         self.iteration_count += 1
-        self._per_iteration.append(
-            {"input": input_tokens, "output": output_tokens}
-        )
+        self._per_iteration.append({"input": input_tokens, "output": output_tokens})
 
         spent = self.estimated_cost_usd
         logger.info(

@@ -39,9 +39,7 @@ _SECRET_VARS = (
     "AZURE_OPENAI_ENDPOINT",
 )
 
-_AWS_ARN_PATTERN = re.compile(
-    r"^arn:aws:secretsmanager:[\w-]+:\d+:secret:.+"
-)
+_AWS_ARN_PATTERN = re.compile(r"^arn:aws:secretsmanager:[\w-]+:\d+:secret:.+")
 _GCP_PATTERN = re.compile(r"^gcp-secret://([^/]+)/([^/]+)(?:/([^/]+))?$")
 _AKV_PATTERN = re.compile(r"^akv://([^/]+)/(.+)$")
 

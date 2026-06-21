@@ -156,7 +156,5 @@ def _enrich_single(report: dict[str, Any]) -> dict[str, Any]:
         }
     ]
     for finding in enriched.get("findings", []):
-        finding["normalized_type"] = normalize_resource_type(
-            finding["resource_type"]
-        )
+        finding["normalized_type"] = normalize_resource_type(finding["resource_type"])
     return enriched

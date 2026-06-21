@@ -214,7 +214,7 @@ class AgentLoop:
         resources_with_cost.sort(key=lambda x: x[1], reverse=True)
 
         # Cap at get_settings().scan.max_resources
-        capped = resources_with_cost[:get_settings().scan.max_resources]
+        capped = resources_with_cost[: get_settings().scan.max_resources]
         dropped = total_discovered - len(capped)
 
         if dropped > 0:

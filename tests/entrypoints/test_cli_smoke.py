@@ -48,9 +48,7 @@ def _make_mock_adapter() -> MagicMock:
         period_days=14,
         metrics={"CPUUtilization": {"avg": 0.5, "max": 1.2}},
     )
-    adapter.get_last_activity.return_value = datetime(
-        2025, 1, 1, tzinfo=timezone.utc
-    )
+    adapter.get_last_activity.return_value = datetime(2025, 1, 1, tzinfo=timezone.utc)
     return adapter
 
 

@@ -36,9 +36,7 @@ class AISettings(BaseSettings):
 
     # Anthropic
     anthropic_api_key: str | None = Field(None, alias="ANTHROPIC_API_KEY")
-    anthropic_model: str = Field(
-        "claude-sonnet-4-6", alias="ANTHROPIC_MODEL"
-    )
+    anthropic_model: str = Field("claude-sonnet-4-6", alias="ANTHROPIC_MODEL")
 
     # Bedrock
     bedrock_model_id: str = Field(
@@ -82,9 +80,7 @@ class AWSSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="", env_file=".env", extra="ignore")
 
     primary_region: str = Field("us-east-1", alias="PRIMARY_REGION")
-    resource_explorer_region: str | None = Field(
-        None, alias="RESOURCE_EXPLORER_REGION"
-    )
+    resource_explorer_region: str | None = Field(None, alias="RESOURCE_EXPLORER_REGION")
     ignore_regions: str = Field("", alias="IGNORE_REGIONS")
     accounts_mode: Literal["single", "multi"] = Field("single", alias="ACCOUNTS_MODE")
     accounts_config: str = Field("", alias="ACCOUNTS_CONFIG")
@@ -159,9 +155,7 @@ class ReportSettings(BaseSettings):
     @property
     def has_any_notification_channel(self) -> bool:
         return bool(
-            self.slack_webhook_url
-            or self.teams_webhook_url
-            or self.webhook_url
+            self.slack_webhook_url or self.teams_webhook_url or self.webhook_url
         )
 
 
@@ -189,11 +183,7 @@ class ScanSettings(BaseSettings):
 
     @property
     def exclude_resource_types_list(self) -> list[str]:
-        return [
-            t.strip()
-            for t in self.exclude_resource_types.split(",")
-            if t.strip()
-        ]
+        return [t.strip() for t in self.exclude_resource_types.split(",") if t.strip()]
 
 
 # ---------------------------------------------------------------------------

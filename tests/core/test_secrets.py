@@ -34,9 +34,7 @@ class TestAWSSecretsManager:
         monkeypatch.setenv("ANTHROPIC_API_KEY", arn)
 
         mock_client = MagicMock()
-        mock_client.get_secret_value.return_value = {
-            "SecretString": "sk-ant-resolved"
-        }
+        mock_client.get_secret_value.return_value = {"SecretString": "sk-ant-resolved"}
         mock_boto3 = MagicMock()
         mock_boto3.client.return_value = mock_client
 
@@ -48,6 +46,7 @@ class TestAWSSecretsManager:
         with patch.dict("sys.modules", modules):
             with patch("core.secrets.boto3", mock_boto3, create=True):
                 import core.secrets as mod
+
                 # Directly test the resolver
                 result = mod._resolve_aws("ANTHROPIC_API_KEY", arn)
 

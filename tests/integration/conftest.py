@@ -16,7 +16,6 @@ import pytest
 from adapters.base import MetricSummary, Resource
 from ai.base import AIResponse, ToolCall
 
-
 # ---------------------------------------------------------------------------
 # Realistic resource sets per cloud
 # ---------------------------------------------------------------------------
@@ -102,8 +101,8 @@ COSTS = {
     "arn:aws:elasticache:us-west-2:123456789012:cluster:unused-redis": 67.0,
     "projects/my-proj/zones/us-central1-a/instances/idle-vm-1": 89.0,
     "projects/my-proj/instances/unused-sql": 312.0,
-    "/subscriptions/sub-1/resourceGroups/rg-dev/providers/Microsoft.Compute/virtualMachines/idle-vm": 73.0,
-    "/subscriptions/sub-1/resourceGroups/rg-prod/providers/Microsoft.Sql/servers/unused-sql/databases/mydb": 198.0,
+    "/subscriptions/sub-1/resourceGroups/rg-dev/providers/Microsoft.Compute/virtualMachines/idle-vm": 73.0,  # noqa: E501
+    "/subscriptions/sub-1/resourceGroups/rg-prod/providers/Microsoft.Sql/servers/unused-sql/databases/mydb": 198.0,  # noqa: E501
 }
 
 
@@ -123,8 +122,14 @@ LAST_ACTIVITY = datetime(2025, 3, 15, tzinfo=timezone.utc)
 def _make_adapter(resources: list[Resource]) -> MagicMock:
     adapter = MagicMock()
     adapter.list_resources.return_value = resources
-    adapter.get_cost.return_value = {r.resource_id: COSTS.get(r.resource_id, 0) for r in resources}
-    adapter.get_metrics.side_effect = lambda resource_id, resource_type, **kw: _make_metrics(resource_id, resource_type)
+    adapter.get_cost.return_value = {
+        r.resource_id: COSTS.get(r.resource_id, 0) for r in resources
+    }
+    adapter.get_metrics.side_effect = (
+        lambda resource_id, resource_type, **kw: _make_metrics(
+            resource_id, resource_type
+        )
+    )
     adapter.get_last_activity.return_value = LAST_ACTIVITY
     return adapter
 
@@ -137,7 +142,9 @@ def _make_submit_ai(cloud: str, resources: list[Resource]) -> MagicMock:
         stop_reason="tool_use",
         text="Listing resources.",
         tool_calls=[
-            ToolCall(id="tc_list", name="list_resources", arguments={"ignore_regions": []})
+            ToolCall(
+                id="tc_list", name="list_resources", arguments={"ignore_regions": []}
+            )
         ],
         input_tokens=800,
         output_tokens=300,
@@ -146,18 +153,20 @@ def _make_submit_ai(cloud: str, resources: list[Resource]) -> MagicMock:
     findings = []
     for r in resources:
         cost = COSTS.get(r.resource_id, 10.0)
-        findings.append({
-            "resource_id": r.resource_id,
-            "resource_type": r.resource_type,
-            "region": r.region,
-            "name": r.name,
-            "estimated_monthly_cost": cost,
-            "waste_reason": f"CPU utilization < 1% for 90 days",
-            "recommendation": "Terminate or downsize",
-            "priority": "high" if cost > 100 else "medium",
-            "metrics_summary": {"cpu_avg_pct": 0.8},
-            "tags": r.tags,
-        })
+        findings.append(
+            {
+                "resource_id": r.resource_id,
+                "resource_type": r.resource_type,
+                "region": r.region,
+                "name": r.name,
+                "estimated_monthly_cost": cost,
+                "waste_reason": "CPU utilization < 1% for 90 days",
+                "recommendation": "Terminate or downsize",
+                "priority": "high" if cost > 100 else "medium",
+                "metrics_summary": {"cpu_avg_pct": 0.8},
+                "tags": r.tags,
+            }
+        )
 
     submit_response = AIResponse(
         stop_reason="tool_use",
@@ -168,7 +177,7 @@ def _make_submit_ai(cloud: str, resources: list[Resource]) -> MagicMock:
                 name="submit_findings",
                 arguments={
                     "findings": findings,
-                    "executive_summary": f"Found {len(findings)} idle resources in {cloud.upper()}.",
+                    "executive_summary": f"Found {len(findings)} idle resources in {cloud.upper()}.",  # noqa: E501
                 },
             )
         ],

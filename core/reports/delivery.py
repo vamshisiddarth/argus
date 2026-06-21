@@ -222,9 +222,7 @@ def build_notification_providers() -> list[NotificationProvider]:
 def notify_all(payload: dict[str, Any], dry_run: bool | None = None) -> None:
     from core.config import get_settings
 
-    resolved_dry_run = (
-        dry_run if dry_run is not None else get_settings().report.dry_run
-    )
+    resolved_dry_run = dry_run if dry_run is not None else get_settings().report.dry_run
 
     if resolved_dry_run:
         logger.info(
@@ -257,9 +255,7 @@ def post_to_slack(
 ) -> None:
     from core.config import get_settings
 
-    resolved_dry_run = (
-        dry_run if dry_run is not None else get_settings().report.dry_run
-    )
+    resolved_dry_run = dry_run if dry_run is not None else get_settings().report.dry_run
 
     if resolved_dry_run:
         logger.info(
