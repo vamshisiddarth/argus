@@ -1,6 +1,6 @@
 # Quick Start (Local)
 
-Scan your AWS account from your laptop in under 5 minutes.
+Scan your cloud account from your laptop in under 5 minutes.
 
 ## :material-source-repository: 1. Install
 
@@ -26,50 +26,80 @@ pip install -e ".[dev]"
 cp .env.example .env
 ```
 
-Open `.env` and set the minimum required values:
+Open `.env` and set the minimum required values. Pick the tab for your cloud:
 
-```ini title=".env"
-# AI provider — Anthropic is the easiest for local dev
-AI_PROVIDER=anthropic
-ANTHROPIC_API_KEY=sk-ant-...        # get from console.anthropic.com
+=== "AWS"
 
-# AWS region where your Resource Explorer aggregator index lives
-PRIMARY_REGION=us-east-1
-RESOURCE_EXPLORER_REGION=us-east-1
+    ```ini title=".env"
+    AI_PROVIDER=anthropic
+    ANTHROPIC_API_KEY=sk-ant-...        # get from console.anthropic.com
 
-# Set to true to print the Slack payload instead of posting it
-DRY_RUN=true
-```
+    PRIMARY_REGION=us-east-1
+    RESOURCE_EXPLORER_REGION=us-east-1
 
-!!! info "Resource Explorer aggregator index"
-    Argus uses AWS Resource Explorer to discover all resources.
-    You need an **aggregator index** in `PRIMARY_REGION`.
-
-    Check if you have one:
-    ```bash
-    aws resource-explorer-2 get-index --region us-east-1
+    DRY_RUN=true
     ```
 
-    If not, create one:
-    ```bash
-    # Create a local index first
-    aws resource-explorer-2 create-index --type LOCAL --region us-east-1
+    !!! info "Resource Explorer aggregator index"
+        Argus uses AWS Resource Explorer to discover all resources.
+        You need an **aggregator index** in `PRIMARY_REGION`.
 
-    # Promote it to aggregator
-    aws resource-explorer-2 update-index-type --type AGGREGATOR --region us-east-1
+        Check if you have one:
+        ```bash
+        aws resource-explorer-2 get-index --region us-east-1
+        ```
+
+        If not, create one:
+        ```bash
+        aws resource-explorer-2 create-index --type LOCAL --region us-east-1
+        aws resource-explorer-2 update-index-type --type AGGREGATOR --region us-east-1
+        ```
+
+=== "GCP"
+
+    ```ini title=".env"
+    AI_PROVIDER=anthropic
+    ANTHROPIC_API_KEY=sk-ant-...
+
+    GCP_PROJECT_ID=my-project-123
+
+    DRY_RUN=true
     ```
+
+    !!! info "BigQuery billing export"
+        Argus uses BigQuery billing export for cost data.
+        [Enable billing export](https://cloud.google.com/billing/docs/how-to/export-data-bigquery) and set `GCP_BILLING_TABLE` in `.env`.
+
+=== "Azure"
+
+    ```ini title=".env"
+    AI_PROVIDER=anthropic
+    ANTHROPIC_API_KEY=sk-ant-...
+
+    AZURE_SUBSCRIPTION_IDS=sub-id-1,sub-id-2
+
+    DRY_RUN=true
+    ```
+
+    !!! info "Azure authentication"
+        Argus uses `DefaultAzureCredential`. Run `az login` before scanning.
 
 ## :material-play-circle-outline: 3. Run your first scan
 
+Argus auto-detects your cloud from environment variables, or specify explicitly:
+
 ```bash
-argus scan --cloud aws --dry-run
+argus scan --dry-run                  # auto-detects cloud
+argus scan --cloud aws --dry-run      # explicit
+argus scan --cloud gcp --dry-run
+argus scan --cloud azure --dry-run
 ```
 
 The agent will:
 
-1. Discover all billable resources via Resource Explorer
-2. Investigate candidates — calling CloudWatch, Cost Explorer, and CloudTrail
-3. Print the Slack payload to stdout (because `DRY_RUN=true`)
+1. Discover all billable resources via the cloud's discovery API
+2. Investigate candidates — metrics, cost data, and last-activity timestamps
+3. Print the notification payload to stdout (because `DRY_RUN=true`)
 
 Typical output:
 
@@ -94,7 +124,7 @@ DRY_RUN=false
 ```
 
 ```bash
-argus scan --cloud aws
+argus scan
 ```
 
 Argus posts a **compact digest** — stats, a 2-sentence AI summary, and the top 5 findings as single lines. The full AI reasoning (why each resource is idle, what to do) lives in a separate HTML report.
@@ -120,7 +150,8 @@ Ask questions about your infrastructure in natural language instead of running a
 
 ```bash
 pip install argus-cloud-optimizer[chat]   # optional: adds rich formatting
-argus chat --cloud aws --ai-provider anthropic
+argus chat                               # auto-detects cloud
+argus chat --cloud aws                   # or specify explicitly
 ```
 
 ```
@@ -144,12 +175,13 @@ Available commands: `/help`, `/scan`, `/cost`, `/clear`, `/quit`
 ## :material-console: CLI reference
 
 ```
-argus scan  --cloud aws|gcp|azure [options]   # full batch scan
-argus chat  --cloud aws|gcp|azure [options]   # interactive Q&A
-argus --run-now --cloud aws [options]         # backward-compat alias for scan
+argus scan  [--cloud aws|gcp|azure] [options]   # full batch scan
+argus chat  [--cloud aws|gcp|azure] [options]   # interactive Q&A
+argus --run-now --cloud aws [options]           # backward-compat alias
 
 Options:
-  --dry-run                  Print Slack payload instead of posting
+  --cloud CLOUD              Cloud provider (auto-detected from env vars if omitted)
+  --dry-run                  Print notification payload instead of posting
   --ignore-regions REGIONS   Comma-separated regions to skip
                              e.g. --ignore-regions ap-east-1,me-south-1
   --ai-provider PROVIDER     anthropic | bedrock | vertexai | azure_openai (default: anthropic)

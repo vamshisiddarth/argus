@@ -3,8 +3,11 @@ CLI entrypoint for Argus.
 
 Usage:
   argus scan --cloud aws
-  argus scan --cloud aws --dry-run --ignore-regions ap-east-1,me-south-1
-  argus chat --cloud aws --ai-provider anthropic
+  argus scan --cloud gcp --dry-run
+  argus chat --cloud azure --ai-provider azure_openai
+
+  # Auto-detect cloud from environment:
+  argus scan          # detects from GCP_PROJECT_ID / AZURE_SUBSCRIPTION_IDS / AWS creds
 
   # Backward compat (same as argus scan):
   argus --run-now --cloud aws
@@ -16,6 +19,25 @@ import argparse
 import json
 import os
 import sys
+
+
+def _detect_cloud() -> str | None:
+    """Infer cloud provider from environment variables.
+
+    Returns the detected cloud name, or None if ambiguous/undetectable.
+    Checked in order: GCP, Azure, AWS — GCP and Azure require explicit
+    env vars, while AWS credentials are often present by default.
+    """
+    if os.environ.get("GCP_PROJECT_ID"):
+        return "gcp"
+    if os.environ.get("AZURE_SUBSCRIPTION_IDS"):
+        return "azure"
+    if any(
+        os.environ.get(k)
+        for k in ("AWS_PROFILE", "AWS_ACCESS_KEY_ID", "AWS_DEFAULT_REGION")
+    ):
+        return "aws"
+    return None
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -89,9 +111,9 @@ def main(argv: list[str] | None = None) -> None:
     )
     scan_parser.add_argument(
         "--cloud",
-        default="aws",
+        default=None,
         choices=["aws", "gcp", "azure"],
-        help="Cloud provider to scan (default: aws)",
+        help="Cloud provider (auto-detected from env vars if omitted)",
     )
     scan_parser.add_argument(
         "--dry-run",
@@ -151,9 +173,9 @@ def main(argv: list[str] | None = None) -> None:
     chat_parser = subparsers.add_parser("chat", help="Interactive cloud cost Q&A")
     chat_parser.add_argument(
         "--cloud",
-        default="aws",
+        default=None,
         choices=["aws", "gcp", "azure"],
-        help="Cloud provider (default: aws)",
+        help="Cloud provider (auto-detected from env vars if omitted)",
     )
     chat_parser.add_argument(
         "--ignore-regions",
@@ -193,8 +215,6 @@ def main(argv: list[str] | None = None) -> None:
     # Backward compat: argus --run-now --cloud aws → treat as scan
     if args.run_now and not args.command:
         args.command = "scan"
-        if args.cloud is None:
-            args.cloud = "aws"
         if args.ignore_regions is None:
             args.ignore_regions = os.environ.get("IGNORE_REGIONS", "")
         if args.primary_region is None:
@@ -211,6 +231,20 @@ def main(argv: list[str] | None = None) -> None:
     if not args.command:
         parser.print_help()
         sys.exit(0)
+
+    # Auto-detect cloud from env vars if not specified
+    if args.cloud is None:
+        detected = _detect_cloud()
+        if detected:
+            args.cloud = detected
+            print(f"Auto-detected cloud: {detected}", file=sys.stderr)
+        else:
+            print(
+                "Could not detect cloud provider. Set --cloud or configure"
+                " GCP_PROJECT_ID / AZURE_SUBSCRIPTION_IDS / AWS credentials.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
 
     if args.command == "scan":
         _run_scan(args)

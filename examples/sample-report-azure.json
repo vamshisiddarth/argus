@@ -1,0 +1,148 @@
+{
+  "schema_version": "1.0",
+  "scan_id": "c5d9e31f-2a87-41c6-b0e5-f7a8d6b39c42",
+  "generated_at": "2026-06-19T16:35:08.192534+00:00",
+  "cloud": "azure",
+  "accounts_scanned": [
+    "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+  ],
+  "total_estimated_waste_usd": 445.60,
+  "findings_count": 5,
+  "findings": [
+    {
+      "resource_id": "/subscriptions/a1b2c3d4-e5f6-7890-abcd-ef1234567890/resourceGroups/prod-rg/providers/Microsoft.Compute/virtualMachines/analytics-vm-01",
+      "resource_type": "VirtualMachine",
+      "cloud": "azure",
+      "region": "eastus",
+      "name": "analytics-vm-01",
+      "estimated_monthly_cost": 210.24,
+      "waste_reason": "Standard_D4s_v3 VM (4 vCPU, 16 GiB) averaging 0.5% CPU and 1.2 GiB memory usage over 90 days. No RDP/SSH sessions logged in Activity Log since April. The VM appears to run a deprecated reporting service.",
+      "recommendation": "Deallocate the VM and capture a managed image. If the reporting service has been replaced, delete the VM and its managed disks.",
+      "priority": "high",
+      "metrics_summary": {
+        "cpu_avg_pct": 0.5,
+        "cpu_max_pct": 3.2,
+        "memory_used_gib": 1.2,
+        "memory_total_gib": 16,
+        "vm_size": "Standard_D4s_v3",
+        "disk_read_ops": 4,
+        "disk_write_ops": 18
+      },
+      "tags": {
+        "Environment": "prod",
+        "Team": "business-intelligence",
+        "CostCenter": "CC-4401"
+      },
+      "last_activity": "2026-04-05T10:15:00+00:00",
+      "scan_time": "2026-06-17T08:00:00+00:00",
+      "status": "new"
+    },
+    {
+      "resource_id": "/subscriptions/a1b2c3d4-e5f6-7890-abcd-ef1234567890/resourceGroups/dev-rg/providers/Microsoft.Sql/servers/dev-sqlserver/databases/staging-db",
+      "resource_type": "SQLDatabase",
+      "cloud": "azure",
+      "region": "eastus",
+      "name": "staging-db",
+      "estimated_monthly_cost": 150.00,
+      "waste_reason": "S2 (50 DTU) Azure SQL Database with 0 active sessions and 0.1% DTU utilization over 90 days. No queries logged since late March. The database is likely left over from a completed project.",
+      "recommendation": "Export the database as a BACPAC to Azure Blob Storage, then delete it. Downgrade to Basic tier ($5/mo) if you need to keep it temporarily accessible.",
+      "priority": "high",
+      "metrics_summary": {
+        "dtu_avg_pct": 0.1,
+        "active_sessions": 0,
+        "storage_used_gib": 2.1,
+        "storage_max_gib": 250,
+        "service_tier": "S2"
+      },
+      "tags": {
+        "Environment": "dev",
+        "Team": "backend",
+        "Project": "legacy-migration"
+      },
+      "last_activity": "2026-03-28T09:30:00+00:00",
+      "scan_time": "2026-06-17T08:00:00+00:00",
+      "status": "new"
+    },
+    {
+      "resource_id": "/subscriptions/a1b2c3d4-e5f6-7890-abcd-ef1234567890/resourceGroups/prod-rg/providers/Microsoft.Compute/disks/orphaned-data-disk",
+      "resource_type": "ManagedDisk",
+      "cloud": "azure",
+      "region": "eastus",
+      "name": "orphaned-data-disk",
+      "estimated_monthly_cost": 38.40,
+      "waste_reason": "256 GiB Premium SSD (P15) managed disk not attached to any VM for 44 days. Zero read/write IOPS recorded.",
+      "recommendation": "Create a snapshot, then delete the managed disk. If long-term archival is needed, copy the snapshot to Standard storage tier.",
+      "priority": "medium",
+      "metrics_summary": {
+        "disk_size_gib": 256,
+        "disk_sku": "Premium_LRS",
+        "days_unattached": 44,
+        "read_iops": 0,
+        "write_iops": 0
+      },
+      "tags": {
+        "Environment": "prod",
+        "Team": "platform"
+      },
+      "last_activity": "2026-05-04T00:00:00+00:00",
+      "scan_time": "2026-06-17T08:00:00+00:00",
+      "status": "new"
+    },
+    {
+      "resource_id": "/subscriptions/a1b2c3d4-e5f6-7890-abcd-ef1234567890/resourceGroups/dev-rg/providers/Microsoft.Compute/virtualMachines/test-runner-vm",
+      "resource_type": "VirtualMachine",
+      "cloud": "azure",
+      "region": "westus2",
+      "name": "test-runner-vm",
+      "estimated_monthly_cost": 35.04,
+      "waste_reason": "Standard_B2s VM in deallocated state for 52 days. Associated OS disk (30 GiB Standard HDD) continues incurring charges.",
+      "recommendation": "Delete the VM and its disks. Capture a VM image first if the test environment configuration needs to be preserved.",
+      "priority": "medium",
+      "metrics_summary": {
+        "state": "deallocated",
+        "days_deallocated": 52,
+        "disk_size_gib": 30,
+        "vm_size": "Standard_B2s"
+      },
+      "tags": {
+        "Environment": "dev",
+        "Team": "qa",
+        "Owner": "carol@example.com"
+      },
+      "last_activity": "2026-04-26T13:40:00+00:00",
+      "scan_time": "2026-06-17T08:00:00+00:00",
+      "status": "new"
+    },
+    {
+      "resource_id": "/subscriptions/a1b2c3d4-e5f6-7890-abcd-ef1234567890/resourceGroups/network-rg/providers/Microsoft.Network/publicIPAddresses/unused-pip",
+      "resource_type": "PublicIP",
+      "cloud": "azure",
+      "region": "eastus",
+      "name": "unused-pip",
+      "estimated_monthly_cost": 11.92,
+      "waste_reason": "Standard SKU public IP address not associated with any resource. Azure charges ~$0.004/hr for idle Standard public IPs.",
+      "recommendation": "Delete the public IP address. Update any DNS records or NSG rules that reference it.",
+      "priority": "low",
+      "metrics_summary": {
+        "associated": false,
+        "sku": "Standard",
+        "hourly_charge": 0.004
+      },
+      "tags": {},
+      "last_activity": null,
+      "scan_time": "2026-06-17T08:00:00+00:00",
+      "status": "new"
+    }
+  ],
+  "executive_summary": "Scanned 623 resources across 1 Azure subscription (eastus, westus2). Found 5 idle resources with $445.60/month estimated waste. An underutilized VM and an idle SQL Database account for 81% of total waste. Recommend immediate cleanup of the deallocated test-runner VM and orphaned managed disk.",
+  "agent_input_tokens": 13200,
+  "agent_output_tokens": 4100,
+  "estimated_agent_cost_usd": 0.1012,
+  "scan_diff": {
+    "previous_scan_id": null,
+    "new_findings": 5,
+    "recurring_findings": 0,
+    "resolved_findings": 0,
+    "resolved_resource_ids": []
+  }
+}

@@ -261,3 +261,124 @@ class TestMainInvalidCloud:
 
         # No subcommand → prints help and exits cleanly (code 0)
         assert exc_info.value.code == 0
+
+
+# ---------------------------------------------------------------------------
+# _detect_cloud — auto-detection from env vars
+# ---------------------------------------------------------------------------
+
+
+class TestDetectCloud:
+    def test_detects_gcp_from_project_id(self, monkeypatch):
+        monkeypatch.setenv("GCP_PROJECT_ID", "my-project")
+        monkeypatch.delenv("AZURE_SUBSCRIPTION_IDS", raising=False)
+        monkeypatch.delenv("AWS_PROFILE", raising=False)
+        monkeypatch.delenv("AWS_ACCESS_KEY_ID", raising=False)
+        monkeypatch.delenv("AWS_DEFAULT_REGION", raising=False)
+
+        from entrypoints.cli import _detect_cloud
+
+        assert _detect_cloud() == "gcp"
+
+    def test_detects_azure_from_subscription_ids(self, monkeypatch):
+        monkeypatch.delenv("GCP_PROJECT_ID", raising=False)
+        monkeypatch.setenv("AZURE_SUBSCRIPTION_IDS", "sub-1,sub-2")
+        monkeypatch.delenv("AWS_PROFILE", raising=False)
+        monkeypatch.delenv("AWS_ACCESS_KEY_ID", raising=False)
+        monkeypatch.delenv("AWS_DEFAULT_REGION", raising=False)
+
+        from entrypoints.cli import _detect_cloud
+
+        assert _detect_cloud() == "azure"
+
+    def test_detects_aws_from_profile(self, monkeypatch):
+        monkeypatch.delenv("GCP_PROJECT_ID", raising=False)
+        monkeypatch.delenv("AZURE_SUBSCRIPTION_IDS", raising=False)
+        monkeypatch.setenv("AWS_PROFILE", "dev")
+        monkeypatch.delenv("AWS_ACCESS_KEY_ID", raising=False)
+        monkeypatch.delenv("AWS_DEFAULT_REGION", raising=False)
+
+        from entrypoints.cli import _detect_cloud
+
+        assert _detect_cloud() == "aws"
+
+    def test_detects_aws_from_access_key(self, monkeypatch):
+        monkeypatch.delenv("GCP_PROJECT_ID", raising=False)
+        monkeypatch.delenv("AZURE_SUBSCRIPTION_IDS", raising=False)
+        monkeypatch.delenv("AWS_PROFILE", raising=False)
+        monkeypatch.setenv("AWS_ACCESS_KEY_ID", "AKIA...")
+        monkeypatch.delenv("AWS_DEFAULT_REGION", raising=False)
+
+        from entrypoints.cli import _detect_cloud
+
+        assert _detect_cloud() == "aws"
+
+    def test_detects_aws_from_default_region(self, monkeypatch):
+        monkeypatch.delenv("GCP_PROJECT_ID", raising=False)
+        monkeypatch.delenv("AZURE_SUBSCRIPTION_IDS", raising=False)
+        monkeypatch.delenv("AWS_PROFILE", raising=False)
+        monkeypatch.delenv("AWS_ACCESS_KEY_ID", raising=False)
+        monkeypatch.setenv("AWS_DEFAULT_REGION", "us-east-1")
+
+        from entrypoints.cli import _detect_cloud
+
+        assert _detect_cloud() == "aws"
+
+    def test_returns_none_when_no_env_vars(self, monkeypatch):
+        monkeypatch.delenv("GCP_PROJECT_ID", raising=False)
+        monkeypatch.delenv("AZURE_SUBSCRIPTION_IDS", raising=False)
+        monkeypatch.delenv("AWS_PROFILE", raising=False)
+        monkeypatch.delenv("AWS_ACCESS_KEY_ID", raising=False)
+        monkeypatch.delenv("AWS_DEFAULT_REGION", raising=False)
+
+        from entrypoints.cli import _detect_cloud
+
+        assert _detect_cloud() is None
+
+    def test_gcp_takes_priority_over_aws(self, monkeypatch):
+        monkeypatch.setenv("GCP_PROJECT_ID", "my-project")
+        monkeypatch.setenv("AWS_PROFILE", "dev")
+
+        from entrypoints.cli import _detect_cloud
+
+        assert _detect_cloud() == "gcp"
+
+
+class TestAutoDetectIntegration:
+    @patch("entrypoints.aws_lambda.handler")
+    def test_scan_auto_detects_aws(self, mock_handler, monkeypatch):
+        monkeypatch.delenv("GCP_PROJECT_ID", raising=False)
+        monkeypatch.delenv("AZURE_SUBSCRIPTION_IDS", raising=False)
+        monkeypatch.setenv("AWS_PROFILE", "test")
+        mock_handler.return_value = {"statusCode": 200}
+
+        from entrypoints.cli import main
+
+        main(["scan"])
+
+        mock_handler.assert_called_once()
+
+    def test_scan_exits_when_no_cloud_detected(self, monkeypatch):
+        monkeypatch.delenv("GCP_PROJECT_ID", raising=False)
+        monkeypatch.delenv("AZURE_SUBSCRIPTION_IDS", raising=False)
+        monkeypatch.delenv("AWS_PROFILE", raising=False)
+        monkeypatch.delenv("AWS_ACCESS_KEY_ID", raising=False)
+        monkeypatch.delenv("AWS_DEFAULT_REGION", raising=False)
+
+        from entrypoints.cli import main
+
+        with pytest.raises(SystemExit) as exc_info:
+            main(["scan"])
+
+        assert exc_info.value.code == 1
+
+    @patch("entrypoints.aws_lambda.handler")
+    def test_explicit_cloud_overrides_auto_detect(self, mock_handler, monkeypatch):
+        monkeypatch.setenv("GCP_PROJECT_ID", "my-project")
+        mock_handler.return_value = {"statusCode": 200}
+
+        from entrypoints.cli import main
+
+        main(["scan", "--cloud", "aws"])
+
+        mock_handler.assert_called_once()

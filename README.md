@@ -50,7 +50,7 @@ Top findings
 
 The **Full report** button links to a self-contained HTML file (S3 / GCS / Azure Blob) with a filterable/sortable table and expandable AI reasoning per finding. Works offline, no login required.
 
-> **See a realistic example:** [`examples/sample-report-aws.json`](examples/sample-report-aws.json) — 5 findings from a real-looking AWS scan with AI-written reasoning, metrics, and cost data.
+> **See realistic examples:** [`sample-report-aws.json`](examples/sample-report-aws.json) · [`sample-report-gcp.json`](examples/sample-report-gcp.json) · [`sample-report-azure.json`](examples/sample-report-azure.json) — 5 findings each with AI-written reasoning, metrics, and cost data.
 
 ---
 
@@ -109,22 +109,44 @@ argus --version   # argus 0.3.0
 argus --help
 ```
 
-One package — all three clouds included. No extras needed.
+One package — all three clouds included. No extras needed. `--cloud` auto-detects from your environment (GCP_PROJECT_ID / AZURE_SUBSCRIPTION_IDS / AWS credentials), or specify explicitly.
 
 > **Verified 2026-06-21:** `pip install argus-cloud-optimizer && argus --version` works on a clean Python 3.11/3.12/3.13 venv with no project files.
 
-> **AWS-specific setup:** Enable [Resource Explorer](https://docs.aws.amazon.com/resource-explorer/latest/userguide/) with an **aggregator index** in `us-east-1` (or set `RESOURCE_EXPLORER_REGION` to your aggregator region). Without this, Argus cannot discover resources.
-
-Set minimum env vars:
+**AWS:**
 
 ```bash
 export AI_PROVIDER=anthropic
 export ANTHROPIC_API_KEY=sk-ant-...
-export DRY_RUN=true                        # remove to post to Slack
+export DRY_RUN=true
+argus scan --cloud aws --dry-run
+# or just: argus scan  (auto-detects from AWS_PROFILE / AWS_ACCESS_KEY_ID)
 ```
 
+> Enable [Resource Explorer](https://docs.aws.amazon.com/resource-explorer/latest/userguide/) with an **aggregator index** in `us-east-1` (or set `RESOURCE_EXPLORER_REGION`).
+
+**GCP:**
+
 ```bash
-argus --cloud aws --run-now --dry-run
+export GCP_PROJECT_ID=my-project-123
+export AI_PROVIDER=anthropic
+export ANTHROPIC_API_KEY=sk-ant-...
+export DRY_RUN=true
+argus scan --cloud gcp --dry-run
+# or just: argus scan  (auto-detects from GCP_PROJECT_ID)
+```
+
+> Requires BigQuery billing export enabled for cost data.
+
+**Azure:**
+
+```bash
+export AZURE_SUBSCRIPTION_IDS=sub-id-1,sub-id-2
+export AI_PROVIDER=anthropic
+export ANTHROPIC_API_KEY=sk-ant-...
+export DRY_RUN=true
+argus scan --cloud azure --dry-run
+# or just: argus scan  (auto-detects from AZURE_SUBSCRIPTION_IDS)
 ```
 
 ### Option C — Clone and develop
@@ -143,7 +165,8 @@ Ask questions about your cloud infrastructure in natural language:
 
 ```bash
 pip install argus-cloud-optimizer[chat]   # optional: adds rich formatting
-argus chat --cloud aws --ai-provider anthropic
+argus chat --cloud aws --ai-provider anthropic   # explicit cloud
+argus chat                                       # auto-detects cloud
 ```
 
 ```
@@ -176,10 +199,11 @@ Available REPL commands: `/help`, `/scan`, `/cost`, `/clear`, `/quit`
 ### CLI Options
 
 ```
-argus scan --cloud aws|gcp|azure [options]    # full batch scan
-argus chat --cloud aws|gcp|azure [options]    # interactive Q&A
-argus --run-now --cloud aws [options]         # backward compat
+argus scan [--cloud aws|gcp|azure] [options]    # full batch scan
+argus chat [--cloud aws|gcp|azure] [options]    # interactive Q&A
+argus --run-now --cloud aws [options]           # backward compat
 
+  --cloud CLOUD              Cloud provider (auto-detected from env vars if omitted)
   -V, --version              Show version and exit
   --dry-run                  Print notification payload instead of posting
   --ignore-regions REGIONS   Comma-separated regions to skip (e.g. ap-east-1,me-south-1)
@@ -363,9 +387,9 @@ Before you invest time deploying Argus, know what it **can't** do yet:
 ## Running tests
 
 ```bash
-make test                  # unit tests only (456 tests, no cloud creds needed)
+make test                  # unit tests only (466 tests, no cloud creds needed)
 make test-integration      # integration tests (32 tests — adapter contracts, report schema)
-make test-all              # everything (488 tests)
+make test-all              # everything (498 tests)
 ```
 
 Tests use `unittest.mock` throughout — no real AWS/GCP/Azure calls are made.
@@ -401,7 +425,7 @@ argus/
 │   ├── aws/               # CloudFormation templates
 │   ├── gcp/               # Cloud Run + Scheduler deploy script
 │   └── azure/             # Bicep templates
-└── tests/                 # 488 tests, all pass offline
+└── tests/                 # 498 tests, all pass offline
 ```
 
 ---

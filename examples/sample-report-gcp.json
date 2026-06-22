@@ -1,0 +1,144 @@
+{
+  "schema_version": "1.0",
+  "scan_id": "b8f3a21c-7e54-4b90-a1d3-92e6c4f78d01",
+  "generated_at": "2026-06-19T16:30:12.385741+00:00",
+  "cloud": "gcp",
+  "accounts_scanned": [
+    "my-gcp-project-123"
+  ],
+  "total_estimated_waste_usd": 387.20,
+  "findings_count": 5,
+  "findings": [
+    {
+      "resource_id": "projects/my-gcp-project-123/zones/us-central1-a/instances/analytics-worker-03",
+      "resource_type": "GCE",
+      "cloud": "gcp",
+      "region": "us-central1",
+      "name": "analytics-worker-03",
+      "estimated_monthly_cost": 178.50,
+      "waste_reason": "n2-standard-4 GCE instance with 0.4% average CPU and 312 MiB memory usage (out of 16 GiB) over 90 days. No SSH sessions or serial port activity since April. The instance appears to be part of a decommissioned analytics pipeline.",
+      "recommendation": "Stop the instance and create a machine image for archival. If the workload has moved, delete the instance and its persistent disks.",
+      "priority": "high",
+      "metrics_summary": {
+        "cpu_avg_pct": 0.4,
+        "cpu_max_pct": 2.1,
+        "memory_used_mib": 312,
+        "memory_total_mib": 16384,
+        "machine_type": "n2-standard-4",
+        "disk_read_ops": 0,
+        "disk_write_ops": 12
+      },
+      "tags": {
+        "env": "prod",
+        "team": "data-eng"
+      },
+      "last_activity": "2026-04-08T14:20:00+00:00",
+      "scan_time": "2026-06-17T08:00:00+00:00",
+      "status": "new"
+    },
+    {
+      "resource_id": "projects/my-gcp-project-123/zones/us-central1-a/disks/orphaned-data-disk",
+      "resource_type": "PersistentDisk",
+      "cloud": "gcp",
+      "region": "us-central1",
+      "name": "orphaned-data-disk",
+      "estimated_monthly_cost": 81.92,
+      "waste_reason": "500 GiB pd-ssd persistent disk not attached to any instance for 55 days. Zero read/write operations recorded.",
+      "recommendation": "Create a snapshot for backup, then delete the disk. Consider moving to Coldline storage if the data needs long-term retention.",
+      "priority": "high",
+      "metrics_summary": {
+        "disk_size_gib": 500,
+        "disk_type": "pd-ssd",
+        "days_unattached": 55,
+        "read_ops": 0,
+        "write_ops": 0
+      },
+      "tags": {
+        "env": "prod",
+        "team": "ml-platform"
+      },
+      "last_activity": "2026-04-23T00:00:00+00:00",
+      "scan_time": "2026-06-17T08:00:00+00:00",
+      "status": "new"
+    },
+    {
+      "resource_id": "projects/my-gcp-project-123/instances/staging-cloudsql",
+      "resource_type": "CloudSQL",
+      "cloud": "gcp",
+      "region": "us-central1",
+      "name": "staging-cloudsql",
+      "estimated_monthly_cost": 72.80,
+      "waste_reason": "db-custom-2-4096 Cloud SQL (PostgreSQL 14) instance averaging 1 active connection and 0.2% CPU over 90 days. No queries logged in Cloud Audit Logs since late April.",
+      "recommendation": "Export the database to Cloud Storage, then delete the Cloud SQL instance. Recreate from export if needed later.",
+      "priority": "high",
+      "metrics_summary": {
+        "cpu_avg_pct": 0.2,
+        "active_connections_avg": 1,
+        "disk_utilization_pct": 3.4,
+        "machine_type": "db-custom-2-4096"
+      },
+      "tags": {
+        "env": "staging",
+        "team": "backend"
+      },
+      "last_activity": "2026-04-28T11:45:00+00:00",
+      "scan_time": "2026-06-17T08:00:00+00:00",
+      "status": "new"
+    },
+    {
+      "resource_id": "projects/my-gcp-project-123/global/addresses/unused-static-ip",
+      "resource_type": "StaticIP",
+      "cloud": "gcp",
+      "region": "global",
+      "name": "unused-static-ip",
+      "estimated_monthly_cost": 7.30,
+      "waste_reason": "Static external IP address not associated with any resource. GCP charges $0.010/hr for unattached static IPs.",
+      "recommendation": "Release the static IP. If it was reserved for a specific service, update DNS records and re-allocate when needed.",
+      "priority": "low",
+      "metrics_summary": {
+        "associated": false,
+        "hourly_charge": 0.01
+      },
+      "tags": {},
+      "last_activity": null,
+      "scan_time": "2026-06-17T08:00:00+00:00",
+      "status": "new"
+    },
+    {
+      "resource_id": "projects/my-gcp-project-123/zones/us-east1-b/instances/load-test-runner",
+      "resource_type": "GCE",
+      "cloud": "gcp",
+      "region": "us-east1",
+      "name": "load-test-runner",
+      "estimated_monthly_cost": 46.68,
+      "waste_reason": "e2-standard-2 instance in TERMINATED state for 38 days. The persistent disk (50 GiB pd-balanced) continues incurring charges.",
+      "recommendation": "Delete the instance and its disks. Create a machine image first if the load test configuration needs to be preserved.",
+      "priority": "medium",
+      "metrics_summary": {
+        "state": "TERMINATED",
+        "days_stopped": 38,
+        "disk_size_gib": 50,
+        "machine_type": "e2-standard-2"
+      },
+      "tags": {
+        "env": "dev",
+        "team": "platform",
+        "owner": "bob@example.com"
+      },
+      "last_activity": "2026-05-10T16:30:00+00:00",
+      "scan_time": "2026-06-17T08:00:00+00:00",
+      "status": "new"
+    }
+  ],
+  "executive_summary": "Scanned 412 resources in GCP project my-gcp-project-123 (us-central1, us-east1). Found 5 idle resources with $387.20/month estimated waste. An underutilized GCE instance and an orphaned persistent disk account for 67% of total waste. Recommend immediate cleanup of the terminated load-test instance and staging Cloud SQL database.",
+  "agent_input_tokens": 11520,
+  "agent_output_tokens": 3680,
+  "estimated_agent_cost_usd": 0.0884,
+  "scan_diff": {
+    "previous_scan_id": null,
+    "new_findings": 5,
+    "recurring_findings": 0,
+    "resolved_findings": 0,
+    "resolved_resource_ids": []
+  }
+}

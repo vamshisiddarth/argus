@@ -9,22 +9,27 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 
 - **Interactive chat mode** — `argus chat --cloud aws` starts a conversational REPL for cloud cost Q&A. Ask natural language questions about your infrastructure, get answers backed by real metrics and cost data. Supports multi-turn follow-ups.
 - **Subcommand CLI** — `argus scan` (replaces `argus --run-now`) and `argus chat`. The `--run-now` flag still works as a backward-compatible alias.
+- **Cloud auto-detection** — `--cloud` flag is now optional. Argus detects the cloud from environment variables: `GCP_PROJECT_ID` → gcp, `AZURE_SUBSCRIPTION_IDS` → azure, AWS credentials → aws. Explicit `--cloud` always takes priority.
 - **Per-session token budget** — chat mode defaults to $1.00/session (configurable via `--llm-budget`). Per-turn and cumulative cost displayed after every response.
 - **REPL commands** — `/help`, `/scan`, `/cost`, `/clear`, `/quit` for session management.
 - **Token-based history trimming** — conversation history automatically trimmed when approaching context limits, with context summary for continuity.
 - **Tool call status feedback** — REPL shows which tools are being called during analysis (e.g., "Get Metrics: nat-0abc123...").
 - **Optional `rich` formatting** — `pip install argus-cloud-optimizer[chat]` adds spinner, dimmed cost footers, and styled banners. Falls back to plain text without it.
-- **20 new unit tests** for ChatSession covering happy path, history management, budget enforcement, error recovery, and prompt validation.
+- **Sample reports for all clouds** — `examples/sample-report-gcp.json` and `examples/sample-report-azure.json` alongside the existing AWS report.
+- **30 new unit tests** for ChatSession and cloud auto-detection.
 
 ### Changed
 
 - CLI restructured to use subcommands. `argus --run-now` still works but `argus scan` is the canonical form.
+- `--cloud` no longer defaults to `aws` — auto-detected from env vars, or errors with a clear message if undetectable.
 - Right-sizing rules and priority thresholds extracted into shared constants used by both batch and chat prompts.
 - History trimming now uses a cheap LLM call to summarize dropped messages instead of a static placeholder, with automatic fallback on failure.
 - Error handling in `ChatSession.ask()` catches specific exception types (network, parse, provider errors) with targeted messages instead of a bare `except Exception`.
 - `/scan` command now tells the user to run `argus scan` instead of hacky internal entrypoint calls.
 - REPL supports arrow keys, input history (via readline), and multi-line input (trailing backslash continuation).
-- Test count: 431 → **456**.
+- Chat demo (`examples/chat_demo.py`) accepts `--cloud` flag and uses cloud-appropriate resource types.
+- Quickstart docs show tabbed setup for AWS, GCP, and Azure.
+- Test count: 431 → **466**.
 
 ---
 
