@@ -3,7 +3,12 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from adapters.base import Resource
-from adapters.gcp.asset_inventory import _parse_asset, _to_region, list_resources
+from adapters.gcp.asset_inventory import (
+    SCANNED_ASSET_TYPES,
+    _parse_asset,
+    _to_region,
+    list_resources,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -136,3 +141,27 @@ class TestListResources:
             )
 
         assert resources == []
+
+
+# ---------------------------------------------------------------------------
+# SCANNED_ASSET_TYPES coverage
+# ---------------------------------------------------------------------------
+class TestAssetTypeCoverage:
+    def test_scanned_asset_types_has_31_entries(self):
+        assert len(SCANNED_ASSET_TYPES) == 31
+
+    def test_new_types_are_in_scanned_list(self):
+        new_types = {
+            "compute.googleapis.com/Router",
+            "compute.googleapis.com/VpnTunnel",
+            "vpcaccess.googleapis.com/Connector",
+            "alloydb.googleapis.com/Cluster",
+            "firestore.googleapis.com/Database",
+            "memcache.googleapis.com/Instance",
+            "file.googleapis.com/Instance",
+            "appengine.googleapis.com/Application",
+            "cloudtasks.googleapis.com/Queue",
+        }
+        scanned = set(SCANNED_ASSET_TYPES)
+        missing = new_types - scanned
+        assert not missing, f"Missing from SCANNED_ASSET_TYPES: {missing}"

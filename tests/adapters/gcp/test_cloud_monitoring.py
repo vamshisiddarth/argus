@@ -1,6 +1,8 @@
 from unittest.mock import MagicMock, patch
 
-from adapters.gcp.cloud_monitoring import _resource_filter, get_metrics
+import pytest
+
+from adapters.gcp.cloud_monitoring import _METRICS, _resource_filter, get_metrics
 
 
 def _make_time_series(double_values: list[float]) -> list[MagicMock]:
@@ -112,3 +114,59 @@ class TestGetMetrics:
             )
 
         assert summary.has_data is False
+
+
+# ---------------------------------------------------------------------------
+# _METRICS coverage — verify all 31 resource types are registered
+# ---------------------------------------------------------------------------
+class TestMetricsCoverage:
+    def test_metrics_dict_has_31_types(self):
+        assert len(_METRICS) == 31
+
+    @pytest.mark.parametrize(
+        "resource_type",
+        [
+            "compute.googleapis.com/Router",
+            "compute.googleapis.com/ForwardingRule",
+            "compute.googleapis.com/BackendService",
+            "compute.googleapis.com/VpnTunnel",
+            "compute.googleapis.com/Address",
+            "vpcaccess.googleapis.com/Connector",
+            "bigtable.googleapis.com/Instance",
+            "alloydb.googleapis.com/Cluster",
+            "file.googleapis.com/Instance",
+            "memcache.googleapis.com/Instance",
+            "firestore.googleapis.com/Database",
+            "composer.googleapis.com/Environment",
+            "notebooks.googleapis.com/Instance",
+            "appengine.googleapis.com/Application",
+            "cloudtasks.googleapis.com/Queue",
+        ],
+    )
+    def test_new_type_has_metrics(self, resource_type):
+        assert resource_type in _METRICS
+        assert len(_METRICS[resource_type]) >= 1
+
+    @pytest.mark.parametrize(
+        "resource_type",
+        [
+            "compute.googleapis.com/Router",
+            "compute.googleapis.com/ForwardingRule",
+            "compute.googleapis.com/BackendService",
+            "compute.googleapis.com/VpnTunnel",
+            "vpcaccess.googleapis.com/Connector",
+            "bigtable.googleapis.com/Instance",
+            "alloydb.googleapis.com/Cluster",
+            "file.googleapis.com/Instance",
+            "memcache.googleapis.com/Instance",
+            "composer.googleapis.com/Environment",
+            "notebooks.googleapis.com/Instance",
+            "cloudtasks.googleapis.com/Queue",
+        ],
+    )
+    def test_new_type_has_resource_filter(self, resource_type):
+        f = _resource_filter(
+            f"//example.googleapis.com/projects/p/things/my-resource",
+            resource_type,
+        )
+        assert f != "", f"No filter for {resource_type}"

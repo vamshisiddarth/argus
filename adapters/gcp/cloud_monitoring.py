@@ -87,6 +87,157 @@ _METRICS: dict[str, list[tuple[str, str]]] = {
         ("aiplatform.googleapis.com/prediction/online/request_count", "sum"),
         ("aiplatform.googleapis.com/prediction/online/latencies", "mean"),
     ],
+    # --- Networking ---
+    "compute.googleapis.com/Router": [
+        ("router.googleapis.com/nat/sent_bytes_count", "sum"),
+        ("router.googleapis.com/nat/received_bytes_count", "sum"),
+        ("router.googleapis.com/nat/port_usage", "mean"),
+    ],
+    "compute.googleapis.com/ForwardingRule": [
+        (
+            "loadbalancing.googleapis.com/https/request_count",
+            "sum",
+        ),
+        (
+            "loadbalancing.googleapis.com/https/total_latencies",
+            "mean",
+        ),
+    ],
+    "compute.googleapis.com/BackendService": [
+        (
+            "loadbalancing.googleapis.com/https/request_count",
+            "sum",
+        ),
+        (
+            "loadbalancing.googleapis.com/https/backend_request_bytes_count",
+            "sum",
+        ),
+    ],
+    "compute.googleapis.com/VpnTunnel": [
+        (
+            "compute.googleapis.com/vpn/sent_bytes_count",
+            "sum",
+        ),
+        (
+            "compute.googleapis.com/vpn/received_bytes_count",
+            "sum",
+        ),
+    ],
+    "compute.googleapis.com/Address": [
+        (
+            "compute.googleapis.com/instance/network/sent_bytes_count",
+            "sum",
+        ),
+    ],
+    "vpcaccess.googleapis.com/Connector": [
+        (
+            "vpcaccess.googleapis.com/connector" "/sent_bytes_count",
+            "sum",
+        ),
+        (
+            "vpcaccess.googleapis.com/connector" "/received_bytes_count",
+            "sum",
+        ),
+    ],
+    # --- Databases & Storage ---
+    "bigtable.googleapis.com/Instance": [
+        ("bigtable.googleapis.com/server/request_count", "sum"),
+        (
+            "bigtable.googleapis.com/cluster/cpu_load",
+            "mean",
+        ),
+        (
+            "bigtable.googleapis.com/cluster" "/storage_utilization",
+            "mean",
+        ),
+    ],
+    "alloydb.googleapis.com/Cluster": [
+        (
+            "alloydb.googleapis.com/database" "/cpu/utilization",
+            "mean",
+        ),
+        (
+            "alloydb.googleapis.com/database" "/postgresql/num_backends",
+            "mean",
+        ),
+    ],
+    "file.googleapis.com/Instance": [
+        (
+            "file.googleapis.com/nfs/server" "/used_bytes_percent",
+            "mean",
+        ),
+        (
+            "file.googleapis.com/nfs/server" "/read_ops_count",
+            "sum",
+        ),
+        (
+            "file.googleapis.com/nfs/server" "/write_ops_count",
+            "sum",
+        ),
+    ],
+    "memcache.googleapis.com/Instance": [
+        (
+            "memcache.googleapis.com/node" "/curr_connections",
+            "mean",
+        ),
+        ("memcache.googleapis.com/node/cmd_get_count", "sum"),
+        ("memcache.googleapis.com/node/cmd_set_count", "sum"),
+    ],
+    "firestore.googleapis.com/Database": [
+        (
+            "firestore.googleapis.com/document/read_count",
+            "sum",
+        ),
+        (
+            "firestore.googleapis.com/document/write_count",
+            "sum",
+        ),
+    ],
+    # --- Compute & Orchestration ---
+    "composer.googleapis.com/Environment": [
+        (
+            "composer.googleapis.com/environment" "/dagbag_size",
+            "mean",
+        ),
+        (
+            "composer.googleapis.com/environment" "/num_celery_workers",
+            "mean",
+        ),
+        (
+            "composer.googleapis.com/environment" "/worker/pod_eviction_count",
+            "sum",
+        ),
+    ],
+    "notebooks.googleapis.com/Instance": [
+        (
+            "compute.googleapis.com/instance" "/cpu/utilization",
+            "mean",
+        ),
+        (
+            "compute.googleapis.com/instance" "/network/sent_bytes_count",
+            "sum",
+        ),
+    ],
+    "appengine.googleapis.com/Application": [
+        (
+            "appengine.googleapis.com/http" "/server/response_count",
+            "sum",
+        ),
+        (
+            "appengine.googleapis.com/system" "/cpu/usage",
+            "mean",
+        ),
+    ],
+    "cloudtasks.googleapis.com/Queue": [
+        (
+            "cloudtasks.googleapis.com/queue" "/depth",
+            "mean",
+        ),
+        (
+            "cloudtasks.googleapis.com" "/api/request_count",
+            "sum",
+        ),
+    ],
 }
 
 _PERIOD_SECONDS = 86400  # daily granularity
@@ -267,6 +418,36 @@ def _resource_filter(resource_id: str, resource_type: str) -> str:
             return f'resource.labels.cluster_name="{name}"'
         case "aiplatform.googleapis.com/Endpoint":
             return f'resource.labels.endpoint_id="{name}"'
+        case "compute.googleapis.com/Router":
+            return f'resource.labels.router_id="{name}"'
+        case "compute.googleapis.com/ForwardingRule":
+            return f'resource.labels.forwarding_rule_name="{name}"'
+        case "compute.googleapis.com/BackendService":
+            return f'resource.labels.backend_target_name="{name}"'
+        case "compute.googleapis.com/VpnTunnel":
+            return f'resource.labels.tunnel_name="{name}"'
+        case "compute.googleapis.com/Address":
+            return ""
+        case "vpcaccess.googleapis.com/Connector":
+            return f'resource.labels.connector_name="{name}"'
+        case "bigtable.googleapis.com/Instance":
+            return f'resource.labels.instance="{name}"'
+        case "alloydb.googleapis.com/Cluster":
+            return f'resource.labels.cluster_id="{name}"'
+        case "file.googleapis.com/Instance":
+            return f'resource.labels.instance_name="{name}"'
+        case "memcache.googleapis.com/Instance":
+            return f'resource.labels.instance_id="{name}"'
+        case "firestore.googleapis.com/Database":
+            return ""
+        case "composer.googleapis.com/Environment":
+            return f'resource.labels.environment_name="{name}"'
+        case "notebooks.googleapis.com/Instance":
+            return f'resource.labels.instance_name="{name}"'
+        case "appengine.googleapis.com/Application":
+            return ""
+        case "cloudtasks.googleapis.com/Queue":
+            return f'resource.labels.queue_id="{name}"'
     return ""
 
 

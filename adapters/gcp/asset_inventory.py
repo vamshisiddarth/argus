@@ -14,28 +14,41 @@ logger = structlog.get_logger(__name__)
 # Asset types Argus cares about. Empty list = all types (too noisy for cost analysis).
 # We scope to resource types that have associated billing.
 SCANNED_ASSET_TYPES: list[str] = [
+    # --- Compute ---
     "compute.googleapis.com/Instance",
     "compute.googleapis.com/Disk",
-    "compute.googleapis.com/Address",  # static IPs
-    "compute.googleapis.com/ForwardingRule",
-    "compute.googleapis.com/BackendService",
-    "sql.googleapis.com/Instance",  # Cloud SQL
     "container.googleapis.com/Cluster",  # GKE
     "run.googleapis.com/Service",  # Cloud Run
-    "cloudfunctions.googleapis.com/Function",  # Cloud Functions
+    "cloudfunctions.googleapis.com/Function",
+    "appengine.googleapis.com/Application",  # App Engine
+    "composer.googleapis.com/Environment",  # Cloud Composer (Airflow)
+    "notebooks.googleapis.com/Instance",  # Vertex AI Workbench
+    "aiplatform.googleapis.com/Endpoint",  # Vertex AI endpoints
+    # --- Networking ---
+    "compute.googleapis.com/Address",  # static IPs
+    "compute.googleapis.com/ForwardingRule",  # load balancers
+    "compute.googleapis.com/BackendService",
+    "compute.googleapis.com/Router",  # Cloud NAT
+    "compute.googleapis.com/VpnTunnel",
+    "vpcaccess.googleapis.com/Connector",  # Serverless VPC
+    # --- Databases ---
+    "sql.googleapis.com/Instance",  # Cloud SQL
+    "spanner.googleapis.com/Instance",
+    "bigtable.googleapis.com/Instance",
+    "alloydb.googleapis.com/Cluster",  # AlloyDB (managed Postgres)
+    "firestore.googleapis.com/Database",
+    "redis.googleapis.com/Instance",  # Memorystore Redis
+    "memcache.googleapis.com/Instance",  # Memorystore Memcached
+    "file.googleapis.com/Instance",  # Filestore (managed NFS)
+    # --- Data & Messaging ---
     "storage.googleapis.com/Bucket",
     "bigquery.googleapis.com/Dataset",
     "bigquery.googleapis.com/Table",
-    "redis.googleapis.com/Instance",  # Memorystore Redis
-    "spanner.googleapis.com/Instance",
-    "bigtable.googleapis.com/Instance",
     "pubsub.googleapis.com/Topic",
     "pubsub.googleapis.com/Subscription",
     "dataflow.googleapis.com/Job",
     "dataproc.googleapis.com/Cluster",
-    "aiplatform.googleapis.com/Endpoint",  # Vertex AI
-    "composer.googleapis.com/Environment",  # Cloud Composer (Airflow)
-    "notebooks.googleapis.com/Instance",  # Vertex AI Workbench
+    "cloudtasks.googleapis.com/Queue",  # Cloud Tasks
 ]
 
 

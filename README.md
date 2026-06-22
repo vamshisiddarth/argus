@@ -361,7 +361,7 @@ Before you invest time deploying Argus, know what it **can't** do yet:
 
 | Area | Status | Details |
 |------|--------|---------|
-| **Resource discovery** | AWS: strong, GCP/Azure: adequate | AWS covers 43 resource types via Resource Explorer. GCP covers 22 asset types; Azure covers 25 via Resource Graph. Some niche resource types (e.g. AWS Glue, SageMaker endpoints) are not yet mapped. |
+| **Resource discovery** | All three strong | AWS covers 43 resource types via Resource Explorer. GCP covers 31 asset types via Asset Inventory. Azure discovers all types via Resource Graph with 40 having curated metric mappings. All three fall back to dynamic metric auto-discovery for unmapped types. AWS has the deepest per-type metric coverage; GCP and Azure are catching up. |
 | **Cost accuracy** | Best-effort | AWS Cost Explorer charges $0.01/API call — Argus batches aggressively (max 2 calls/scan). GCP requires BigQuery billing export enabled. Azure cost data depends on subscription-level access. Resource-level cost allocation must be enabled in AWS for per-resource costs; without it, costs show $0.00. |
 | **AI non-determinism** | By design | The AI decides what's idle — different runs may produce slightly different findings or reasoning. Set `AI_TEMPERATURE=0.0` (default) for most consistent results. |
 | **LLM cost** | Configurable | A full scan of ~200 resources costs ~$0.05–$0.50 in LLM API fees depending on provider. Use `--llm-budget` to set a hard cap (default: $2.00/scan). Large estates (1000+ resources) will hit the budget limit — increase it or use `--max-resources`. |
@@ -370,12 +370,16 @@ Before you invest time deploying Argus, know what it **can't** do yet:
 | **Multi-cloud in one scan** | Not yet | Each `argus` invocation scans one cloud. Use the merge report feature (`core/reports/multi_cloud.py`) to combine results after separate runs. |
 | **Notifications** | Slack + Teams + webhook | No email. Slack/Teams delivery requires a webhook URL. |
 
+### Multi-cloud maturity
+
+AWS has the richest experience — it was developed first, has the most resource types with curated metric mappings, and has a mature multi-account hub/spoke deployment model. GCP and Azure are fully functional but the AWS adapter has been battle-tested more extensively. Cost data depth also varies: AWS Cost Explorer with resource-level allocation is the most reliable, GCP requires BigQuery billing export to be configured, and Azure Cost Management depends on subscription-level access. All three clouds have dynamic metric fallback for unmapped resource types, so even uncurated types get some signal.
+
 ### Multi-cloud parity
 
 | Capability | AWS | GCP | Azure |
 |-----------|-----|-----|-------|
-| Resource discovery | 43 types (Resource Explorer) | 22 types (Asset Inventory) | 25 types (Resource Graph) |
-| Metrics | CloudWatch (43 types + fallback) | Cloud Monitoring (15 types + fallback) | Azure Monitor (25 types + fallback) |
+| Resource discovery | 43 types (Resource Explorer) | 31 types (Asset Inventory) | All types (Resource Graph) |
+| Metrics | CloudWatch (43 types + fallback) | Cloud Monitoring (31 types + fallback) | Azure Monitor (40 types + fallback) |
 | Cost data | Cost Explorer (batched) | BigQuery billing export | Cost Management API |
 | Last activity | CloudTrail (90-day lookback) | Cloud Audit Logs | Activity Log / Log Analytics |
 | Deployment | Lambda (SAM) | Cloud Run Job | Azure Function (Bicep) |
@@ -387,9 +391,9 @@ Before you invest time deploying Argus, know what it **can't** do yet:
 ## Running tests
 
 ```bash
-make test                  # unit tests only (466 tests, no cloud creds needed)
+make test                  # unit tests only (511 tests, no cloud creds needed)
 make test-integration      # integration tests (32 tests — adapter contracts, report schema)
-make test-all              # everything (498 tests)
+make test-all              # everything (543 tests)
 ```
 
 Tests use `unittest.mock` throughout — no real AWS/GCP/Azure calls are made.
@@ -425,7 +429,7 @@ argus/
 │   ├── aws/               # CloudFormation templates
 │   ├── gcp/               # Cloud Run + Scheduler deploy script
 │   └── azure/             # Bicep templates
-└── tests/                 # 498 tests, all pass offline
+└── tests/                 # 543 tests, all pass offline
 ```
 
 ---

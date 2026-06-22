@@ -16,7 +16,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 - **Tool call status feedback** — REPL shows which tools are being called during analysis (e.g., "Get Metrics: nat-0abc123...").
 - **Optional `rich` formatting** — `pip install argus-cloud-optimizer[chat]` adds spinner, dimmed cost footers, and styled banners. Falls back to plain text without it.
 - **Sample reports for all clouds** — `examples/sample-report-gcp.json` and `examples/sample-report-azure.json` alongside the existing AWS report.
-- **30 new unit tests** for ChatSession and cloud auto-detection.
+- **GCP adapter expansion** — 15 new resource types with curated metric mappings: Cloud NAT, Forwarding Rules, Backend Services, VPN Tunnels, Serverless VPC Connectors, Bigtable, AlloyDB, Filestore, Memorystore Memcached, Firestore, Cloud Composer, Vertex AI Workbench, App Engine, Cloud Tasks, Static IPs. Discovery: 22 → 31 types. Metrics: 16 → 31 types.
+- **Azure adapter expansion** — 14 new resource types with curated metric mappings: NAT Gateway, VPN Gateway, Azure Firewall, Front Door, ExpressRoute, Public IPs, MySQL/PostgreSQL/MariaDB Flexible Servers, Synapse SQL Pools, ML Online Endpoints, Batch, IoT Hub, SignalR. Metrics: 26 → 40 types.
+- **75 new unit tests** for ChatSession, cloud auto-detection, and adapter coverage.
 
 ### Changed
 
@@ -29,7 +31,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 - REPL supports arrow keys, input history (via readline), and multi-line input (trailing backslash continuation).
 - Chat demo (`examples/chat_demo.py`) accepts `--cloud` flag and uses cloud-appropriate resource types.
 - Quickstart docs show tabbed setup for AWS, GCP, and Azure.
-- Test count: 431 → **466**.
+- Test count: 431 → **511**.
 
 ---
 

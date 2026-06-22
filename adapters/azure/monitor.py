@@ -164,6 +164,91 @@ _METRICS: dict[str, list[tuple[str, str]]] = {
         ("ActivityRunsStarted", "Total"),
         ("TriggerRunsStarted", "Total"),
     ],
+    # --- Networking ---
+    # NAT Gateway
+    "microsoft.network/natgateways": [
+        ("ByteCount", "Total"),
+        ("PacketCount", "Total"),
+        ("SNATConnectionCount", "Total"),
+    ],
+    # VPN Gateway
+    "microsoft.network/virtualnetworkgateways": [
+        ("TunnelIngressBytes", "Total"),
+        ("TunnelEgressBytes", "Total"),
+        ("P2SConnectionCount", "Average"),
+    ],
+    # Azure Firewall
+    "microsoft.network/azurefirewalls": [
+        ("DataProcessed", "Total"),
+        ("FirewallHealth", "Average"),
+        ("Throughput", "Average"),
+    ],
+    # Front Door
+    "microsoft.network/frontdoors": [
+        ("RequestCount", "Total"),
+        ("TotalLatency", "Average"),
+        ("RequestSize", "Total"),
+    ],
+    # ExpressRoute Circuit
+    "microsoft.network/expressroutecircuits": [
+        ("BitsInPerSecond", "Average"),
+        ("BitsOutPerSecond", "Average"),
+    ],
+    # Public IP Addresses
+    "microsoft.network/publicipaddresses": [
+        ("ByteCount", "Total"),
+        ("PacketCount", "Total"),
+    ],
+    # --- Databases ---
+    # MySQL Flexible Server
+    "microsoft.dbformysql/flexibleservers": [
+        ("cpu_percent", "Average"),
+        ("active_connections", "Average"),
+        ("storage_percent", "Average"),
+    ],
+    # PostgreSQL Flexible Server
+    "microsoft.dbforpostgresql/flexibleservers": [
+        ("cpu_percent", "Average"),
+        ("active_connections", "Average"),
+        ("storage_percent", "Average"),
+    ],
+    # MariaDB
+    "microsoft.dbformariadb/servers": [
+        ("cpu_percent", "Average"),
+        ("active_connections", "Average"),
+        ("storage_percent", "Average"),
+    ],
+    # --- Analytics & AI ---
+    # Synapse SQL Pools
+    "microsoft.synapse/workspaces/sqlpools": [
+        ("DWUUsedPercent", "Average"),
+        ("ActiveQueries", "Total"),
+        ("ConnectionsBlockedByFirewall", "Total"),
+    ],
+    # Machine Learning Online Endpoints
+    "microsoft.machinelearningservices/workspaces/onlineendpoints": [
+        ("RequestsPerMinute", "Average"),
+        ("RequestLatency", "Average"),
+    ],
+    # --- Compute ---
+    # Batch Accounts
+    "microsoft.batch/batchaccounts": [
+        ("TaskStartEvent", "Total"),
+        ("CoreCount", "Average"),
+        ("IdleNodeCount", "Average"),
+    ],
+    # IoT Hub
+    "microsoft.devices/iothubs": [
+        ("d2c.telemetry.ingress.allProtocol", "Total"),
+        ("connectedDeviceCount", "Average"),
+        ("totalDeviceCount", "Average"),
+    ],
+    # SignalR
+    "microsoft.signalrservice/signalr": [
+        ("ConnectionCount", "Average"),
+        ("MessageCount", "Total"),
+        ("InboundTraffic", "Total"),
+    ],
 }
 
 _AGGREGATION_MAP = {

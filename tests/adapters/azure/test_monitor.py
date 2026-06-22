@@ -1,6 +1,8 @@
 from unittest.mock import MagicMock, patch
 
-from adapters.azure.monitor import get_metrics
+import pytest
+
+from adapters.azure.monitor import _METRICS, get_metrics
 
 SAMPLE_ID = "/subscriptions/sub1/resourceGroups/rg1/providers/Microsoft.Compute/virtualMachines/vm1"
 SAMPLE_TYPE = "microsoft.compute/virtualmachines"
@@ -91,3 +93,34 @@ class TestGetMetrics:
                 result = get_metrics(SAMPLE_ID, SAMPLE_TYPE, days=14)
 
         assert result.has_data is False
+
+
+# ---------------------------------------------------------------------------
+# _METRICS coverage — verify all 40 resource types are registered
+# ---------------------------------------------------------------------------
+class TestMetricsCoverage:
+    def test_metrics_dict_has_40_types(self):
+        assert len(_METRICS) == 40
+
+    @pytest.mark.parametrize(
+        "resource_type",
+        [
+            "microsoft.network/natgateways",
+            "microsoft.network/virtualnetworkgateways",
+            "microsoft.network/azurefirewalls",
+            "microsoft.network/frontdoors",
+            "microsoft.network/expressroutecircuits",
+            "microsoft.network/publicipaddresses",
+            "microsoft.dbformysql/flexibleservers",
+            "microsoft.dbforpostgresql/flexibleservers",
+            "microsoft.dbformariadb/servers",
+            "microsoft.synapse/workspaces/sqlpools",
+            "microsoft.machinelearningservices/workspaces/onlineendpoints",
+            "microsoft.batch/batchaccounts",
+            "microsoft.devices/iothubs",
+            "microsoft.signalrservice/signalr",
+        ],
+    )
+    def test_new_type_has_metrics(self, resource_type):
+        assert resource_type in _METRICS
+        assert len(_METRICS[resource_type]) >= 2
