@@ -669,7 +669,9 @@ def _dimension_value(arn: str, resource_type: str) -> str:
             # arn:aws:glue:region:account:job/name
             return resource_part.split("/")[-1]
         case (
-            "AWS::RDS::DBCluster" | "AWS::Neptune::DBCluster" | "AWS::DocDB::DBCluster"
+            "AWS::RDS::DBCluster"
+            | "AWS::Neptune::DBCluster"
+            | "AWS::DocDB::DBCluster"
         ):
             # arn:...:cluster:name
             return resource_part.split(":")[-1]
