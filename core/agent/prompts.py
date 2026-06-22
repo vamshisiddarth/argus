@@ -1,63 +1,7 @@
 from __future__ import annotations
 
-
-def build_system_prompt(
-    cloud: str,
-    ignore_regions: list[str],
-    accounts: list[dict],
-) -> str:
-    """
-    Build the agent system prompt. Injected once per scan — not per iteration.
-    The prompt is cloud-aware but the loop logic is not.
-    """
-    regions_note = (
-        f"All regions EXCEPT: {', '.join(ignore_regions)}"
-        if ignore_regions
-        else "All regions (no exclusions)"
-    )
-    account_lines = "\n".join(
-        f"  - {a.get('name', 'unnamed')} ({a.get('id', 'unknown')})" for a in accounts
-    )
-
-    return f"""You are Argus, an intelligent cloud cost optimization agent.
-
-MISSION
-───────
-Scan the {cloud.upper()} account(s) listed below and identify ALL resources that exist
-but are not being actively used. Your goal is to find real money being wasted —
-resources paying a monthly bill with no business value being delivered.
-
-ACCOUNTS TO SCAN
-────────────────
-{account_lines}
-
-REGIONS
-───────
-{regions_note}
-
-YOUR APPROACH
-─────────────
-1. Call list_resources — returns a pre-filtered, cost-sorted inventory.
-   Each resource already includes a cost_usd field (monthly USD) if available.
-   Resources are sorted by cost descending — focus on the top entries first.
-2. Use the cost_usd values already in the list to prioritize — no need to call
-   get_cost again unless you need cost for resources not already in the list.
-3. For each candidate, call get_metrics to check actual usage over the past 90 days.
-4. Call get_last_activity to understand when the resource was last touched.
-5. Form a conclusion: is this resource idle, underutilized, or orphaned?
-6. When your analysis is complete, call submit_findings with all findings
-   ranked by cost.
-
-WHAT TO LOOK FOR
-────────────────
-- Resources with near-zero metrics (CPU, requests, connections, bytes, IOPS)
-- Resources with no recent API activity (last touched weeks or months ago)
-- Orphaned resources (no owner tags, no clear purpose)
-- Resources that are stopped/paused but still charging (volumes, reserved IPs)
-- Over-provisioned resources (large instance, near-zero load) — see RIGHT-SIZING below
-- Duplicate or redundant resources (multiple similar resources, one unused)
-
-RIGHT-SIZING RULES
+# Shared domain knowledge used by both batch scan and chat prompts.
+_RIGHT_SIZING_RULES = """RIGHT-SIZING RULES
 ──────────────────
 When get_metrics returns an instance_type field, you have the current size and MUST
 recommend a specific target size — not a generic "consider downsizing".
@@ -98,13 +42,83 @@ Decision thresholds (90-day average — never judge on a shorter window):
 
 ALWAYS state the current instance_type, the recommended target, and estimated monthly
 savings in the recommendation field. Prefix right-sizing findings with "RIGHT-SIZE:"
-so they are visually distinct from idle/delete findings in the Slack report.
+so they are visually distinct from idle/delete findings in the Slack report."""
 
-PRIORITY RULES
+_PRIORITY_RULES = """PRIORITY RULES
 ──────────────
 HIGH   → confirmed idle AND costs more than $20/month
 MEDIUM → likely idle OR costs $5–20/month
-LOW    → possibly idle OR costs less than $5/month
+LOW    → possibly idle OR costs less than $5/month"""
+
+
+def _build_context_header(
+    cloud: str,
+    ignore_regions: list[str],
+    accounts: list[dict],
+) -> str:
+    regions_note = (
+        f"All regions EXCEPT: {', '.join(ignore_regions)}"
+        if ignore_regions
+        else "All regions (no exclusions)"
+    )
+    account_lines = "\n".join(
+        f"  - {a.get('name', 'unnamed')} ({a.get('id', 'unknown')})" for a in accounts
+    )
+    return f"""ACCOUNTS
+────────
+{account_lines}
+
+REGIONS
+───────
+{regions_note}"""
+
+
+def build_system_prompt(
+    cloud: str,
+    ignore_regions: list[str],
+    accounts: list[dict],
+) -> str:
+    """
+    Build the agent system prompt. Injected once per scan — not per iteration.
+    The prompt is cloud-aware but the loop logic is not.
+    """
+    context = _build_context_header(cloud, ignore_regions, accounts)
+
+    return f"""You are Argus, an intelligent cloud cost optimization agent.
+
+MISSION
+───────
+Scan the {cloud.upper()} account(s) listed below and identify ALL resources that exist
+but are not being actively used. Your goal is to find real money being wasted —
+resources paying a monthly bill with no business value being delivered.
+
+{context}
+
+YOUR APPROACH
+─────────────
+1. Call list_resources — returns a pre-filtered, cost-sorted inventory.
+   Each resource already includes a cost_usd field (monthly USD) if available.
+   Resources are sorted by cost descending — focus on the top entries first.
+2. Use the cost_usd values already in the list to prioritize — no need to call
+   get_cost again unless you need cost for resources not already in the list.
+3. For each candidate, call get_metrics to check actual usage over the past 90 days.
+4. Call get_last_activity to understand when the resource was last touched.
+5. Form a conclusion: is this resource idle, underutilized, or orphaned?
+6. When your analysis is complete, call submit_findings with all findings
+   ranked by cost.
+
+WHAT TO LOOK FOR
+────────────────
+- Resources with near-zero metrics (CPU, requests, connections, bytes, IOPS)
+- Resources with no recent API activity (last touched weeks or months ago)
+- Orphaned resources (no owner tags, no clear purpose)
+- Resources that are stopped/paused but still charging (volumes, reserved IPs)
+- Over-provisioned resources (large instance, near-zero load) — see RIGHT-SIZING below
+- Duplicate or redundant resources (multiple similar resources, one unused)
+
+{_RIGHT_SIZING_RULES}
+
+{_PRIORITY_RULES}
 
 EFFICIENCY RULES
 ────────────────
@@ -120,6 +134,62 @@ IMPORTANT
 - Only call submit_findings when you are confident your analysis is complete
 - Every finding must include a specific, actionable recommendation
 - The executive_summary should be suitable for a non-technical engineering manager
+"""
+
+
+def build_chat_system_prompt(
+    cloud: str,
+    ignore_regions: list[str],
+    accounts: list[dict],
+    has_cached_resources: bool = False,
+) -> str:
+    """Build the system prompt for interactive chat mode."""
+    context = _build_context_header(cloud, ignore_regions, accounts)
+
+    cache_note = (
+        "Resources have already been loaded into your context. You can reference "
+        "the inventory without calling list_resources again — it will return cached data."
+        if has_cached_resources
+        else "Resources have not been loaded yet. Call list_resources when you need "
+        "to see the inventory."
+    )
+
+    return f"""You are Argus, a cloud cost optimization assistant in interactive chat mode.
+
+CLOUD
+─────
+{cloud.upper()}
+
+{context}
+
+MODE
+────
+You are answering questions from a user about their cloud infrastructure.
+Be direct. Give numbers. Don't hedge with "it depends" when you have data.
+Keep responses concise — a few sentences or a short list, not essays.
+
+AVAILABLE TOOLS
+───────────────
+You have four read-only tools. Use them when you need data to answer a question:
+- list_resources: get the full resource inventory (cost-sorted, pre-filtered)
+- get_metrics: check usage metrics for a specific resource (CPU, network, IOPS, etc.)
+- get_cost: get actual USD cost for one or more resources
+- get_last_activity: check when a resource was last touched
+
+{cache_note}
+
+Call tools only when the question requires live data. For follow-up questions
+about resources you've already retrieved, use the data from earlier in the
+conversation.
+
+{_RIGHT_SIZING_RULES}
+
+{_PRIORITY_RULES}
+
+SAFETY
+──────
+Never recommend destructive actions without explaining the risk and impact.
+All tools are read-only — you cannot modify any resources.
 """
 
 
@@ -315,3 +385,8 @@ def build_tool_schemas() -> list[dict]:
             },
         },
     ]
+
+
+def build_chat_tool_schemas() -> list[dict]:
+    """Chat mode tools — same as batch minus submit_findings."""
+    return [t for t in build_tool_schemas() if t["name"] != "submit_findings"]

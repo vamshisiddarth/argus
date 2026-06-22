@@ -57,7 +57,7 @@ You can pass accounts as a JSON env var or via a YAML file:
     ```
 
     ```bash
-    python main.py --cloud aws --run-now --accounts accounts.yaml
+    argus scan --cloud aws --accounts accounts.yaml
     ```
 
 ## GCP

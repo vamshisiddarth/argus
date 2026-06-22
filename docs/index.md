@@ -146,13 +146,13 @@ Argus found $1,412.85/month in waste across 6 resources
     ```bash
     git clone https://github.com/vamshisiddarth/argus.git
     cd argus
-    python -m venv .venv && source .venv/bin/activate
-    pip install -r requirements.txt
+    python3.11 -m venv .venv && source .venv/bin/activate
+    pip install -e ".[dev]"
 
     cp .env.example .env
     # Set ANTHROPIC_API_KEY and DRY_RUN=true
 
-    python main.py --cloud aws --run-now --dry-run
+    argus scan --cloud aws --dry-run
     ```
 
 === "AWS Lambda (one-click)"

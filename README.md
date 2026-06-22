@@ -105,7 +105,7 @@ docker run --rm \
 
 ```bash
 pip install argus-cloud-optimizer
-argus --version   # argus 0.2.0
+argus --version   # argus 0.3.0
 argus --help
 ```
 
@@ -137,10 +137,48 @@ cp .env.example .env                       # edit with your values
 argus --cloud aws --run-now
 ```
 
+### Interactive Chat Mode
+
+Ask questions about your cloud infrastructure in natural language:
+
+```bash
+pip install argus-cloud-optimizer[chat]   # optional: adds rich formatting
+argus chat --cloud aws --ai-provider anthropic
+```
+
+```
+Argus v0.3.0 — Interactive Cloud Cost Assistant
+Cloud: AWS | Accounts: my-account (123456789012)
+Type your question, or /help for commands.
+
+argus> What are my top 3 wastes?
+
+Based on your AWS account, the three largest idle resources are:
+
+1. NAT Gateway nat-0abc123 in us-east-1 — $32.50/mo
+   Only 847 bytes transferred in 90 days. Recommendation: delete.
+
+2. RDS Instance db-prod-replica in us-west-2 — $28.80/mo
+   0 connections in 90 days. Recommendation: snapshot and delete.
+
+3. EBS Volume vol-0def456 in us-east-1 — $12.00/mo
+   Unattached. Last activity: 2026-03-15. Recommendation: snapshot and delete.
+
+Total estimated monthly waste: $73.30
+
+[this turn: 2,847 in / 412 out, $0.0147 | session: 2,847 in / 412 out, $0.0147 / $1.00 budget]
+
+argus> Tell me more about that RDS instance — is it truly idle?
+```
+
+Available REPL commands: `/help`, `/scan`, `/cost`, `/clear`, `/quit`
+
 ### CLI Options
 
 ```
-argus --cloud aws|gcp|azure --run-now [options]
+argus scan --cloud aws|gcp|azure [options]    # full batch scan
+argus chat --cloud aws|gcp|azure [options]    # interactive Q&A
+argus --run-now --cloud aws [options]         # backward compat
 
   -V, --version              Show version and exit
   --dry-run                  Print notification payload instead of posting
@@ -149,6 +187,7 @@ argus --cloud aws|gcp|azure --run-now [options]
   --accounts PATH            Path to accounts.yaml for multi-account mode (AWS only)
   --max-resources N          Maximum resources to analyze per scan (default: 200)
   --lookback-days DAYS       Metrics lookback window in days (default: 90, use 14 for faster local dev)
+  --llm-budget USD           Cost budget per scan/session (default: $2.00 scan, $1.00 chat)
 ```
 
 ---
@@ -324,9 +363,9 @@ Before you invest time deploying Argus, know what it **can't** do yet:
 ## Running tests
 
 ```bash
-make test                  # unit tests only (431 tests, no cloud creds needed)
+make test                  # unit tests only (451 tests, no cloud creds needed)
 make test-integration      # integration tests (32 tests — adapter contracts, report schema)
-make test-all              # everything (463 tests)
+make test-all              # everything (483 tests)
 ```
 
 Tests use `unittest.mock` throughout — no real AWS/GCP/Azure calls are made.
@@ -362,7 +401,7 @@ argus/
 │   ├── aws/               # CloudFormation templates
 │   ├── gcp/               # Cloud Run + Scheduler deploy script
 │   └── azure/             # Bicep templates
-└── tests/                 # 463 tests, all pass offline
+└── tests/                 # 483 tests, all pass offline
 ```
 
 ---

@@ -3,6 +3,27 @@
 All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## v0.3.0 (2026-06-21)
+
+### Added
+
+- **Interactive chat mode** — `argus chat --cloud aws` starts a conversational REPL for cloud cost Q&A. Ask natural language questions about your infrastructure, get answers backed by real metrics and cost data. Supports multi-turn follow-ups.
+- **Subcommand CLI** — `argus scan` (replaces `argus --run-now`) and `argus chat`. The `--run-now` flag still works as a backward-compatible alias.
+- **Per-session token budget** — chat mode defaults to $1.00/session (configurable via `--llm-budget`). Per-turn and cumulative cost displayed after every response.
+- **REPL commands** — `/help`, `/scan`, `/cost`, `/clear`, `/quit` for session management.
+- **Token-based history trimming** — conversation history automatically trimmed when approaching context limits, with context summary for continuity.
+- **Tool call status feedback** — REPL shows which tools are being called during analysis (e.g., "Get Metrics: nat-0abc123...").
+- **Optional `rich` formatting** — `pip install argus-cloud-optimizer[chat]` adds spinner, dimmed cost footers, and styled banners. Falls back to plain text without it.
+- **20 new unit tests** for ChatSession covering happy path, history management, budget enforcement, error recovery, and prompt validation.
+
+### Changed
+
+- CLI restructured to use subcommands. `argus --run-now` still works but `argus scan` is the canonical form.
+- Right-sizing rules and priority thresholds extracted into shared constants used by both batch and chat prompts.
+- Test count: 431 → **451**.
+
+---
+
 ## v0.2.0 (2026-06-19)
 
 ### Added

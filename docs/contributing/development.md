@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Python 3.13+
+- Python 3.11+
 - git
 
 ## Install
@@ -10,8 +10,8 @@
 ```bash
 git clone https://github.com/vamshisiddarth/argus.git
 cd argus
-python3.13 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+python3.11 -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev]"
 pre-commit install
 ```
 
@@ -20,7 +20,9 @@ pre-commit install
 All tests run offline — no cloud credentials needed:
 
 ```bash
-pytest tests/ -v
+pytest tests/ -v                   # 451 unit tests
+make test-integration              # 32 integration tests (adapter contracts, report schema)
+make test-all                      # everything (483 tests)
 ```
 
 Subsets:
@@ -30,7 +32,7 @@ pytest tests/adapters/aws/ -v     # AWS adapter
 pytest tests/adapters/gcp/ -v     # GCP adapter
 pytest tests/adapters/azure/ -v   # Azure adapter
 pytest tests/ai/ -v               # AI providers
-pytest tests/core/ -v             # Agent loop and report generation
+pytest tests/core/ -v             # Agent loop, chat session, report generation
 ```
 
 With coverage:
@@ -62,7 +64,7 @@ Rules:
 - Line length: **88 characters**
 - Type hints on all public functions
 - No bare `except Exception`
-- Python 3.13+ syntax (`match`, `|` union types, etc.)
+- Python 3.11+ minimum (`match`, `|` union types freely; avoid 3.12+ `type` statement)
 
 ## Running the docs site locally
 
@@ -78,7 +80,7 @@ Open [http://localhost:8000](http://localhost:8000).
 ```
 argus/
 ├── core/               # Pure Python — no cloud imports
-│   ├── agent/          # ReAct loop + system prompt + tool schemas
+│   ├── agent/          # ReAct loop, chat session, system prompt + tool schemas
 │   ├── models/         # ResourceFinding dataclass
 │   └── reports/        # Report builder, multi-cloud merge, export, notifications
 ├── adapters/
@@ -93,7 +95,8 @@ argus/
 │   ├── vertexai.py     # Vertex AI (Gemini)
 │   └── azure_openai.py # Azure OpenAI (GPT-4o)
 ├── entrypoints/
-│   ├── cli.py
+│   ├── cli.py          # argus scan / argus chat subcommands
+│   ├── cli_chat.py     # interactive chat REPL
 │   ├── aws_lambda.py
 │   ├── gcp_cloudrun.py
 │   └── azure_function.py
@@ -101,6 +104,8 @@ argus/
 │   ├── aws/            # CloudFormation
 │   ├── gcp/            # deploy.sh
 │   └── azure/          # Bicep
+├── examples/
+│   └── chat_demo.py    # demo script for chat mode (no API key needed)
 ├── tests/              # mirrors source layout
 └── docs/               # this documentation
 ```

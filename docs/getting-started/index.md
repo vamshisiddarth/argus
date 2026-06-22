@@ -32,7 +32,7 @@ What to expect from the output and how to interpret findings.
 
 ## Prerequisites
 
-- Python 3.13+
+- Python 3.11+
 - Cloud credentials configured for your target cloud:
     - **AWS**: `~/.aws/credentials` default profile, or `AWS_PROFILE` env var. AWS Resource Explorer must be enabled with an **aggregator index** in your primary region.
     - **GCP**: `gcloud auth application-default login`
@@ -44,5 +44,6 @@ What to expect from the output and how to interpret findings.
     - **Vertex AI**: uses ADC automatically (GCP only)
     - **Azure OpenAI**: uses managed identity automatically (Azure only)
 
-!!! tip "GCP and Azure — deploy first"
-    The local CLI currently supports AWS only. For GCP and Azure, deploy the Cloud Run Job or Azure Function (see the [Deployment](../deployment/index.md) section) and run scans from there.
+!!! tip "GCP and Azure"
+    `argus scan --cloud gcp` and `argus scan --cloud azure` work locally with credentials configured.
+    For automated weekly scans, deploy the Cloud Run Job or Azure Function (see the [Deployment](../deployment/index.md) section).

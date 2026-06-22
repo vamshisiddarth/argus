@@ -253,10 +253,11 @@ class TestMainInvalidCloud:
         # argparse exits with code 2 for invalid choices
         assert exc_info.value.code == 2
 
-    def test_missing_run_now_exits(self):
+    def test_no_subcommand_prints_help_and_exits(self):
         from entrypoints.cli import main
 
         with pytest.raises(SystemExit) as exc_info:
             main(["--cloud", "aws"])
 
-        assert exc_info.value.code == 2
+        # No subcommand → prints help and exits cleanly (code 0)
+        assert exc_info.value.code == 0

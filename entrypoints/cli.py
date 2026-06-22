@@ -1,13 +1,13 @@
 """
 CLI entrypoint for Argus.
-Runs the same agent loop as the Lambda handler, but from a local terminal.
 
 Usage:
-  python main.py --cloud aws --run-now
-  python main.py --cloud aws --run-now --dry-run --ignore-regions ap-east-1,me-south-1
-  python main.py --cloud aws --run-now --ai-provider anthropic
-  python main.py --cloud aws --run-now --accounts accounts.yaml
-  python main.py --cloud aws --run-now --max-resources 50 --lookback-days 14
+  argus scan --cloud aws
+  argus scan --cloud aws --dry-run --ignore-regions ap-east-1,me-south-1
+  argus chat --cloud aws --ai-provider anthropic
+
+  # Backward compat (same as argus scan):
+  argus --run-now --cloud aws
 """
 
 from __future__ import annotations
@@ -32,58 +32,105 @@ def main(argv: list[str] | None = None) -> None:
         version=f"%(prog)s {__version__}",
     )
     parser.add_argument(
+        "--run-now",
+        action="store_true",
+        help="Backward compat: same as 'argus scan'",
+    )
+    parser.add_argument(
+        "--cloud",
+        default=None,
+        choices=["aws", "gcp", "azure"],
+    )
+    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument(
+        "--ignore-regions",
+        default=None,
+        dest="ignore_regions",
+        metavar="REGIONS",
+    )
+    parser.add_argument(
+        "--primary-region",
+        default=None,
+        dest="primary_region",
+    )
+    parser.add_argument(
+        "--ai-provider",
+        default=None,
+        choices=["anthropic", "bedrock", "vertexai", "azure_openai"],
+    )
+    parser.add_argument("--accounts", metavar="PATH")
+    parser.add_argument(
+        "--max-resources",
+        default=None,
+        dest="max_resources",
+        type=int,
+        metavar="N",
+    )
+    parser.add_argument(
+        "--lookback-days",
+        default=None,
+        dest="lookback_days",
+        type=int,
+        metavar="DAYS",
+    )
+    parser.add_argument(
+        "--llm-budget",
+        default=None,
+        dest="llm_budget",
+        type=float,
+        metavar="USD",
+    )
+
+    subparsers = parser.add_subparsers(dest="command")
+
+    # --- argus scan ---
+    scan_parser = subparsers.add_parser(
+        "scan", help="Run a full cost optimization scan"
+    )
+    scan_parser.add_argument(
         "--cloud",
         default="aws",
         choices=["aws", "gcp", "azure"],
         help="Cloud provider to scan (default: aws)",
     )
-    parser.add_argument(
-        "--run-now",
-        action="store_true",
-        required=True,
-        help="Trigger a scan immediately",
-    )
-    parser.add_argument(
+    scan_parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Log the Slack payload instead of posting it",
     )
-    parser.add_argument(
+    scan_parser.add_argument(
         "--ignore-regions",
         default=os.environ.get("IGNORE_REGIONS", ""),
         dest="ignore_regions",
         metavar="REGIONS",
-        help=(
-            "Comma-separated regions to exclude from the scan "
-            "(default: none, scan all)"
-        ),
+        help="Comma-separated regions to exclude (default: none)",
     )
-    parser.add_argument(
+    scan_parser.add_argument(
         "--primary-region",
         default=os.environ.get("PRIMARY_REGION", "us-east-1"),
         dest="primary_region",
-        help="AWS region for the boto3 session and Bedrock calls (default: us-east-1)",
+        help="AWS region for boto3/Bedrock (default: us-east-1)",
     )
-    parser.add_argument(
+    scan_parser.add_argument(
         "--ai-provider",
         default=os.environ.get("AI_PROVIDER", "anthropic"),
         choices=["anthropic", "bedrock", "vertexai", "azure_openai"],
-        help="AI provider (default: anthropic — requires ANTHROPIC_API_KEY)",
+        help="AI provider (default: anthropic)",
     )
-    parser.add_argument(
+    scan_parser.add_argument(
         "--accounts",
         metavar="PATH",
         help="Path to accounts.yaml for multi-account mode",
     )
-    parser.add_argument(
+    scan_parser.add_argument(
         "--max-resources",
         default=os.environ.get("MAX_RESOURCES_PER_SCAN", "200"),
         dest="max_resources",
         type=int,
         metavar="N",
-        help="Maximum resources to analyze per scan (default: 200)",
+        help="Max resources to analyze per scan (default: 200)",
     )
-    parser.add_argument(
+    scan_parser.add_argument(
         "--lookback-days",
         default=os.environ.get("METRICS_LOOKBACK_DAYS", "90"),
         dest="lookback_days",
@@ -91,18 +138,87 @@ def main(argv: list[str] | None = None) -> None:
         metavar="DAYS",
         help="Metrics lookback window in days (default: 90)",
     )
-    parser.add_argument(
+    scan_parser.add_argument(
         "--llm-budget",
         default=os.environ.get("LLM_BUDGET_USD", "2.0"),
         dest="llm_budget",
         type=float,
         metavar="USD",
-        help="Hard budget for LLM cost per scan in USD (default: 2.00, 0=unlimited)",
+        help="LLM cost budget per scan in USD (default: 2.00, 0=unlimited)",
+    )
+
+    # --- argus chat ---
+    chat_parser = subparsers.add_parser("chat", help="Interactive cloud cost Q&A")
+    chat_parser.add_argument(
+        "--cloud",
+        default="aws",
+        choices=["aws", "gcp", "azure"],
+        help="Cloud provider (default: aws)",
+    )
+    chat_parser.add_argument(
+        "--ignore-regions",
+        default=os.environ.get("IGNORE_REGIONS", ""),
+        dest="ignore_regions",
+        metavar="REGIONS",
+        help="Comma-separated regions to exclude (default: none)",
+    )
+    chat_parser.add_argument(
+        "--primary-region",
+        default=os.environ.get("PRIMARY_REGION", "us-east-1"),
+        dest="primary_region",
+        help="AWS region for boto3/Bedrock (default: us-east-1)",
+    )
+    chat_parser.add_argument(
+        "--ai-provider",
+        default=os.environ.get("AI_PROVIDER", "anthropic"),
+        choices=["anthropic", "bedrock", "vertexai", "azure_openai"],
+        help="AI provider (default: anthropic)",
+    )
+    chat_parser.add_argument(
+        "--accounts",
+        metavar="PATH",
+        help="Path to accounts.yaml for multi-account mode",
+    )
+    chat_parser.add_argument(
+        "--llm-budget",
+        default=os.environ.get("LLM_BUDGET_USD", "1.0"),
+        dest="llm_budget",
+        type=float,
+        metavar="USD",
+        help="Session cost budget in USD (default: 1.00, 0=unlimited)",
     )
 
     args = parser.parse_args(argv)
 
-    # Propagate CLI args as env vars so the Lambda handler can read them.
+    # Backward compat: argus --run-now --cloud aws → treat as scan
+    if args.run_now and not args.command:
+        args.command = "scan"
+        if args.cloud is None:
+            args.cloud = "aws"
+        if args.ignore_regions is None:
+            args.ignore_regions = os.environ.get("IGNORE_REGIONS", "")
+        if args.primary_region is None:
+            args.primary_region = os.environ.get("PRIMARY_REGION", "us-east-1")
+        if args.ai_provider is None:
+            args.ai_provider = os.environ.get("AI_PROVIDER", "anthropic")
+        if args.max_resources is None:
+            args.max_resources = int(os.environ.get("MAX_RESOURCES_PER_SCAN", "200"))
+        if args.lookback_days is None:
+            args.lookback_days = int(os.environ.get("METRICS_LOOKBACK_DAYS", "90"))
+        if args.llm_budget is None:
+            args.llm_budget = float(os.environ.get("LLM_BUDGET_USD", "2.0"))
+
+    if not args.command:
+        parser.print_help()
+        sys.exit(0)
+
+    if args.command == "scan":
+        _run_scan(args)
+    elif args.command == "chat":
+        _run_chat(args)
+
+
+def _run_scan(args: argparse.Namespace) -> None:
     os.environ["IGNORE_REGIONS"] = args.ignore_regions
     os.environ["PRIMARY_REGION"] = args.primary_region
     os.environ["AI_PROVIDER"] = args.ai_provider
@@ -133,6 +249,54 @@ def main(argv: list[str] | None = None) -> None:
 
     if result is not None:
         print(json.dumps(result, indent=2))
+
+
+def _run_chat(args: argparse.Namespace) -> None:
+    os.environ["PRIMARY_REGION"] = args.primary_region
+    os.environ["AI_PROVIDER"] = args.ai_provider
+    if args.accounts:
+        _apply_accounts_config(args.accounts)
+
+    ignore_regions = [r.strip() for r in args.ignore_regions.split(",") if r.strip()]
+    accounts = _resolve_accounts(args.cloud)
+
+    from entrypoints.cli_chat import run_chat_repl
+
+    run_chat_repl(
+        cloud=args.cloud,
+        ai_provider_name=args.ai_provider,
+        accounts=accounts,
+        ignore_regions=ignore_regions,
+        budget_usd=args.llm_budget,
+        primary_region=args.primary_region,
+    )
+
+
+def _resolve_accounts(cloud: str) -> list[dict[str, str]]:
+    """Build the accounts list from env vars / config."""
+    mode = os.environ.get("ACCOUNTS_MODE", "single")
+    if mode == "multi":
+        raw = os.environ.get("ACCOUNTS_CONFIG", "[]")
+        return list(json.loads(raw))
+
+    if cloud == "aws":
+        try:
+            import boto3
+
+            sts = boto3.client("sts")
+            identity = sts.get_caller_identity()
+            return [{"id": identity["Account"], "name": identity["Account"]}]
+        except Exception:  # noqa: BLE001
+            return [{"id": "unknown", "name": "current-account"}]
+    elif cloud == "gcp":
+        project = os.environ.get("GCP_PROJECT_ID", "unknown")
+        return [{"id": project, "name": project}]
+    elif cloud == "azure":
+        subs = os.environ.get("AZURE_SUBSCRIPTION_IDS", "unknown")
+        return [
+            {"id": s.strip(), "name": s.strip()} for s in subs.split(",") if s.strip()
+        ]
+    return [{"id": "unknown", "name": "unknown"}]
 
 
 def _apply_accounts_config(path: str) -> None:

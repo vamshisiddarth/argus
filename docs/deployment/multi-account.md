@@ -75,7 +75,7 @@ accounts:
 ```
 
 ```bash
-python main.py --cloud aws --run-now --accounts accounts.yaml
+argus scan --cloud aws --accounts accounts.yaml
 ```
 
 ## How it works

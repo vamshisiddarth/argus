@@ -83,7 +83,7 @@ func azure functionapp publish <function-app-name>
 
 | Resource | Purpose |
 |----------|---------|
-| Function App (Linux, Python 3.13) | Runs the scan |
+| Function App (Linux, Python 3.11) | Runs the scan |
 | App Service Plan (Consumption Y1) | Serverless billing |
 | Storage Account | Required by Function runtime |
 | System-assigned managed identity | Authentication to Azure APIs |

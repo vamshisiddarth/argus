@@ -21,10 +21,10 @@ Thanks for your interest in contributing. This document explains how to set up a
 git clone https://github.com/vamshisiddarth/argus.git
 cd argus
 
-python3.13 -m venv .venv
+python3.11 -m venv .venv
 source .venv/bin/activate
 
-pip install -r requirements.txt
+pip install -e ".[dev]"
 ```
 
 Copy the environment file and fill in the minimum values for local testing:
@@ -38,17 +38,19 @@ cp .env.example .env
 
 ## Running tests
 
-All 187 tests run offline — no real cloud credentials needed:
+All 451 unit tests run offline — no real cloud credentials needed:
 
 ```bash
 pytest tests/ -v
+make test-integration   # 32 integration tests (adapter contracts, report schema)
+make test-all           # everything (483 tests)
 ```
 
 To run a subset:
 
 ```bash
 pytest tests/adapters/aws/ -v        # AWS adapter only
-pytest tests/core/ -v                # Core agent logic only
+pytest tests/core/ -v                # Core agent logic + chat session
 pytest tests/ai/ -v                  # AI providers only
 ```
 
@@ -75,7 +77,7 @@ Rules:
 - Line length: **88 characters** (Black default)
 - **Type hints on all public functions** — no exceptions
 - **No bare `except Exception`** — catch typed SDK exceptions
-- **Python 3.13+** — use modern syntax freely (`match`, `|` union types, etc.)
+- **Python 3.11+** minimum — use `match/case` and `X | Y` union types freely; avoid `type` statement (3.12+ only)
 - No `subprocess` calls to cloud CLIs — always use official SDKs
 
 ---
@@ -151,7 +153,7 @@ def from_env(cls) -> "MyCloudAdapter":
 
 ### 4. Wire it up in `entrypoints/cli.py`
 
-Add `"mycloud"` to the `--cloud` choices and import your adapter there.
+Add `"mycloud"` to the `--cloud` choices and import your adapter in `_build_adapter()`.
 
 ### 5. Write tests
 
@@ -207,7 +209,7 @@ def from_env(cls) -> "MyProvider":
 
 ### 3. Wire it up
 
-Add the new provider to the `AI_PROVIDER` env var handling in `entrypoints/aws_lambda.py` (and `cli.py`).
+Add the new provider to the `AI_PROVIDER` env var handling in `entrypoints/cli.py` (`_build_ai_provider()` in `entrypoints/cli_chat.py` for chat mode).
 
 ### 4. Write tests
 
