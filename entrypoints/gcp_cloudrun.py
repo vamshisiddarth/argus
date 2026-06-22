@@ -5,13 +5,17 @@ Cloud Run Jobs run to completion — no HTTP server needed. The job is
 triggered on a schedule by Cloud Scheduler.
 
 Environment variables:
-  GCP_PROJECT_ID              GCP project to scan (required)
+  GCP_PROJECT_ID              GCP project to scan (single-project mode)
+  GCP_PROJECT_IDS             Comma-separated GCP projects (multi-project mode)
+  ACCOUNTS_MODE               "single" | "multi" (default: single)
+  ACCOUNTS_CONFIG             JSON array of project dicts when ACCOUNTS_MODE=multi
+                              e.g. [{"id":"proj-1","name":"production"}]
   BILLING_BQ_TABLE            BigQuery billing export table (optional)
                               e.g. my-project.billing_dataset.gcp_billing_export_v1
   IGNORE_REGIONS              Comma-separated regions to exclude (default: empty)
   AI_PROVIDER                 "anthropic" | "vertexai" (default: vertexai)
   ANTHROPIC_API_KEY           Required when AI_PROVIDER=anthropic
-  VERTEXAI_PROJECT            GCP project for Vertex AI (defaults to GCP_PROJECT_ID)
+  VERTEXAI_PROJECT            GCP project for Vertex AI (defaults to first project)
   VERTEXAI_LOCATION           Vertex AI region (default: us-central1)
   SLACK_WEBHOOK_URL           Slack incoming webhook URL
   DRY_RUN                     "true" to skip Slack post (default: false)
@@ -33,6 +37,7 @@ import structlog
 from adapters.gcp.adapter import GCPAdapter
 from core.agent.loop import AgentLoop
 from core.log import configure_logging
+from core.models.finding import ResourceFinding
 from core.reports.comparison import compare_scans
 from core.reports.delivery import (
     notify_all,
@@ -61,33 +66,39 @@ def main() -> None:
         r.strip() for r in os.environ.get("IGNORE_REGIONS", "").split(",") if r.strip()
     ]
 
-    project_id = os.environ.get("GCP_PROJECT_ID", "").strip()
+    project_ids = _get_project_ids()
+    if not project_ids:
+        logger.error("no_project_ids", msg="Set GCP_PROJECT_ID or GCP_PROJECT_IDS")
+        sys.exit(1)
 
-    structlog.contextvars.bind_contextvars(cloud=cloud, account_id=project_id)
-    logger.info("scan_start", ignore_regions=ignore_regions)
+    accounts_mode = os.environ.get("ACCOUNTS_MODE", "single")
+    use_multi = accounts_mode == "multi" or len(project_ids) > 1
 
-    ai_provider = _build_ai_provider(project_id)
-    adapter = GCPAdapter.from_env()
-
-    loop = AgentLoop(ai_provider=ai_provider, cloud_adapter=adapter)
-    findings, executive_summary = loop.run(
-        cloud=cloud,
-        ignore_regions=ignore_regions,
-        accounts=[{"id": project_id, "name": project_id}],
+    structlog.contextvars.bind_contextvars(
+        cloud=cloud, mode="multi" if use_multi else "single"
     )
+    logger.info("scan_start", projects=project_ids, ignore_regions=ignore_regions)
+
+    if use_multi:
+        all_findings, executive_summary, scanned_ids, token_summary = (
+            _run_multi_project(project_ids, ignore_regions, cloud)
+        )
+    else:
+        all_findings, executive_summary, scanned_ids, token_summary = (
+            _run_single_project(project_ids[0], ignore_regions, cloud)
+        )
 
     gcs_bucket = os.environ.get("REPORT_GCS_BUCKET", "").strip()
     previous_report = _load_previous_report(cloud, gcs_bucket)
-    findings, scan_diff = compare_scans(findings, previous_report)
+    all_findings, scan_diff = compare_scans(all_findings, previous_report)
 
-    token_summary = loop.tracker.summary()
     report = build_report(
-        findings,
+        all_findings,
         cloud=cloud,
         executive_summary=executive_summary,
-        accounts_scanned=[project_id],
-        agent_input_tokens=int(token_summary["total_input_tokens"]),
-        agent_output_tokens=int(token_summary["total_output_tokens"]),
+        accounts_scanned=scanned_ids,
+        agent_input_tokens=int(token_summary.get("total_input_tokens", 0)),
+        agent_output_tokens=int(token_summary.get("total_output_tokens", 0)),
         scan_diff=scan_diff,
     )
     report_url: str | None = None
@@ -105,6 +116,119 @@ def main() -> None:
         findings=report["findings_count"],
         total_waste_usd=round(report["total_estimated_waste_usd"], 2),
     )
+
+
+# ---------------------------------------------------------------------------
+# Project ID resolution
+# ---------------------------------------------------------------------------
+
+
+def _get_project_ids() -> list[str]:
+    """Resolve GCP project IDs from environment.
+
+    Priority: ACCOUNTS_CONFIG > GCP_PROJECT_IDS > GCP_PROJECT_ID.
+    """
+    accounts_mode = os.environ.get("ACCOUNTS_MODE", "single")
+    if accounts_mode == "multi":
+        raw = os.environ.get("ACCOUNTS_CONFIG", "[]")
+        try:
+            accounts: list[dict[str, str]] = json.loads(raw)
+            if accounts:
+                return [a["id"] for a in accounts]
+        except (json.JSONDecodeError, KeyError):
+            pass
+
+    multi = os.environ.get("GCP_PROJECT_IDS", "").strip()
+    if multi:
+        return [p.strip() for p in multi.split(",") if p.strip()]
+
+    single = os.environ.get("GCP_PROJECT_ID", "").strip()
+    if single:
+        return [single]
+
+    return []
+
+
+def _get_project_names() -> dict[str, str]:
+    """Load project display names from ACCOUNTS_CONFIG if available."""
+    raw = os.environ.get("ACCOUNTS_CONFIG", "[]")
+    try:
+        accounts: list[dict[str, str]] = json.loads(raw)
+        return {a["id"]: a.get("name", a["id"]) for a in accounts}
+    except (json.JSONDecodeError, KeyError):
+        return {}
+
+
+# ---------------------------------------------------------------------------
+# Scan runners
+# ---------------------------------------------------------------------------
+
+
+def _run_single_project(
+    project_id: str,
+    ignore_regions: list[str],
+    cloud: str,
+) -> tuple[list[ResourceFinding], str, list[str], dict]:
+    structlog.contextvars.bind_contextvars(account_id=project_id)
+    ai_provider = _build_ai_provider(project_id)
+    adapter = GCPAdapter(project_id=project_id)
+    loop = AgentLoop(ai_provider=ai_provider, cloud_adapter=adapter)
+    findings, summary = loop.run(
+        cloud=cloud,
+        ignore_regions=ignore_regions,
+        accounts=[{"id": project_id, "name": project_id}],
+    )
+    return findings, summary, [project_id], loop.tracker.summary()
+
+
+def _run_multi_project(
+    project_ids: list[str],
+    ignore_regions: list[str],
+    cloud: str,
+) -> tuple[list[ResourceFinding], str, list[str], dict]:
+    """Scan multiple GCP projects. One adapter + agent loop per project."""
+    project_names = _get_project_names()
+
+    all_findings: list[ResourceFinding] = []
+    all_summaries: list[str] = []
+    scanned_ids: list[str] = []
+    total_input = 0
+    total_output = 0
+
+    for pid in project_ids:
+        name = project_names.get(pid, pid)
+        logger.info("scanning_project", project_id=pid, project_name=name)
+
+        try:
+            ai_provider = _build_ai_provider(pid)
+            adapter = GCPAdapter(project_id=pid)
+            loop = AgentLoop(ai_provider=ai_provider, cloud_adapter=adapter)
+            findings, summary = loop.run(
+                cloud=cloud,
+                ignore_regions=ignore_regions,
+                accounts=[{"id": pid, "name": name}],
+            )
+            all_findings.extend(findings)
+            all_summaries.append(f"[{name}] {summary}")
+            scanned_ids.append(pid)
+            total_input += loop.tracker.total_input_tokens
+            total_output += loop.tracker.total_output_tokens
+        except PermissionError as exc:
+            logger.error("project_scan_failed", project_id=pid, error=str(exc))
+
+    executive_summary = (
+        " ".join(all_summaries) if all_summaries else "No findings across all projects."
+    )
+    token_summary = {
+        "total_input_tokens": total_input,
+        "total_output_tokens": total_output,
+    }
+    return all_findings, executive_summary, scanned_ids, token_summary
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
 
 
 def _build_ai_provider(project_id: str) -> Any:

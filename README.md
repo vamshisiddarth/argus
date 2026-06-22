@@ -208,7 +208,7 @@ argus --run-now --cloud aws [options]           # backward compat
   --dry-run                  Print notification payload instead of posting
   --ignore-regions REGIONS   Comma-separated regions to skip (e.g. ap-east-1,me-south-1)
   --ai-provider PROVIDER     anthropic | bedrock | vertexai | azure_openai (default: anthropic)
-  --accounts PATH            Path to accounts.yaml for multi-account mode (AWS only)
+  --accounts PATH            Path to accounts.yaml for multi-account/project/subscription mode
   --max-resources N          Maximum resources to analyze per scan (default: 200)
   --lookback-days DAYS       Metrics lookback window in days (default: 90, use 14 for faster local dev)
   --llm-budget USD           Cost budget per scan/session (default: $2.00 scan, $1.00 chat)
@@ -307,9 +307,11 @@ Set `AI_PROVIDER=anthropic|bedrock|vertexai|azure_openai` in `.env` or the deplo
 
 ---
 
-## Multi-account setup
+## Multi-account / multi-project setup
 
-Create `accounts.yaml`:
+Create `accounts.yaml` with the key matching your cloud:
+
+**AWS** (hub/spoke with STS AssumeRole):
 
 ```yaml
 mode: multi
@@ -323,10 +325,40 @@ accounts:
     role_arn: arn:aws:iam::444455556666:role/ArgusSpokeRole
 ```
 
+**GCP** (one scan per project, ADC handles auth):
+
+```yaml
+mode: multi
+
+projects:
+  - id: my-project-dev
+    name: dev
+  - id: my-project-prod
+    name: production
+```
+
+Or set `GCP_PROJECT_IDS=my-project-dev,my-project-prod` instead.
+
+**Azure** (cross-subscription via Resource Graph):
+
+```yaml
+mode: multi
+
+subscriptions:
+  - id: "aaaabbbb-cccc-dddd-eeee-ffffffffffff"
+    name: dev
+  - id: "11112222-3333-4444-5555-666677778888"
+    name: production
+```
+
+Or set `AZURE_SUBSCRIPTION_IDS=sub-1,sub-2` instead.
+
 Then run:
 
 ```bash
-argus --cloud aws --run-now --accounts accounts.yaml
+argus scan --cloud aws --accounts accounts.yaml
+argus scan --cloud gcp --accounts accounts.yaml
+argus scan --cloud azure --accounts accounts.yaml
 ```
 
 ---
@@ -383,7 +415,7 @@ AWS has the richest experience — it was developed first, has the most resource
 | Cost data | Cost Explorer (batched) | BigQuery billing export | Cost Management API |
 | Last activity | CloudTrail (90-day lookback) | Cloud Audit Logs | Activity Log / Log Analytics |
 | Deployment | Lambda (SAM) | Cloud Run Job | Azure Function (Bicep) |
-| Multi-account | Hub/spoke with STS | Single project only | Cross-subscription via Resource Graph |
+| Multi-account | Hub/spoke with STS | Multi-project (per-project scan) | Cross-subscription via Resource Graph |
 | Secret management | Secrets Manager | Secret Manager | Key Vault |
 
 ---
@@ -391,9 +423,9 @@ AWS has the richest experience — it was developed first, has the most resource
 ## Running tests
 
 ```bash
-make test                  # unit tests only (511 tests, no cloud creds needed)
+make test                  # unit tests only (528 tests, no cloud creds needed)
 make test-integration      # integration tests (32 tests — adapter contracts, report schema)
-make test-all              # everything (543 tests)
+make test-all              # everything (560 tests)
 ```
 
 Tests use `unittest.mock` throughout — no real AWS/GCP/Azure calls are made.
@@ -429,7 +461,7 @@ argus/
 │   ├── aws/               # CloudFormation templates
 │   ├── gcp/               # Cloud Run + Scheduler deploy script
 │   └── azure/             # Bicep templates
-└── tests/                 # 543 tests, all pass offline
+└── tests/                 # 560 tests, all pass offline
 ```
 
 ---

@@ -252,6 +252,11 @@ def main(argv: list[str] | None = None) -> None:
         _run_chat(args)
 
 
+# ---------------------------------------------------------------------------
+# Cloud auto-detection (for --cloud, only used above via _detect_cloud)
+# ---------------------------------------------------------------------------
+
+
 def _run_scan(args: argparse.Namespace) -> None:
     os.environ["IGNORE_REGIONS"] = args.ignore_regions
     os.environ["PRIMARY_REGION"] = args.primary_region
@@ -263,7 +268,7 @@ def _run_scan(args: argparse.Namespace) -> None:
         os.environ["DRY_RUN"] = "true"
 
     if args.accounts:
-        _apply_accounts_config(args.accounts)
+        _apply_accounts_config(args.accounts, args.cloud)
 
     if args.cloud == "aws":
         from entrypoints.aws_lambda import handler
@@ -289,7 +294,7 @@ def _run_chat(args: argparse.Namespace) -> None:
     os.environ["PRIMARY_REGION"] = args.primary_region
     os.environ["AI_PROVIDER"] = args.ai_provider
     if args.accounts:
-        _apply_accounts_config(args.accounts)
+        _apply_accounts_config(args.accounts, args.cloud)
 
     ignore_regions = [r.strip() for r in args.ignore_regions.split(",") if r.strip()]
     accounts = _resolve_accounts(args.cloud)
@@ -323,6 +328,13 @@ def _resolve_accounts(cloud: str) -> list[dict[str, str]]:
         except Exception:  # noqa: BLE001
             return [{"id": "unknown", "name": "current-account"}]
     elif cloud == "gcp":
+        multi = os.environ.get("GCP_PROJECT_IDS", "").strip()
+        if multi:
+            return [
+                {"id": p.strip(), "name": p.strip()}
+                for p in multi.split(",")
+                if p.strip()
+            ]
         project = os.environ.get("GCP_PROJECT_ID", "unknown")
         return [{"id": project, "name": project}]
     elif cloud == "azure":
@@ -333,8 +345,13 @@ def _resolve_accounts(cloud: str) -> list[dict[str, str]]:
     return [{"id": "unknown", "name": "unknown"}]
 
 
-def _apply_accounts_config(path: str) -> None:
-    """Load accounts.yaml and set ACCOUNTS_MODE + ACCOUNTS_CONFIG env vars."""
+def _apply_accounts_config(path: str, cloud: str) -> None:
+    """Load accounts.yaml and set env vars for multi-account/project/subscription mode.
+
+    AWS  → reads ``accounts`` key, sets ACCOUNTS_CONFIG
+    GCP  → reads ``projects`` key, sets GCP_PROJECT_IDS + ACCOUNTS_CONFIG
+    Azure → reads ``subscriptions`` key, sets AZURE_SUBSCRIPTION_IDS + ACCOUNTS_CONFIG
+    """
     try:
         import yaml  # PyYAML — in requirements.txt
     except ImportError:
@@ -351,5 +368,18 @@ def _apply_accounts_config(path: str) -> None:
     os.environ["ACCOUNTS_MODE"] = mode
 
     if mode == "multi":
-        accounts = config.get("accounts", [])
-        os.environ["ACCOUNTS_CONFIG"] = json.dumps(accounts)
+        if cloud == "gcp":
+            entries = config.get("projects", [])
+            if entries:
+                os.environ["GCP_PROJECT_IDS"] = ",".join(e["id"] for e in entries)
+                os.environ["ACCOUNTS_CONFIG"] = json.dumps(entries)
+        elif cloud == "azure":
+            entries = config.get("subscriptions", [])
+            if entries:
+                os.environ["AZURE_SUBSCRIPTION_IDS"] = ",".join(
+                    e["id"] for e in entries
+                )
+                os.environ["ACCOUNTS_CONFIG"] = json.dumps(entries)
+        else:
+            accounts = config.get("accounts", [])
+            os.environ["ACCOUNTS_CONFIG"] = json.dumps(accounts)

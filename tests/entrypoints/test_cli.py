@@ -6,6 +6,7 @@ Mocks the Lambda handler and file I/O — no real cloud calls.
 from __future__ import annotations
 
 import json
+import os
 from unittest.mock import mock_open, patch
 
 import pytest
@@ -162,7 +163,7 @@ class TestMainAccounts:
 
         main(["--cloud", "aws", "--run-now", "--accounts", "accounts.yaml"])
 
-        mock_apply.assert_called_once_with("accounts.yaml")
+        mock_apply.assert_called_once_with("accounts.yaml", "aws")
 
 
 # ---------------------------------------------------------------------------
@@ -171,6 +172,17 @@ class TestMainAccounts:
 
 
 class TestApplyAccountsConfig:
+    @pytest.fixture(autouse=True)
+    def _clean_accounts_env(self):
+        yield
+        for key in (
+            "ACCOUNTS_MODE",
+            "ACCOUNTS_CONFIG",
+            "GCP_PROJECT_IDS",
+            "AZURE_SUBSCRIPTION_IDS",
+        ):
+            os.environ.pop(key, None)
+
     def test_sets_single_mode_env_vars(self, monkeypatch):
         config = {"mode": "single"}
 
@@ -178,7 +190,7 @@ class TestApplyAccountsConfig:
             with patch("yaml.safe_load", return_value=config):
                 from entrypoints.cli import _apply_accounts_config
 
-                _apply_accounts_config("accounts.yaml")
+                _apply_accounts_config("accounts.yaml", "aws")
 
         import os
 
@@ -197,7 +209,7 @@ class TestApplyAccountsConfig:
             with patch("yaml.safe_load", return_value=config):
                 from entrypoints.cli import _apply_accounts_config
 
-                _apply_accounts_config("accounts.yaml")
+                _apply_accounts_config("accounts.yaml", "aws")
 
         import os
 
@@ -214,7 +226,7 @@ class TestApplyAccountsConfig:
             with patch("yaml.safe_load", return_value=config):
                 from entrypoints.cli import _apply_accounts_config
 
-                _apply_accounts_config("accounts.yaml")
+                _apply_accounts_config("accounts.yaml", "aws")
 
         import os
 
@@ -226,16 +238,61 @@ class TestApplyAccountsConfig:
         saved = sys.modules.get("yaml")
         try:
             with patch.dict("sys.modules", {"yaml": None}):
-                # Force re-evaluation of the import inside _apply_accounts_config
                 import entrypoints.cli as cli_mod
 
                 with pytest.raises(SystemExit) as exc_info:
-                    cli_mod._apply_accounts_config("accounts.yaml")
+                    cli_mod._apply_accounts_config("accounts.yaml", "aws")
 
                 assert exc_info.value.code == 1
         finally:
             if saved is not None:
                 sys.modules["yaml"] = saved
+
+    def test_gcp_sets_project_ids_from_yaml(self, monkeypatch):
+        config = {
+            "mode": "multi",
+            "projects": [
+                {"id": "proj-dev", "name": "dev"},
+                {"id": "proj-prod", "name": "production"},
+            ],
+        }
+
+        with patch("builtins.open", mock_open()):
+            with patch("yaml.safe_load", return_value=config):
+                from entrypoints.cli import _apply_accounts_config
+
+                _apply_accounts_config("accounts.yaml", "gcp")
+
+        import os
+
+        assert os.environ["ACCOUNTS_MODE"] == "multi"
+        assert os.environ["GCP_PROJECT_IDS"] == "proj-dev,proj-prod"
+        parsed = json.loads(os.environ["ACCOUNTS_CONFIG"])
+        assert len(parsed) == 2
+        assert parsed[0]["name"] == "dev"
+
+    def test_azure_sets_subscription_ids_from_yaml(self, monkeypatch):
+        config = {
+            "mode": "multi",
+            "subscriptions": [
+                {"id": "sub-aaa", "name": "dev"},
+                {"id": "sub-bbb", "name": "prod"},
+            ],
+        }
+
+        with patch("builtins.open", mock_open()):
+            with patch("yaml.safe_load", return_value=config):
+                from entrypoints.cli import _apply_accounts_config
+
+                _apply_accounts_config("accounts.yaml", "azure")
+
+        import os
+
+        assert os.environ["ACCOUNTS_MODE"] == "multi"
+        assert os.environ["AZURE_SUBSCRIPTION_IDS"] == "sub-aaa,sub-bbb"
+        parsed = json.loads(os.environ["ACCOUNTS_CONFIG"])
+        assert len(parsed) == 2
+        assert parsed[0]["name"] == "dev"
 
 
 # ---------------------------------------------------------------------------

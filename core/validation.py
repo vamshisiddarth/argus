@@ -177,28 +177,37 @@ def _check_aws(errors: list[str]) -> None:
 
 def _check_gcp(errors: list[str]) -> None:
     project_id = os.environ.get("GCP_PROJECT_ID", "").strip()
-    if not project_id:
+    project_ids = os.environ.get("GCP_PROJECT_IDS", "").strip()
+    has_accounts_config = os.environ.get("ACCOUNTS_MODE") == "multi" and os.environ.get(
+        "ACCOUNTS_CONFIG", ""
+    ).strip() not in ("", "[]")
+    if not project_id and not project_ids and not has_accounts_config:
         errors.append(
             "GCP_PROJECT_ID is required for GCP scans. "
-            "Set it to your GCP project ID (e.g. my-project-123)."
+            "Set it to your GCP project ID (e.g. my-project-123). "
+            "For multi-project, set GCP_PROJECT_IDS (comma-separated)."
         )
 
 
 def _check_azure(errors: list[str]) -> None:
     raw = os.environ.get("AZURE_SUBSCRIPTION_IDS", "").strip()
-    if not raw:
+    has_accounts_config = os.environ.get("ACCOUNTS_MODE") == "multi" and os.environ.get(
+        "ACCOUNTS_CONFIG", ""
+    ).strip() not in ("", "[]")
+    if not raw and not has_accounts_config:
         errors.append(
             "AZURE_SUBSCRIPTION_IDS is required for Azure scans. "
             "Set it to one or more subscription IDs separated by commas."
         )
         return
 
-    subscription_ids = [s.strip() for s in raw.split(",") if s.strip()]
-    if not subscription_ids:
-        errors.append(
-            "AZURE_SUBSCRIPTION_IDS is set but contains no valid IDs. "
-            "Expected one or more GUIDs separated by commas."
-        )
+    if raw:
+        subscription_ids = [s.strip() for s in raw.split(",") if s.strip()]
+        if not subscription_ids:
+            errors.append(
+                "AZURE_SUBSCRIPTION_IDS is set but contains no valid IDs. "
+                "Expected one or more GUIDs separated by commas."
+            )
 
 
 # ---------------------------------------------------------------------------

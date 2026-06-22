@@ -166,7 +166,7 @@ class TestMetricsCoverage:
     )
     def test_new_type_has_resource_filter(self, resource_type):
         f = _resource_filter(
-            f"//example.googleapis.com/projects/p/things/my-resource",
+            "//example.googleapis.com/projects/p/things/my-resource",
             resource_type,
         )
         assert f != "", f"No filter for {resource_type}"

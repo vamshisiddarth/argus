@@ -5,6 +5,7 @@ Mocks all cloud and AI calls — no real GCP, Vertex AI, or Slack interactions.
 
 from __future__ import annotations
 
+import json
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -27,8 +28,21 @@ def _fake_report(scan_id: str = "gcp-scan-id") -> dict:
     }
 
 
+def _make_mock_loop(findings=None, summary="No waste found."):
+    """Return a MagicMock AgentLoop with sensible tracker defaults."""
+    loop = MagicMock()
+    loop.run.return_value = (findings or [], summary)
+    loop.tracker.summary.return_value = {
+        "total_input_tokens": 100,
+        "total_output_tokens": 50,
+    }
+    loop.tracker.total_input_tokens = 100
+    loop.tracker.total_output_tokens = 50
+    return loop
+
+
 # ---------------------------------------------------------------------------
-# main — happy path
+# main — happy path (single project)
 # ---------------------------------------------------------------------------
 
 
@@ -51,15 +65,17 @@ class TestMain:
     ):
         monkeypatch.setenv("GCP_PROJECT_ID", "my-project")
         monkeypatch.setenv("SLACK_WEBHOOK_URL", "https://hooks.slack.com/test")
+        monkeypatch.delenv("GCP_PROJECT_IDS", raising=False)
+        monkeypatch.delenv("ACCOUNTS_MODE", raising=False)
 
-        mock_loop_cls.return_value.run.return_value = ([], "No waste found.")
+        mock_loop_cls.return_value = _make_mock_loop()
         mock_build_report.return_value = _fake_report()
 
         from entrypoints.gcp_cloudrun import main
 
         main()
 
-        mock_adapter_cls.from_env.assert_called_once()
+        mock_adapter_cls.assert_called_once_with(project_id="my-project")
         mock_loop_cls.assert_called_once()
         mock_loop_cls.return_value.run.assert_called_once()
         mock_build_report.assert_called_once()
@@ -82,8 +98,10 @@ class TestMain:
         monkeypatch,
     ):
         monkeypatch.setenv("GCP_PROJECT_ID", "test-project-123")
+        monkeypatch.delenv("GCP_PROJECT_IDS", raising=False)
+        monkeypatch.delenv("ACCOUNTS_MODE", raising=False)
 
-        mock_loop_cls.return_value.run.return_value = ([], "Clean.")
+        mock_loop_cls.return_value = _make_mock_loop(summary="Clean.")
         mock_build_report.return_value = _fake_report()
 
         from entrypoints.gcp_cloudrun import main
@@ -114,8 +132,10 @@ class TestMain:
     ):
         monkeypatch.setenv("GCP_PROJECT_ID", "proj")
         monkeypatch.delenv("REPORT_GCS_BUCKET", raising=False)
+        monkeypatch.delenv("GCP_PROJECT_IDS", raising=False)
+        monkeypatch.delenv("ACCOUNTS_MODE", raising=False)
 
-        mock_loop_cls.return_value.run.return_value = ([], "Clean.")
+        mock_loop_cls.return_value = _make_mock_loop(summary="Clean.")
         mock_build_report.return_value = _fake_report()
 
         from entrypoints.gcp_cloudrun import main
@@ -133,6 +153,9 @@ class TestMain:
 class TestMainMissingProjectId:
     def test_exits_when_project_id_not_set(self, monkeypatch):
         monkeypatch.delenv("GCP_PROJECT_ID", raising=False)
+        monkeypatch.delenv("GCP_PROJECT_IDS", raising=False)
+        monkeypatch.delenv("ACCOUNTS_MODE", raising=False)
+        monkeypatch.delenv("ACCOUNTS_CONFIG", raising=False)
 
         from entrypoints.gcp_cloudrun import main
 
@@ -143,7 +166,7 @@ class TestMainMissingProjectId:
 
 
 # ---------------------------------------------------------------------------
-# main — Slack delivery failure
+# main — Slack delivery
 # ---------------------------------------------------------------------------
 
 
@@ -165,14 +188,264 @@ class TestMainSlackFailure:
         monkeypatch,
     ):
         monkeypatch.setenv("GCP_PROJECT_ID", "proj")
+        monkeypatch.delenv("GCP_PROJECT_IDS", raising=False)
+        monkeypatch.delenv("ACCOUNTS_MODE", raising=False)
 
-        mock_loop_cls.return_value.run.return_value = ([], "Summary.")
+        mock_loop_cls.return_value = _make_mock_loop(summary="Summary.")
         mock_build_report.return_value = _fake_report()
 
         from entrypoints.gcp_cloudrun import main
 
         main()
         mock_post.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# Multi-project support
+# ---------------------------------------------------------------------------
+
+
+class TestMultiProject:
+    @patch("entrypoints.gcp_cloudrun.notify_all")
+    @patch("entrypoints.gcp_cloudrun.build_slack_payload", return_value={"blocks": []})
+    @patch("entrypoints.gcp_cloudrun.build_report")
+    @patch("entrypoints.gcp_cloudrun.AgentLoop")
+    @patch("entrypoints.gcp_cloudrun.GCPAdapter")
+    @patch("entrypoints.gcp_cloudrun._build_ai_provider")
+    def test_multi_project_via_env_var(
+        self,
+        mock_ai,
+        mock_adapter_cls,
+        mock_loop_cls,
+        mock_build_report,
+        mock_build_payload,
+        mock_post,
+        monkeypatch,
+    ):
+        monkeypatch.setenv("GCP_PROJECT_IDS", "proj-dev,proj-prod")
+        monkeypatch.delenv("GCP_PROJECT_ID", raising=False)
+        monkeypatch.delenv("ACCOUNTS_MODE", raising=False)
+
+        mock_loop_cls.return_value = _make_mock_loop()
+        mock_build_report.return_value = _fake_report()
+
+        from entrypoints.gcp_cloudrun import main
+
+        main()
+
+        assert mock_adapter_cls.call_count == 2
+        mock_adapter_cls.assert_any_call(project_id="proj-dev")
+        mock_adapter_cls.assert_any_call(project_id="proj-prod")
+        assert mock_loop_cls.return_value.run.call_count == 2
+
+    @patch("entrypoints.gcp_cloudrun.notify_all")
+    @patch("entrypoints.gcp_cloudrun.build_slack_payload", return_value={"blocks": []})
+    @patch("entrypoints.gcp_cloudrun.build_report")
+    @patch("entrypoints.gcp_cloudrun.AgentLoop")
+    @patch("entrypoints.gcp_cloudrun.GCPAdapter")
+    @patch("entrypoints.gcp_cloudrun._build_ai_provider")
+    def test_multi_project_via_accounts_config(
+        self,
+        mock_ai,
+        mock_adapter_cls,
+        mock_loop_cls,
+        mock_build_report,
+        mock_build_payload,
+        mock_post,
+        monkeypatch,
+    ):
+        monkeypatch.setenv("ACCOUNTS_MODE", "multi")
+        monkeypatch.setenv(
+            "ACCOUNTS_CONFIG",
+            json.dumps(
+                [
+                    {"id": "proj-alpha", "name": "alpha"},
+                    {"id": "proj-beta", "name": "beta"},
+                ]
+            ),
+        )
+        monkeypatch.delenv("GCP_PROJECT_ID", raising=False)
+        monkeypatch.delenv("GCP_PROJECT_IDS", raising=False)
+
+        mock_loop_cls.return_value = _make_mock_loop()
+        mock_build_report.return_value = _fake_report()
+
+        from entrypoints.gcp_cloudrun import main
+
+        main()
+
+        assert mock_adapter_cls.call_count == 2
+        mock_adapter_cls.assert_any_call(project_id="proj-alpha")
+        mock_adapter_cls.assert_any_call(project_id="proj-beta")
+
+    @patch("entrypoints.gcp_cloudrun.notify_all")
+    @patch("entrypoints.gcp_cloudrun.build_slack_payload", return_value={"blocks": []})
+    @patch("entrypoints.gcp_cloudrun.build_report")
+    @patch("entrypoints.gcp_cloudrun.AgentLoop")
+    @patch("entrypoints.gcp_cloudrun.GCPAdapter")
+    @patch("entrypoints.gcp_cloudrun._build_ai_provider")
+    def test_multi_project_uses_named_projects(
+        self,
+        mock_ai,
+        mock_adapter_cls,
+        mock_loop_cls,
+        mock_build_report,
+        mock_build_payload,
+        mock_post,
+        monkeypatch,
+    ):
+        monkeypatch.setenv("ACCOUNTS_MODE", "multi")
+        monkeypatch.setenv(
+            "ACCOUNTS_CONFIG",
+            json.dumps([{"id": "proj-1", "name": "production"}]),
+        )
+        monkeypatch.delenv("GCP_PROJECT_ID", raising=False)
+        monkeypatch.delenv("GCP_PROJECT_IDS", raising=False)
+
+        mock_loop_cls.return_value = _make_mock_loop()
+        mock_build_report.return_value = _fake_report()
+
+        from entrypoints.gcp_cloudrun import main
+
+        main()
+
+        run_kwargs = mock_loop_cls.return_value.run.call_args.kwargs
+        assert run_kwargs["accounts"] == [{"id": "proj-1", "name": "production"}]
+
+    @patch("entrypoints.gcp_cloudrun.notify_all")
+    @patch("entrypoints.gcp_cloudrun.build_slack_payload", return_value={"blocks": []})
+    @patch("entrypoints.gcp_cloudrun.build_report")
+    @patch("entrypoints.gcp_cloudrun.AgentLoop")
+    @patch("entrypoints.gcp_cloudrun.GCPAdapter")
+    @patch("entrypoints.gcp_cloudrun._build_ai_provider")
+    def test_multi_project_skips_failing_project(
+        self,
+        mock_ai,
+        mock_adapter_cls,
+        mock_loop_cls,
+        mock_build_report,
+        mock_build_payload,
+        mock_post,
+        monkeypatch,
+    ):
+        monkeypatch.setenv("GCP_PROJECT_IDS", "proj-ok,proj-fail")
+        monkeypatch.delenv("GCP_PROJECT_ID", raising=False)
+        monkeypatch.delenv("ACCOUNTS_MODE", raising=False)
+
+        call_count = 0
+
+        def run_side_effect(**kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 2:
+                raise PermissionError("No access to proj-fail")
+            return ([], "OK")
+
+        mock_loop = _make_mock_loop()
+        mock_loop.run.side_effect = run_side_effect
+        mock_loop_cls.return_value = mock_loop
+        mock_build_report.return_value = _fake_report()
+
+        from entrypoints.gcp_cloudrun import main
+
+        main()
+
+        assert mock_loop.run.call_count == 2
+        report_call = mock_build_report.call_args
+        assert "proj-ok" in report_call.kwargs.get(
+            "accounts_scanned", report_call[1].get("accounts_scanned", [])
+        )
+
+    @patch("entrypoints.gcp_cloudrun.notify_all")
+    @patch("entrypoints.gcp_cloudrun.build_slack_payload", return_value={"blocks": []})
+    @patch("entrypoints.gcp_cloudrun.build_report")
+    @patch("entrypoints.gcp_cloudrun.AgentLoop")
+    @patch("entrypoints.gcp_cloudrun.GCPAdapter")
+    @patch("entrypoints.gcp_cloudrun._build_ai_provider")
+    def test_multi_project_aggregates_tokens(
+        self,
+        mock_ai,
+        mock_adapter_cls,
+        mock_loop_cls,
+        mock_build_report,
+        mock_build_payload,
+        mock_post,
+        monkeypatch,
+    ):
+        monkeypatch.setenv("GCP_PROJECT_IDS", "proj-a,proj-b")
+        monkeypatch.delenv("GCP_PROJECT_ID", raising=False)
+        monkeypatch.delenv("ACCOUNTS_MODE", raising=False)
+
+        mock_loop = _make_mock_loop()
+        mock_loop.tracker.total_input_tokens = 200
+        mock_loop.tracker.total_output_tokens = 100
+        mock_loop_cls.return_value = mock_loop
+        mock_build_report.return_value = _fake_report()
+
+        from entrypoints.gcp_cloudrun import main
+
+        main()
+
+        report_kwargs = mock_build_report.call_args.kwargs
+        assert report_kwargs["agent_input_tokens"] == 400
+        assert report_kwargs["agent_output_tokens"] == 200
+
+
+# ---------------------------------------------------------------------------
+# _get_project_ids
+# ---------------------------------------------------------------------------
+
+
+class TestGetProjectIds:
+    def test_single_project_from_env(self, monkeypatch):
+        monkeypatch.setenv("GCP_PROJECT_ID", "my-proj")
+        monkeypatch.delenv("GCP_PROJECT_IDS", raising=False)
+        monkeypatch.delenv("ACCOUNTS_MODE", raising=False)
+
+        from entrypoints.gcp_cloudrun import _get_project_ids
+
+        assert _get_project_ids() == ["my-proj"]
+
+    def test_multi_project_from_env(self, monkeypatch):
+        monkeypatch.setenv("GCP_PROJECT_IDS", "proj-a, proj-b, proj-c")
+        monkeypatch.delenv("GCP_PROJECT_ID", raising=False)
+        monkeypatch.delenv("ACCOUNTS_MODE", raising=False)
+
+        from entrypoints.gcp_cloudrun import _get_project_ids
+
+        assert _get_project_ids() == ["proj-a", "proj-b", "proj-c"]
+
+    def test_multi_project_ids_takes_priority(self, monkeypatch):
+        monkeypatch.setenv("GCP_PROJECT_IDS", "proj-a,proj-b")
+        monkeypatch.setenv("GCP_PROJECT_ID", "single-proj")
+        monkeypatch.delenv("ACCOUNTS_MODE", raising=False)
+
+        from entrypoints.gcp_cloudrun import _get_project_ids
+
+        assert _get_project_ids() == ["proj-a", "proj-b"]
+
+    def test_accounts_config_takes_priority(self, monkeypatch):
+        monkeypatch.setenv("ACCOUNTS_MODE", "multi")
+        monkeypatch.setenv(
+            "ACCOUNTS_CONFIG",
+            json.dumps([{"id": "cfg-proj", "name": "from-config"}]),
+        )
+        monkeypatch.setenv("GCP_PROJECT_IDS", "env-proj")
+        monkeypatch.setenv("GCP_PROJECT_ID", "single-proj")
+
+        from entrypoints.gcp_cloudrun import _get_project_ids
+
+        assert _get_project_ids() == ["cfg-proj"]
+
+    def test_empty_when_nothing_set(self, monkeypatch):
+        monkeypatch.delenv("GCP_PROJECT_ID", raising=False)
+        monkeypatch.delenv("GCP_PROJECT_IDS", raising=False)
+        monkeypatch.delenv("ACCOUNTS_MODE", raising=False)
+        monkeypatch.delenv("ACCOUNTS_CONFIG", raising=False)
+
+        from entrypoints.gcp_cloudrun import _get_project_ids
+
+        assert _get_project_ids() == []
 
 
 # ---------------------------------------------------------------------------

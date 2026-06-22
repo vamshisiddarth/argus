@@ -1,25 +1,58 @@
-# Argus — multi-account configuration
-# Copy this file to accounts.yaml and fill in your account details.
+# Argus — multi-account / multi-project / multi-subscription configuration
+# Copy this file to accounts.yaml and uncomment the section for your cloud.
 #
 # CLI usage:
-#   python main.py --cloud aws --run-now --accounts accounts.yaml
+#   argus scan --cloud aws   --accounts accounts.yaml
+#   argus scan --cloud gcp   --accounts accounts.yaml
+#   argus scan --cloud azure --accounts accounts.yaml
 #
-# Lambda (multi-account): set ACCOUNTS_MODE=multi and pass ACCOUNTS_CONFIG
-# as a JSON array in the hub.yaml CloudFormation parameter.
+# Lambda / Cloud Run / Azure Function:
+#   Set ACCOUNTS_MODE=multi and ACCOUNTS_CONFIG as a JSON array.
 
-mode: single   # Change to "multi" for multi-account mode
+mode: single   # Change to "multi" for multi-account/project/subscription mode
 
-# Only required when mode: multi.
+
+# ─── AWS ──────────────────────────────────────────────────────────────
 # Each account must have the ArgusSpokeRole deployed (spoke-role.yaml).
-accounts:
-  - id: "111122223333"
-    name: dev
-    role_arn: arn:aws:iam::111122223333:role/ArgusSpokeRole
+# The hub account Lambda uses STS AssumeRole to scan each spoke.
+#
+# accounts:
+#   - id: "111122223333"
+#     name: dev
+#     role_arn: arn:aws:iam::111122223333:role/ArgusSpokeRole
+#
+#   - id: "444455556666"
+#     name: staging
+#     role_arn: arn:aws:iam::444455556666:role/ArgusSpokeRole
+#
+#   - id: "999988887777"
+#     name: prod
+#     role_arn: arn:aws:iam::999988887777:role/ArgusSpokeRole
 
-  - id: "444455556666"
-    name: staging
-    role_arn: arn:aws:iam::444455556666:role/ArgusSpokeRole
 
-  - id: "999988887777"
-    name: prod
-    role_arn: arn:aws:iam::999988887777:role/ArgusSpokeRole
+# ─── GCP ──────────────────────────────────────────────────────────────
+# No role_arn needed — Application Default Credentials (ADC) handle auth.
+# The service account must have Viewer + Cloud Asset Viewer roles in each project.
+#
+# projects:
+#   - id: my-project-dev
+#     name: dev
+#
+#   - id: my-project-staging
+#     name: staging
+#
+#   - id: my-project-prod
+#     name: production
+
+
+# ─── Azure ────────────────────────────────────────────────────────────
+# No role_arn needed — DefaultAzureCredential handles auth.
+# The service principal must have Reader role on each subscription.
+# Azure Resource Graph queries all subscriptions in a single call.
+#
+# subscriptions:
+#   - id: "aaaabbbb-cccc-dddd-eeee-ffffffffffff"
+#     name: dev-subscription
+#
+#   - id: "11112222-3333-4444-5555-666677778888"
+#     name: prod-subscription

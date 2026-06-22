@@ -57,6 +57,7 @@ class TestMain:
     ):
         monkeypatch.setenv("AZURE_SUBSCRIPTION_IDS", "sub-111,sub-222")
         monkeypatch.setenv("SLACK_WEBHOOK_URL", "https://hooks.slack.com/test")
+        monkeypatch.delenv("ACCOUNTS_MODE", raising=False)
 
         mock_loop_cls.return_value.run.return_value = ([], "No waste found.")
         mock_build_report.return_value = _fake_report()
@@ -65,7 +66,9 @@ class TestMain:
 
         main(_mock_timer())
 
-        mock_adapter_cls.from_env.assert_called_once()
+        mock_adapter_cls.assert_called_once_with(
+            subscription_ids=["sub-111", "sub-222"]
+        )
         mock_loop_cls.assert_called_once()
         mock_loop_cls.return_value.run.assert_called_once()
         mock_build_report.assert_called_once()
@@ -90,6 +93,7 @@ class TestMain:
         monkeypatch,
     ):
         monkeypatch.setenv("AZURE_SUBSCRIPTION_IDS", "sub-aaa, sub-bbb")
+        monkeypatch.delenv("ACCOUNTS_MODE", raising=False)
 
         mock_loop_cls.return_value.run.return_value = ([], "Clean.")
         mock_build_report.return_value = _fake_report()
@@ -98,6 +102,9 @@ class TestMain:
 
         main(_mock_timer())
 
+        mock_adapter_cls.assert_called_once_with(
+            subscription_ids=["sub-aaa", "sub-bbb"]
+        )
         run_kwargs = mock_loop_cls.return_value.run.call_args.kwargs
         assert run_kwargs["cloud"] == "azure"
         assert run_kwargs["accounts"] == [
@@ -145,15 +152,13 @@ class TestMainMissingSubscriptionIds:
     @patch("entrypoints.azure_function._build_ai_provider")
     def test_returns_early_when_subscription_ids_not_set(self, mock_ai, monkeypatch):
         monkeypatch.delenv("AZURE_SUBSCRIPTION_IDS", raising=False)
+        monkeypatch.delenv("ACCOUNTS_MODE", raising=False)
+        monkeypatch.delenv("ACCOUNTS_CONFIG", raising=False)
 
         from entrypoints.azure_function import main
 
-        # Should return without error — early return, no scan
         main(_mock_timer())
 
-        # AI provider is never built when subscription IDs are missing
-        # Actually the code builds the AI provider after the check, so the adapter
-        # should never be called
         mock_ai.assert_not_called()
 
 
@@ -402,7 +407,9 @@ class TestSaveReportsToBlob:
         assert result is None
 
     @patch("entrypoints.azure_function.build_html_report", return_value="<html></html>")
-    def test_container_already_exists_does_not_fail(self, mock_html, monkeypatch):
+    def test_container_already_exists_does_not_fail(  # noqa: E501
+        self, mock_html, monkeypatch
+    ):
         monkeypatch.setenv("REPORT_STORAGE_CONTAINER", "existing-container")
         monkeypatch.setenv("REPORT_URL_EXPIRY", "3600")
 
@@ -448,3 +455,117 @@ class TestSaveReportsToBlob:
         # Should succeed despite ResourceExistsError on create_container
         assert url is not None
         assert mock_container_client.upload_blob.call_count == 2
+
+
+# ---------------------------------------------------------------------------
+# _get_subscription_ids — multi-subscription resolution
+# ---------------------------------------------------------------------------
+
+
+class TestGetSubscriptionIds:
+    def test_reads_from_env_var(self, monkeypatch):
+        monkeypatch.setenv("AZURE_SUBSCRIPTION_IDS", "sub-1, sub-2")
+        monkeypatch.delenv("ACCOUNTS_MODE", raising=False)
+
+        from entrypoints.azure_function import _get_subscription_ids
+
+        ids, names = _get_subscription_ids()
+        assert ids == ["sub-1", "sub-2"]
+        assert names == {}
+
+    def test_reads_from_accounts_config(self, monkeypatch):
+        import json
+
+        monkeypatch.setenv("ACCOUNTS_MODE", "multi")
+        monkeypatch.setenv(
+            "ACCOUNTS_CONFIG",
+            json.dumps(
+                [
+                    {"id": "sub-aaa", "name": "dev"},
+                    {"id": "sub-bbb", "name": "prod"},
+                ]
+            ),
+        )
+        monkeypatch.delenv("AZURE_SUBSCRIPTION_IDS", raising=False)
+
+        from entrypoints.azure_function import _get_subscription_ids
+
+        ids, names = _get_subscription_ids()
+        assert ids == ["sub-aaa", "sub-bbb"]
+        assert names == {"sub-aaa": "dev", "sub-bbb": "prod"}
+
+    def test_accounts_config_takes_priority(self, monkeypatch):
+        import json
+
+        monkeypatch.setenv("ACCOUNTS_MODE", "multi")
+        monkeypatch.setenv(
+            "ACCOUNTS_CONFIG",
+            json.dumps([{"id": "cfg-sub", "name": "from-config"}]),
+        )
+        monkeypatch.setenv("AZURE_SUBSCRIPTION_IDS", "env-sub")
+
+        from entrypoints.azure_function import _get_subscription_ids
+
+        ids, _ = _get_subscription_ids()
+        assert ids == ["cfg-sub"]
+
+    def test_empty_when_nothing_set(self, monkeypatch):
+        monkeypatch.delenv("AZURE_SUBSCRIPTION_IDS", raising=False)
+        monkeypatch.delenv("ACCOUNTS_MODE", raising=False)
+        monkeypatch.delenv("ACCOUNTS_CONFIG", raising=False)
+
+        from entrypoints.azure_function import _get_subscription_ids
+
+        ids, names = _get_subscription_ids()
+        assert ids == []
+        assert names == {}
+
+
+class TestMultiSubscriptionIntegration:
+    @patch("entrypoints.azure_function.notify_all")
+    @patch(
+        "entrypoints.azure_function.build_slack_payload", return_value={"blocks": []}
+    )
+    @patch("entrypoints.azure_function.build_report")
+    @patch("entrypoints.azure_function.AgentLoop")
+    @patch("entrypoints.azure_function.AzureAdapter")
+    @patch("entrypoints.azure_function._build_ai_provider")
+    def test_named_subscriptions_from_config(
+        self,
+        mock_ai,
+        mock_adapter_cls,
+        mock_loop_cls,
+        mock_build_report,
+        mock_build_payload,
+        mock_post,
+        monkeypatch,
+    ):
+        import json
+
+        monkeypatch.setenv("ACCOUNTS_MODE", "multi")
+        monkeypatch.setenv(
+            "ACCOUNTS_CONFIG",
+            json.dumps(
+                [
+                    {"id": "sub-aaa", "name": "development"},
+                    {"id": "sub-bbb", "name": "production"},
+                ]
+            ),
+        )
+        monkeypatch.delenv("AZURE_SUBSCRIPTION_IDS", raising=False)
+
+        mock_loop_cls.return_value.run.return_value = ([], "Clean.")
+        mock_build_report.return_value = _fake_report()
+
+        from entrypoints.azure_function import main
+
+        main(_mock_timer())
+
+        mock_adapter_cls.assert_called_once_with(
+            subscription_ids=["sub-aaa", "sub-bbb"]
+        )
+        run_kwargs = mock_loop_cls.return_value.run.call_args.kwargs
+        assert run_kwargs["accounts"] == [
+            {"id": "sub-aaa", "name": "development"},
+            {"id": "sub-bbb", "name": "production"},
+        ]

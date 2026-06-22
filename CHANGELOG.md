@@ -18,7 +18,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 - **Sample reports for all clouds** — `examples/sample-report-gcp.json` and `examples/sample-report-azure.json` alongside the existing AWS report.
 - **GCP adapter expansion** — 15 new resource types with curated metric mappings: Cloud NAT, Forwarding Rules, Backend Services, VPN Tunnels, Serverless VPC Connectors, Bigtable, AlloyDB, Filestore, Memorystore Memcached, Firestore, Cloud Composer, Vertex AI Workbench, App Engine, Cloud Tasks, Static IPs. Discovery: 22 → 31 types. Metrics: 16 → 31 types.
 - **Azure adapter expansion** — 14 new resource types with curated metric mappings: NAT Gateway, VPN Gateway, Azure Firewall, Front Door, ExpressRoute, Public IPs, MySQL/PostgreSQL/MariaDB Flexible Servers, Synapse SQL Pools, ML Online Endpoints, Batch, IoT Hub, SignalR. Metrics: 26 → 40 types.
-- **75 new unit tests** for ChatSession, cloud auto-detection, and adapter coverage.
+- **GCP multi-project support** — scan multiple GCP projects in a single run. Set `GCP_PROJECT_IDS=proj-a,proj-b` or use `accounts.yaml` with a `projects` key. One adapter + agent loop per project, findings aggregated across all projects.
+- **Azure multi-subscription via `accounts.yaml`** — `ACCOUNTS_CONFIG` JSON or `accounts.yaml` `subscriptions` key now supported alongside `AZURE_SUBSCRIPTION_IDS` env var. Named subscriptions appear in reports.
+- **Multi-cloud `accounts.yaml`** — single config file supports all three clouds: `accounts` (AWS), `projects` (GCP), `subscriptions` (Azure). `--accounts` flag works for all clouds, not just AWS.
+- **92 new unit tests** for ChatSession, cloud auto-detection, multi-project/subscription, and adapter coverage.
 
 ### Changed
 
@@ -31,7 +34,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 - REPL supports arrow keys, input history (via readline), and multi-line input (trailing backslash continuation).
 - Chat demo (`examples/chat_demo.py`) accepts `--cloud` flag and uses cloud-appropriate resource types.
 - Quickstart docs show tabbed setup for AWS, GCP, and Azure.
-- Test count: 431 → **511**.
+- `--accounts` flag now works for GCP and Azure (previously AWS only).
+- Startup validation accepts `GCP_PROJECT_IDS` and `ACCOUNTS_CONFIG` as alternatives to single-project/subscription env vars.
+- Test count: 431 → **528**.
 
 ---
 

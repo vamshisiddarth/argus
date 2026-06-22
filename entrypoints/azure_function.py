@@ -6,6 +6,10 @@ Deploy with the Bicep template in deploy/azure/function-app.bicep.
 
 Environment variables (set in Azure Function App Configuration):
   AZURE_SUBSCRIPTION_IDS           Comma-separated subscription IDs to scan (required)
+  ACCOUNTS_MODE                    "single" | "multi" (default: single)
+  ACCOUNTS_CONFIG                  JSON array of subscription dicts
+                                   when ACCOUNTS_MODE=multi, e.g.
+                                   [{"id":"sub-1","name":"production"}]
   AZURE_LOG_ANALYTICS_WORKSPACE_ID Log Analytics workspace ID
                                    (optional — for Activity Log KQL)
   AI_PROVIDER                      "anthropic" | "azure_openai" (default: azure_openai)
@@ -70,9 +74,7 @@ def main(mytimer: Any) -> None:
         r.strip() for r in os.environ.get("IGNORE_REGIONS", "").split(",") if r.strip()
     ]
 
-    subscription_ids_raw = os.environ.get("AZURE_SUBSCRIPTION_IDS", "").strip()
-
-    subscription_ids = [s.strip() for s in subscription_ids_raw.split(",") if s.strip()]
+    subscription_ids, subscription_names = _get_subscription_ids()
 
     structlog.contextvars.bind_contextvars(
         cloud=cloud, account_id=",".join(subscription_ids)
@@ -82,13 +84,17 @@ def main(mytimer: Any) -> None:
     )
 
     ai_provider = _build_ai_provider()
-    adapter = AzureAdapter.from_env()
+    adapter = AzureAdapter(subscription_ids=subscription_ids)
 
+    accounts = [
+        {"id": sid, "name": subscription_names.get(sid, sid)}
+        for sid in subscription_ids
+    ]
     loop = AgentLoop(ai_provider=ai_provider, cloud_adapter=adapter)
     findings, executive_summary = loop.run(
         cloud=cloud,
         ignore_regions=ignore_regions,
-        accounts=[{"id": sid, "name": sid} for sid in subscription_ids],
+        accounts=accounts,
     )
 
     storage_account = os.environ.get("REPORT_STORAGE_ACCOUNT", "").strip()
@@ -120,6 +126,29 @@ def main(mytimer: Any) -> None:
         findings=report["findings_count"],
         total_waste_usd=round(report["total_estimated_waste_usd"], 2),
     )
+
+
+def _get_subscription_ids() -> tuple[list[str], dict[str, str]]:
+    """Resolve Azure subscription IDs from environment.
+
+    Priority: ACCOUNTS_CONFIG (when ACCOUNTS_MODE=multi) > AZURE_SUBSCRIPTION_IDS.
+    Returns (subscription_ids, name_map) where name_map is {id: display_name}.
+    """
+    accounts_mode = os.environ.get("ACCOUNTS_MODE", "single")
+    if accounts_mode == "multi":
+        raw = os.environ.get("ACCOUNTS_CONFIG", "[]")
+        try:
+            accounts: list[dict[str, str]] = json.loads(raw)
+            if accounts:
+                ids = [a["id"] for a in accounts]
+                names = {a["id"]: a.get("name", a["id"]) for a in accounts}
+                return ids, names
+        except (json.JSONDecodeError, KeyError):
+            pass
+
+    raw_ids = os.environ.get("AZURE_SUBSCRIPTION_IDS", "").strip()
+    ids = [s.strip() for s in raw_ids.split(",") if s.strip()]
+    return ids, {}
 
 
 def _build_ai_provider() -> Any:

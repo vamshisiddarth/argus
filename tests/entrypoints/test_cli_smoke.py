@@ -164,7 +164,7 @@ class TestCLISmokeGCP:
 
         with (
             patch(
-                "adapters.gcp.adapter.GCPAdapter.from_env",
+                "entrypoints.gcp_cloudrun.GCPAdapter",
                 return_value=mock_adapter,
             ),
             patch("ai.anthropic.AnthropicProvider", return_value=mock_ai),
@@ -198,7 +198,7 @@ class TestCLISmokeAzure:
 
         with (
             patch(
-                "adapters.azure.adapter.AzureAdapter.from_env",
+                "entrypoints.azure_function.AzureAdapter",
                 return_value=mock_adapter,
             ),
             patch("ai.anthropic.AnthropicProvider", return_value=mock_ai),
