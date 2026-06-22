@@ -131,11 +131,11 @@ _METRICS: dict[str, list[tuple[str, str]]] = {
     ],
     "vpcaccess.googleapis.com/Connector": [
         (
-            "vpcaccess.googleapis.com/connector" "/sent_bytes_count",
+            "vpcaccess.googleapis.com/connector/sent_bytes_count",
             "sum",
         ),
         (
-            "vpcaccess.googleapis.com/connector" "/received_bytes_count",
+            "vpcaccess.googleapis.com/connector/received_bytes_count",
             "sum",
         ),
     ],
@@ -147,37 +147,37 @@ _METRICS: dict[str, list[tuple[str, str]]] = {
             "mean",
         ),
         (
-            "bigtable.googleapis.com/cluster" "/storage_utilization",
+            "bigtable.googleapis.com/cluster/storage_utilization",
             "mean",
         ),
     ],
     "alloydb.googleapis.com/Cluster": [
         (
-            "alloydb.googleapis.com/database" "/cpu/utilization",
+            "alloydb.googleapis.com/database/cpu/utilization",
             "mean",
         ),
         (
-            "alloydb.googleapis.com/database" "/postgresql/num_backends",
+            "alloydb.googleapis.com/database/postgresql/num_backends",
             "mean",
         ),
     ],
     "file.googleapis.com/Instance": [
         (
-            "file.googleapis.com/nfs/server" "/used_bytes_percent",
+            "file.googleapis.com/nfs/server/used_bytes_percent",
             "mean",
         ),
         (
-            "file.googleapis.com/nfs/server" "/read_ops_count",
+            "file.googleapis.com/nfs/server/read_ops_count",
             "sum",
         ),
         (
-            "file.googleapis.com/nfs/server" "/write_ops_count",
+            "file.googleapis.com/nfs/server/write_ops_count",
             "sum",
         ),
     ],
     "memcache.googleapis.com/Instance": [
         (
-            "memcache.googleapis.com/node" "/curr_connections",
+            "memcache.googleapis.com/node/curr_connections",
             "mean",
         ),
         ("memcache.googleapis.com/node/cmd_get_count", "sum"),
@@ -196,45 +196,45 @@ _METRICS: dict[str, list[tuple[str, str]]] = {
     # --- Compute & Orchestration ---
     "composer.googleapis.com/Environment": [
         (
-            "composer.googleapis.com/environment" "/dagbag_size",
+            "composer.googleapis.com/environment/dagbag_size",
             "mean",
         ),
         (
-            "composer.googleapis.com/environment" "/num_celery_workers",
+            "composer.googleapis.com/environment/num_celery_workers",
             "mean",
         ),
         (
-            "composer.googleapis.com/environment" "/worker/pod_eviction_count",
+            "composer.googleapis.com/environment/worker/pod_eviction_count",
             "sum",
         ),
     ],
     "notebooks.googleapis.com/Instance": [
         (
-            "compute.googleapis.com/instance" "/cpu/utilization",
+            "compute.googleapis.com/instance/cpu/utilization",
             "mean",
         ),
         (
-            "compute.googleapis.com/instance" "/network/sent_bytes_count",
+            "compute.googleapis.com/instance/network/sent_bytes_count",
             "sum",
         ),
     ],
     "appengine.googleapis.com/Application": [
         (
-            "appengine.googleapis.com/http" "/server/response_count",
+            "appengine.googleapis.com/http/server/response_count",
             "sum",
         ),
         (
-            "appengine.googleapis.com/system" "/cpu/usage",
+            "appengine.googleapis.com/system/cpu/usage",
             "mean",
         ),
     ],
     "cloudtasks.googleapis.com/Queue": [
         (
-            "cloudtasks.googleapis.com/queue" "/depth",
+            "cloudtasks.googleapis.com/queue/depth",
             "mean",
         ),
         (
-            "cloudtasks.googleapis.com" "/api/request_count",
+            "cloudtasks.googleapis.com/api/request_count",
             "sum",
         ),
     ],

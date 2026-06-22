@@ -131,7 +131,7 @@ def _check_aws(errors: list[str]) -> None:
 
     if accounts_mode not in ("single", "multi"):
         errors.append(
-            f"ACCOUNTS_MODE={accounts_mode!r} is not valid. " "Use 'single' or 'multi'."
+            f"ACCOUNTS_MODE={accounts_mode!r} is not valid. Use 'single' or 'multi'."
         )
 
     if accounts_mode == "multi":

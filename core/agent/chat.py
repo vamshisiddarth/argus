@@ -128,9 +128,7 @@ class ChatSession:
                 )
             except (ValueError, TypeError, KeyError) as exc:
                 logger.error("chat_response_parse_error", error=str(exc))
-                error_text = (
-                    f"Failed to parse the AI response: {exc}. Try rephrasing."
-                )
+                error_text = f"Failed to parse the AI response: {exc}. Try rephrasing."
                 self._messages.append(Message(role="assistant", text=error_text))
                 return ChatResponse(
                     text=error_text,

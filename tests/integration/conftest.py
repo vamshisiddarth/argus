@@ -125,10 +125,8 @@ def _make_adapter(resources: list[Resource]) -> MagicMock:
     adapter.get_cost.return_value = {
         r.resource_id: COSTS.get(r.resource_id, 0) for r in resources
     }
-    adapter.get_metrics.side_effect = (
-        lambda resource_id, resource_type, **kw: _make_metrics(
-            resource_id, resource_type
-        )
+    adapter.get_metrics.side_effect = lambda resource_id, resource_type, **kw: (
+        _make_metrics(resource_id, resource_type)
     )
     adapter.get_last_activity.return_value = LAST_ACTIVITY
     return adapter

@@ -167,10 +167,7 @@ def _handle_command(cmd: str, session: ChatSession, cloud: str) -> None:
             )
 
         case _:
-            print(
-                f"Unknown command: {cmd_lower}. "
-                f"Type /help for available commands.\n"
-            )
+            print(f"Unknown command: {cmd_lower}. Type /help for available commands.\n")
 
 
 def _print_banner(version: str, cloud: str, account_desc: str) -> None:

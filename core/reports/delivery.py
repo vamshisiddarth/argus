@@ -171,7 +171,7 @@ class WebhookNotificationProvider(NotificationProvider):
     def notify(self, payload: dict[str, Any]) -> None:
         if not self._url:
             raise EnvironmentError(
-                "WEBHOOK_URL is not set. " "Export it or pass webhook_url= explicitly."
+                "WEBHOOK_URL is not set. Export it or pass webhook_url= explicitly."
             )
         body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         req = urllib.request.Request(

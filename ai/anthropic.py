@@ -40,8 +40,7 @@ class AnthropicProvider(AIProvider):
         resolved_key = api_key or cfg.anthropic_api_key
         if not resolved_key:
             raise EnvironmentError(
-                "ANTHROPIC_API_KEY is not set. "
-                "Export it or pass api_key= explicitly."
+                "ANTHROPIC_API_KEY is not set. Export it or pass api_key= explicitly."
             )
         self._client = anthropic_sdk.Anthropic(api_key=resolved_key, timeout=60.0)
         self._model = model or cfg.resolved_model("anthropic")

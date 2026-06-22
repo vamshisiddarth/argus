@@ -34,8 +34,7 @@ class BudgetExceededError(Exception):
         self.spent_usd = spent_usd
         self.budget_usd = budget_usd
         super().__init__(
-            f"LLM budget exceeded: ${spent_usd:.4f} spent "
-            f"(budget: ${budget_usd:.2f})"
+            f"LLM budget exceeded: ${spent_usd:.4f} spent (budget: ${budget_usd:.2f})"
         )
 
 

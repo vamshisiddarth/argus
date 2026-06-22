@@ -29,8 +29,7 @@ class GCPAdapter(CloudAdapter):
         resolved = project_id or os.environ.get("GCP_PROJECT_ID", "")
         if not resolved:
             raise EnvironmentError(
-                "GCP_PROJECT_ID is not set. "
-                "Pass project_id= or export GCP_PROJECT_ID."
+                "GCP_PROJECT_ID is not set. Pass project_id= or export GCP_PROJECT_ID."
             )
         self._project_id: str = resolved
         self._bq_billing_table = bq_billing_table or os.environ.get("BILLING_BQ_TABLE")

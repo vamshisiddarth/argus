@@ -82,7 +82,7 @@ def export_pptx(report: dict[str, Any], output_path: Path) -> Path:
             cost = f["estimated_monthly_cost"]
             priority = (f.get("priority") or "low").upper()
             lines.append(
-                f"[{priority}] {name} — {f['resource_type']} — " f"${cost:,.2f}/mo"
+                f"[{priority}] {name} — {f['resource_type']} — ${cost:,.2f}/mo"
             )
             lines.append(f"  → {f.get('recommendation', '')}")
         slide.placeholders[1].text = "\n".join(lines)

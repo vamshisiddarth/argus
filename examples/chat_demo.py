@@ -194,7 +194,7 @@ class DemoAIProvider(AIProvider):
                 label = res["label"]
                 region = res["region"]
                 cost = res["cost"]
-                lines.append(f"{i}. **{label}** in {region}" f" — ${cost:.2f}/mo")
+                lines.append(f"{i}. **{label}** in {region} — ${cost:.2f}/mo")
             total = sum(res["cost"] for res in r)
             lines.append(f"\nTotal estimated monthly waste: **${total:.2f}**")
             return AIResponse(
