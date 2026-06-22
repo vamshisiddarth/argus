@@ -66,6 +66,43 @@ gcloud logging read \
   --format='value(textPayload)'
 ```
 
+## IAM permissions
+
+The deploy script creates `argus-sa@<project>.iam.gserviceaccount.com` and binds these roles
+automatically for a **single-project** scan. For multi-project, see [Multi-project setup](#multi-project-setup).
+
+| Role | Purpose |
+|------|---------|
+| `roles/cloudasset.viewer` | List all resources via Asset Inventory |
+| `roles/monitoring.viewer` | Read Cloud Monitoring metrics |
+| `roles/logging.viewer` | Read Cloud Audit Logs for last-activity timestamps |
+| `roles/bigquery.dataViewer` | Read the billing export table |
+| `roles/bigquery.jobUser` | Run BigQuery queries for cost data |
+| `roles/aiplatform.user` | Invoke Vertex AI models (only if `AI_PROVIDER=vertexai`) |
+| `roles/storage.objectCreator` | Write reports to GCS (only if `REPORT_GCS_BUCKET` is set) |
+| `roles/storage.objectViewer` | Generate signed URLs for reports (only if `REPORT_GCS_BUCKET` is set) |
+| `roles/iam.serviceAccountTokenCreator` | Sign GCS URLs (self-reference, only if `REPORT_GCS_BUCKET` is set) |
+
+No write permissions on any cloud resource are ever requested.
+
+To verify what roles are bound after deploy:
+
+```bash
+gcloud projects get-iam-policy my-project-id \
+  --flatten="bindings[].members" \
+  --filter="bindings.members:argus-sa@my-project-id.iam.gserviceaccount.com" \
+  --format="table(bindings.role)"
+```
+
+## Multi-project setup
+
+To scan multiple GCP projects in one run, see the
+[Multi-project guide](multi-account.md#gcp--multi-project-with-adc) — it covers:
+
+- Granting the service account roles across all target projects (copy-paste `gcloud` commands)
+- Configuring `GCP_PROJECT_IDS` or `accounts.yaml`
+- Terraform alternative
+
 ## Cost data setup
 
 For per-resource cost data, enable BigQuery billing export:

@@ -49,10 +49,27 @@ az deployment group create \
       anthropicApiKey="sk-ant-..."
 ```
 
-## Post-deploy: grant subscription Reader access
+## IAM permissions
 
-The Bicep template assigns roles at the resource group level.
-For cross-subscription scanning, grant Reader access at the subscription level:
+The Bicep template creates a system-assigned Managed Identity and binds roles automatically
+at the **resource group level**. For cross-subscription scanning you must grant additional
+roles at the **subscription level** (see Post-deploy step below).
+
+| Role | Scope | Purpose | Required |
+|------|-------|---------|---------|
+| `Reader` | Each subscription | Resource Graph, Monitor metrics, Activity Log | Yes |
+| `Cost Management Reader` | Each subscription | Cost Management API | Yes for cost data |
+| `Monitoring Reader` | Each subscription | Azure Monitor metrics | Included in Reader |
+| `Log Analytics Reader` | Log Analytics workspace | Activity Log KQL queries | Only if workspace set |
+| `Storage Blob Data Contributor` | Report storage account | Write HTML + JSON reports | Only if `reportStorageAccount` set |
+
+No write permissions on any Azure resource are ever requested.
+
+## Post-deploy: grant subscription access
+
+The Bicep template assigns roles at the resource group level only.
+For cross-subscription scanning, grant Reader and Cost Management Reader at the
+**subscription level** for each subscription you want to scan:
 
 ```bash
 # Get the managed identity principal ID from the deployment output
@@ -61,17 +78,38 @@ PRINCIPAL_ID=$(az deployment group show \
   --name function-app \
   --query properties.outputs.functionAppPrincipalId.value -o tsv)
 
-# Grant Reader on each subscription
-az role assignment create \
-  --assignee $PRINCIPAL_ID \
-  --role "Reader" \
-  --scope /subscriptions/sub-id-1
+echo "Principal ID: $PRINCIPAL_ID"
 
-az role assignment create \
-  --assignee $PRINCIPAL_ID \
-  --role "Reader" \
-  --scope /subscriptions/sub-id-2
+# Grant roles on each subscription (repeat for every subscription to scan)
+for SUB_ID in sub-id-1 sub-id-2 sub-id-3; do
+  az role assignment create \
+    --assignee $PRINCIPAL_ID \
+    --role "Reader" \
+    --scope /subscriptions/$SUB_ID
+
+  az role assignment create \
+    --assignee $PRINCIPAL_ID \
+    --role "Cost Management Reader" \
+    --scope /subscriptions/$SUB_ID
+done
 ```
+
+Verify the assignments:
+
+```bash
+az role assignment list \
+  --assignee $PRINCIPAL_ID \
+  --query "[].{Role:roleDefinitionName,Scope:scope}" -o table
+```
+
+## Multi-subscription setup
+
+To scan multiple subscriptions, see the
+[Multi-subscription guide](multi-account.md#azure--multi-subscription-with-managed-identity) — it covers:
+
+- Granting roles across subscriptions (copy-paste `az` commands)
+- Configuring `AZURE_SUBSCRIPTION_IDS` or `accounts.yaml`
+- Terraform alternative
 
 ## Deploy the function code
 
