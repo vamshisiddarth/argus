@@ -110,6 +110,7 @@ def main(mytimer: Any) -> None:
         agent_input_tokens=int(token_summary["total_input_tokens"]),
         agent_output_tokens=int(token_summary["total_output_tokens"]),
         scan_diff=scan_diff,
+        scan_errors=[],
     )
     report_url: str | None = None
     if storage_account:

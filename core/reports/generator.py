@@ -18,10 +18,14 @@ def build_report(
     agent_input_tokens: int = 0,
     agent_output_tokens: int = 0,
     scan_diff: dict[str, Any] | None = None,
+    scan_errors: list[dict[str, str]] | None = None,
 ) -> dict[str, Any]:
     """
     Convert a list of ResourceFinding objects into the canonical JSON report.
     Findings are sorted by estimated_monthly_cost descending before serialising.
+
+    scan_errors: list of {"account_id": ..., "account_name": ..., "error": ...}
+        for accounts/projects/subscriptions that failed to scan.
     """
     sorted_findings = sorted(
         findings, key=lambda f: f.estimated_monthly_cost, reverse=True
@@ -44,6 +48,7 @@ def build_report(
             agent_input_tokens, agent_output_tokens
         ),
         "scan_diff": scan_diff,
+        "scan_errors": scan_errors or [],
     }
 
 
@@ -112,6 +117,25 @@ def build_slack_payload(
         },
         {"type": "divider"},
     ]
+
+    scan_errors = report.get("scan_errors") or []
+    if scan_errors:
+        total_attempted = accounts + len(scan_errors)
+        error_lines = [
+            f":warning: *Partial scan — {accounts}/{total_attempted} "
+            f"account{'s' if total_attempted != 1 else ''} succeeded*"
+        ]
+        for err in scan_errors:
+            name = err.get("account_name") or err.get("account_id", "unknown")
+            reason = err.get("error", "unknown error")
+            error_lines.append(f"• `{name}` failed: {reason}")
+        blocks.append(
+            {
+                "type": "section",
+                "text": {"type": "mrkdwn", "text": "\n".join(error_lines)},
+            }
+        )
+        blocks.append({"type": "divider"})
 
     top = report["findings"][:SLACK_DIGEST_LIMIT]
     if top:

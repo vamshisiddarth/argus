@@ -355,6 +355,13 @@ class TestMultiProject:
         assert "proj-ok" in report_call.kwargs.get(
             "accounts_scanned", report_call[1].get("accounts_scanned", [])
         )
+        # Failed project should be recorded in scan_errors, not silently dropped
+        scan_errors = report_call.kwargs.get(
+            "scan_errors", report_call[1].get("scan_errors", [])
+        )
+        assert len(scan_errors) == 1
+        assert scan_errors[0]["account_id"] == "proj-fail"
+        assert "No access" in scan_errors[0]["error"]
 
     @patch("entrypoints.gcp_cloudrun.notify_all")
     @patch("entrypoints.gcp_cloudrun.build_slack_payload", return_value={"blocks": []})

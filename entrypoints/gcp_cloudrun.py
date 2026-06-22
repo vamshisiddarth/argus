@@ -80,13 +80,14 @@ def main() -> None:
     logger.info("scan_start", projects=project_ids, ignore_regions=ignore_regions)
 
     if use_multi:
-        all_findings, executive_summary, scanned_ids, token_summary = (
+        all_findings, executive_summary, scanned_ids, token_summary, scan_errors = (
             _run_multi_project(project_ids, ignore_regions, cloud)
         )
     else:
         all_findings, executive_summary, scanned_ids, token_summary = (
             _run_single_project(project_ids[0], ignore_regions, cloud)
         )
+        scan_errors: list[dict[str, str]] = []
 
     gcs_bucket = os.environ.get("REPORT_GCS_BUCKET", "").strip()
     previous_report = _load_previous_report(cloud, gcs_bucket)
@@ -100,6 +101,7 @@ def main() -> None:
         agent_input_tokens=int(token_summary.get("total_input_tokens", 0)),
         agent_output_tokens=int(token_summary.get("total_output_tokens", 0)),
         scan_diff=scan_diff,
+        scan_errors=scan_errors,
     )
     report_url: str | None = None
     if gcs_bucket:
@@ -192,6 +194,7 @@ def _run_multi_project(
     all_findings: list[ResourceFinding] = []
     all_summaries: list[str] = []
     scanned_ids: list[str] = []
+    scan_errors: list[dict[str, str]] = []
     total_input = 0
     total_output = 0
 
@@ -215,6 +218,9 @@ def _run_multi_project(
             total_output += loop.tracker.total_output_tokens
         except PermissionError as exc:
             logger.error("project_scan_failed", project_id=pid, error=str(exc))
+            scan_errors.append(
+                {"account_id": pid, "account_name": name, "error": str(exc)}
+            )
 
     executive_summary = (
         " ".join(all_summaries) if all_summaries else "No findings across all projects."
@@ -223,7 +229,7 @@ def _run_multi_project(
         "total_input_tokens": total_input,
         "total_output_tokens": total_output,
     }
-    return all_findings, executive_summary, scanned_ids, token_summary
+    return all_findings, executive_summary, scanned_ids, token_summary, scan_errors
 
 
 # ---------------------------------------------------------------------------

@@ -27,8 +27,12 @@ def build_html_report(report: dict[str, Any]) -> str:
     accounts = ", ".join(report.get("accounts_scanned", [])) or "—"
     summary = html.escape(report.get("executive_summary", ""))
     findings = report["findings"]
+    scan_errors = report.get("scan_errors") or []
 
     rows_html = _build_rows(findings)
+    errors_html = _build_errors_banner(
+        scan_errors, len(report.get("accounts_scanned", []))
+    )
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -53,6 +57,10 @@ a:hover{{text-decoration:underline}}
 .stat-val.red{{color:#a32d2d}}
 .stat-lbl{{font-size:11px;color:#666;margin-top:2px}}
 .summary{{font-size:13px;color:#444;line-height:1.7;border-left:3px solid #e5e5e5;padding-left:12px}}
+.error-banner{{background:#fff8e1;border:1px solid #f59e0b;border-radius:10px;padding:14px 18px;margin-bottom:16px}}
+.error-banner-title{{font-size:13px;font-weight:600;color:#92400e;margin-bottom:6px}}
+.error-banner ul{{margin:0;padding-left:18px;font-size:12px;color:#92400e;line-height:1.8}}
+.error-banner code{{background:#fef3c7;border-radius:3px;padding:1px 4px;font-family:'SFMono-Regular',Consolas,monospace}}
 .filters{{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center}}
 .filters select,.filters input{{background:#fff;border:1px solid #d4d4d4;border-radius:6px;padding:6px 10px;font-size:13px;color:#111;outline:none}}
 .filters select:focus,.filters input:focus{{border-color:#378add}}
@@ -103,7 +111,7 @@ tbody tr:last-child td{{border-bottom:none}}
     </div>
     <p class="summary">{summary}</p>
   </div>
-
+{errors_html}
   <div class="filters">
     <select id="f-priority" onchange="applyFilters()">
       <option value="">All priorities</option>
@@ -271,6 +279,28 @@ def _build_rows(findings: list[dict[str, Any]]) -> str:
 </tr>"""
         )
     return "\n".join(parts)
+
+
+def _build_errors_banner(
+    scan_errors: list[dict[str, str]], accounts_succeeded: int
+) -> str:
+    if not scan_errors:
+        return ""
+    total = accounts_succeeded + len(scan_errors)
+    items = ""
+    for err in scan_errors:
+        name = html.escape(err.get("account_name") or err.get("account_id", "unknown"))
+        reason = html.escape(err.get("error", "unknown error"))
+        items += f"<li><code>{name}</code> — {reason}</li>"
+    return (
+        f'  <div class="error-banner">\n'
+        f'    <div class="error-banner-title">'
+        f"⚠️ Partial scan — {accounts_succeeded}/{total} "
+        f"account{'s' if total != 1 else ''} succeeded"
+        f"</div>\n"
+        f"    <ul>{items}</ul>\n"
+        f"  </div>\n"
+    )
 
 
 def _build_type_options(findings: list[dict[str, Any]]) -> str:

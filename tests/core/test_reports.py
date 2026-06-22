@@ -276,6 +276,45 @@ class TestBuildSlackPayload:
         payload = build_slack_payload(report)
         assert ":red_circle:" in _all_text(payload)
 
+    def test_scan_errors_block_shown_when_present(self):
+        report = build_report(
+            [],
+            cloud="gcp",
+            executive_summary="x",
+            accounts_scanned=["proj-ok"],
+            scan_errors=[
+                {
+                    "account_id": "proj-fail",
+                    "account_name": "prod",
+                    "error": "PermissionError",
+                }
+            ],
+        )
+        payload = build_slack_payload(report)
+        text = _all_text(payload)
+        assert "Partial scan" in text
+        assert "prod" in text
+        assert "PermissionError" in text
+
+    def test_no_scan_errors_block_when_empty(self):
+        report = build_report([], cloud="aws", executive_summary="x", scan_errors=[])
+        payload = build_slack_payload(report)
+        assert "Partial scan" not in _all_text(payload)
+
+    def test_scan_errors_shows_fraction_succeeded(self):
+        report = build_report(
+            [],
+            cloud="aws",
+            executive_summary="x",
+            accounts_scanned=["a", "b"],
+            scan_errors=[
+                {"account_id": "c", "account_name": "c", "error": "denied"},
+                {"account_id": "d", "account_name": "d", "error": "denied"},
+            ],
+        )
+        payload = build_slack_payload(report)
+        assert "2/4" in _all_text(payload)
+
 
 # ---------------------------------------------------------------------------
 # build_html_report tests
@@ -341,6 +380,30 @@ class TestBuildHtmlReport:
         assert "cdn." not in html
         assert "googleapis" not in html
         assert "unpkg" not in html
+
+    def test_error_banner_shown_when_scan_errors_present(self):
+        report = build_report(
+            [],
+            cloud="gcp",
+            executive_summary="x",
+            accounts_scanned=["proj-ok"],
+            scan_errors=[
+                {
+                    "account_id": "proj-fail",
+                    "account_name": "failed-proj",
+                    "error": "PermissionError: 403",
+                }
+            ],
+        )
+        html_out = build_html_report(report)
+        assert "error-banner" in html_out
+        assert "Partial scan" in html_out
+        assert "failed-proj" in html_out
+        assert "PermissionError" in html_out
+
+    def test_no_error_banner_when_scan_errors_empty(self):
+        html_out = build_html_report(self._report())
+        assert "Partial scan" not in html_out
 
 
 # ---------------------------------------------------------------------------

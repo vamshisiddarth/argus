@@ -72,13 +72,14 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     ai_provider = _build_ai_provider()
 
     if accounts_mode == "multi":
-        all_findings, executive_summary, account_ids, token_summary = (
+        all_findings, executive_summary, account_ids, token_summary, scan_errors = (
             _run_multi_account(ai_provider, ignore_regions, primary_region, cloud)
         )
     else:
         all_findings, executive_summary, account_ids, token_summary = (
             _run_single_account(ai_provider, ignore_regions, primary_region, cloud)
         )
+        scan_errors: list[dict[str, str]] = []
 
     s3_bucket = os.environ.get("REPORT_S3_BUCKET", "").strip()
     previous_report = _load_previous_report(cloud, s3_bucket)
@@ -92,6 +93,7 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         agent_input_tokens=token_summary.get("total_input_tokens", 0),
         agent_output_tokens=token_summary.get("total_output_tokens", 0),
         scan_diff=scan_diff,
+        scan_errors=scan_errors,
     )
     report_url: str | None = None
     if s3_bucket:
@@ -159,6 +161,7 @@ def _run_multi_account(
     all_findings: list[ResourceFinding] = []
     all_summaries: list[str] = []
     account_ids: list[str] = []
+    scan_errors: list[dict[str, str]] = []
     total_input = 0
     total_output = 0
 
@@ -182,6 +185,9 @@ def _run_multi_account(
             total_output += loop.tracker.total_output_tokens
         except (PermissionError, ClientError) as exc:
             logger.error("account_scan_failed", account_id=acct_id, error=str(exc))
+            scan_errors.append(
+                {"account_id": acct_id, "account_name": acct_name, "error": str(exc)}
+            )
 
     executive_summary = (
         " ".join(all_summaries) if all_summaries else "No findings across all accounts."
@@ -190,7 +196,7 @@ def _run_multi_account(
         "total_input_tokens": total_input,
         "total_output_tokens": total_output,
     }
-    return all_findings, executive_summary, account_ids, token_summary
+    return all_findings, executive_summary, account_ids, token_summary, scan_errors
 
 
 # ---------------------------------------------------------------------------
