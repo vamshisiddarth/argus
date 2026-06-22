@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import readline as _readline  # noqa: F401 — enables arrow keys and history
 import sys
 from typing import Any
 
@@ -25,7 +26,7 @@ except ImportError:
 
 _COMMANDS = {
     "/help": "Show available commands and example questions",
-    "/scan": "Run a full batch scan (same as argus scan --run-now)",
+    "/scan": "Run a full batch scan (same as argus scan)",
     "/cost": "Show session token usage and cost",
     "/clear": "Clear conversation history",
     "/quit": "Exit the chat",
@@ -66,7 +67,7 @@ def run_chat_repl(
 
     while True:
         try:
-            user_input = input("argus> ").strip()
+            user_input = _read_input()
         except KeyboardInterrupt:
             print("\n(Use /quit to exit)")
             continue
@@ -91,8 +92,33 @@ def run_chat_repl(
             )
 
         response = _ask_with_status(session, user_input)
-        print(f"\n{response.text}\n")
+        print()
+        print(response.text)
+        print()
         _print_cost_footer(response, session)
+
+
+def _read_input() -> str:
+    """Read user input with multi-line support.
+
+    A trailing backslash continues to the next line.
+    """
+    first_line = input("argus> ").strip()
+    if not first_line.endswith("\\"):
+        return first_line
+
+    lines = [first_line[:-1]]
+    while True:
+        try:
+            continuation = input("   ... ").strip()
+        except (KeyboardInterrupt, EOFError):
+            break
+        if continuation.endswith("\\"):
+            lines.append(continuation[:-1])
+        else:
+            lines.append(continuation)
+            break
+    return " ".join(lines).strip()
 
 
 def _ask_with_status(session: ChatSession, user_input: str) -> ChatResponse:
@@ -123,6 +149,7 @@ def _handle_command(cmd: str, session: ChatSession, cloud: str) -> None:
             print('  "What are my top 3 wastes?"')
             print('  "Is my NAT Gateway idle?"')
             print('  "How much would I save by deleting unused EBS volumes?"')
+            print("\nTip: End a line with \\ to continue on the next line.")
             print()
 
         case "/cost":
@@ -134,8 +161,10 @@ def _handle_command(cmd: str, session: ChatSession, cloud: str) -> None:
             print("Conversation history cleared.\n")
 
         case "/scan":
-            print(f"Running full {cloud.upper()} batch scan...")
-            _run_full_scan(cloud)
+            print(
+                f"To run a full batch scan, open another terminal and run:\n"
+                f"  argus scan --cloud {cloud}\n"
+            )
 
         case _:
             print(
@@ -205,25 +234,6 @@ def _print_dim(text: str) -> None:
         _console.print(f"[dim]{text}[/dim]", highlight=False)
     else:
         print(text)
-
-
-def _run_full_scan(cloud: str) -> None:
-    """Delegate to the existing scan entrypoint."""
-    try:
-        if cloud == "aws":
-            from entrypoints.aws_lambda import handler
-
-            handler({}, None)
-        elif cloud == "gcp":
-            from entrypoints.gcp_cloudrun import main as gcp_main
-
-            gcp_main()
-        elif cloud == "azure":
-            from entrypoints.azure_function import main as azure_main
-
-            azure_main(None)
-    except Exception as exc:  # noqa: BLE001
-        print(f"Scan failed: {exc}", file=sys.stderr)
 
 
 def _build_ai_provider(provider_name: str, cloud: str, primary_region: str) -> Any:

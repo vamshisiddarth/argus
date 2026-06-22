@@ -20,9 +20,9 @@ pre-commit install
 All tests run offline — no cloud credentials needed:
 
 ```bash
-pytest tests/ -v                   # 451 unit tests
+pytest tests/ -v                   # 456 unit tests
 make test-integration              # 32 integration tests (adapter contracts, report schema)
-make test-all                      # everything (483 tests)
+make test-all                      # everything (488 tests)
 ```
 
 Subsets:

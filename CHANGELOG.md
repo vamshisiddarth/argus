@@ -20,7 +20,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 
 - CLI restructured to use subcommands. `argus --run-now` still works but `argus scan` is the canonical form.
 - Right-sizing rules and priority thresholds extracted into shared constants used by both batch and chat prompts.
-- Test count: 431 → **451**.
+- History trimming now uses a cheap LLM call to summarize dropped messages instead of a static placeholder, with automatic fallback on failure.
+- Error handling in `ChatSession.ask()` catches specific exception types (network, parse, provider errors) with targeted messages instead of a bare `except Exception`.
+- `/scan` command now tells the user to run `argus scan` instead of hacky internal entrypoint calls.
+- REPL supports arrow keys, input history (via readline), and multi-line input (trailing backslash continuation).
+- Test count: 431 → **456**.
 
 ---
 

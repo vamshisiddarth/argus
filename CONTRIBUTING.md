@@ -38,12 +38,12 @@ cp .env.example .env
 
 ## Running tests
 
-All 451 unit tests run offline — no real cloud credentials needed:
+All 456 unit tests run offline — no real cloud credentials needed:
 
 ```bash
 pytest tests/ -v
 make test-integration   # 32 integration tests (adapter contracts, report schema)
-make test-all           # everything (483 tests)
+make test-all           # everything (488 tests)
 ```
 
 To run a subset:

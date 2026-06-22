@@ -363,9 +363,9 @@ Before you invest time deploying Argus, know what it **can't** do yet:
 ## Running tests
 
 ```bash
-make test                  # unit tests only (451 tests, no cloud creds needed)
+make test                  # unit tests only (456 tests, no cloud creds needed)
 make test-integration      # integration tests (32 tests — adapter contracts, report schema)
-make test-all              # everything (483 tests)
+make test-all              # everything (488 tests)
 ```
 
 Tests use `unittest.mock` throughout — no real AWS/GCP/Azure calls are made.
@@ -401,7 +401,7 @@ argus/
 │   ├── aws/               # CloudFormation templates
 │   ├── gcp/               # Cloud Run + Scheduler deploy script
 │   └── azure/             # Bicep templates
-└── tests/                 # 483 tests, all pass offline
+└── tests/                 # 488 tests, all pass offline
 ```
 
 ---

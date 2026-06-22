@@ -19,6 +19,12 @@ MAX_TOOL_ROUNDS = 8
 TOKEN_BUDGET = 80_000
 _CHARS_PER_TOKEN = 4
 
+_SUMMARY_PROMPT = (
+    "Summarize the key facts from this conversation so far in 2-3 sentences. "
+    "Focus on: which resources were discussed, what was found (idle/active/costs), "
+    "and any conclusions reached. Be specific — include resource IDs and numbers."
+)
+
 
 @dataclass
 class ChatResponse:
@@ -107,9 +113,34 @@ class ChatSession:
                 response = self._ai.chat(
                     self._messages, self._tools, system_prompt=system_prompt
                 )
-            except Exception as exc:  # noqa: BLE001
-                logger.error("chat_ai_call_failed", error=str(exc))
-                error_text = f"Sorry, I couldn't complete that request: {exc}"
+            except (ConnectionError, TimeoutError, OSError) as exc:
+                logger.warning("chat_network_error", error=str(exc))
+                error_text = (
+                    "Network error — couldn't reach the AI provider. "
+                    "Check your connection and try again."
+                )
+                self._messages.append(Message(role="assistant", text=error_text))
+                return ChatResponse(
+                    text=error_text,
+                    turn_input_tokens=turn_input,
+                    turn_output_tokens=turn_output,
+                    turn_cost_usd=self._estimate_turn_cost(turn_input, turn_output),
+                )
+            except (ValueError, TypeError, KeyError) as exc:
+                logger.error("chat_response_parse_error", error=str(exc))
+                error_text = (
+                    f"Failed to parse the AI response: {exc}. Try rephrasing."
+                )
+                self._messages.append(Message(role="assistant", text=error_text))
+                return ChatResponse(
+                    text=error_text,
+                    turn_input_tokens=turn_input,
+                    turn_output_tokens=turn_output,
+                    turn_cost_usd=self._estimate_turn_cost(turn_input, turn_output),
+                )
+            except RuntimeError as exc:
+                logger.error("chat_ai_provider_error", error=str(exc))
+                error_text = f"AI provider error: {exc}"
                 self._messages.append(Message(role="assistant", text=error_text))
                 return ChatResponse(
                     text=error_text,
@@ -181,30 +212,77 @@ class ChatSession:
         )
 
     def _trim_history(self) -> None:
-        """Drop oldest messages when history exceeds the token budget."""
+        """Drop oldest messages when history exceeds the token budget.
+
+        Attempts to summarize dropped messages via a cheap LLM call.
+        Falls back to a static context marker if summarization fails.
+        """
         total_chars = sum(self._estimate_message_chars(m) for m in self._messages)
         token_estimate = total_chars // _CHARS_PER_TOKEN
 
         if token_estimate <= TOKEN_BUDGET:
             return
 
-        dropped = 0
+        dropped_messages: list[Message] = []
         while len(self._messages) > 1 and token_estimate > TOKEN_BUDGET:
             removed = self._messages.pop(0)
             token_estimate -= self._estimate_message_chars(removed) // _CHARS_PER_TOKEN
-            dropped += 1
+            dropped_messages.append(removed)
 
-        if dropped > 0:
-            context_msg = Message(
-                role="user",
-                text=(
-                    f"[Context: {dropped} earlier messages were trimmed. "
-                    f"You are analyzing {self._cloud.upper()} infrastructure "
-                    f"for cost optimization. Resources have been loaded.]"
-                ),
-            )
-            self._messages.insert(0, context_msg)
-            logger.info("chat_history_trimmed", dropped=dropped)
+        if not dropped_messages:
+            return
+
+        summary_text = self._summarize_dropped(dropped_messages)
+        context_msg = Message(role="user", text=f"[Context: {summary_text}]")
+        self._messages.insert(0, context_msg)
+        logger.info(
+            "chat_history_trimmed",
+            dropped=len(dropped_messages),
+            summarized=summary_text[:80],
+        )
+
+    def _summarize_dropped(self, dropped: list[Message]) -> str:
+        """Ask the AI to summarize dropped messages. Falls back to static text."""
+        conversation_text = []
+        for msg in dropped:
+            if msg.text:
+                label = "User" if msg.role == "user" else "Assistant"
+                conversation_text.append(f"{label}: {msg.text}")
+            for tc in msg.tool_calls:
+                conversation_text.append(
+                    f"Tool call: {tc.name}({json.dumps(tc.arguments, default=str)})"
+                )
+            for tr in msg.tool_results:
+                snippet = (
+                    tr.content[:200] + "..." if len(tr.content) > 200 else tr.content
+                )
+                conversation_text.append(f"Tool result: {snippet}")
+
+        if not conversation_text:
+            return self._static_context_summary(len(dropped))
+
+        summary_input = "\n".join(conversation_text[-30:])
+
+        try:
+            summary_messages = [
+                Message(role="user", text=f"{_SUMMARY_PROMPT}\n\n{summary_input}")
+            ]
+            response = self._ai.chat(summary_messages, tools=[], system_prompt=None)
+            self.tracker.record(response.input_tokens, response.output_tokens)
+
+            if response.text and len(response.text) > 10:
+                return response.text
+        except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError):
+            logger.debug("chat_summary_failed_falling_back_to_static")
+
+        return self._static_context_summary(len(dropped))
+
+    def _static_context_summary(self, dropped_count: int) -> str:
+        return (
+            f"{dropped_count} earlier messages were trimmed. "
+            f"You are analyzing {self._cloud.upper()} infrastructure "
+            f"for cost optimization. Resources have been loaded."
+        )
 
     @staticmethod
     def _estimate_message_chars(msg: Message) -> int:

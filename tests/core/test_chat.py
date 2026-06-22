@@ -192,6 +192,44 @@ class TestChatHistory:
         )
         assert has_context_marker
 
+    def test_history_trimming_uses_llm_summary(self):
+        """When trimming, the session asks the AI for a summary of dropped messages."""
+        session, fake_ai = _make_session()
+        huge_text = "x" * 400_000
+        fake_ai.chat.return_value = _text_response(huge_text)
+        session.ask("Question about NAT Gateway")
+
+        fake_ai.chat.side_effect = [
+            _text_response("NAT Gateway nat-0abc123 costs $32.50/mo and is idle."),
+            _text_response("Follow-up answer"),
+        ]
+        session.ask("Follow up")
+
+        context_msgs = [
+            m for m in session._messages if m.text and "[Context:" in m.text
+        ]
+        assert len(context_msgs) >= 1
+
+    def test_history_trimming_falls_back_on_summary_failure(self):
+        """If the summary LLM call fails, falls back to static context."""
+        session, fake_ai = _make_session()
+        huge_text = "x" * 400_000
+        fake_ai.chat.return_value = _text_response(huge_text)
+        session.ask("Question 1")
+
+        fake_ai.chat.side_effect = RuntimeError("API down")
+        try:
+            session.ask("Question 2")
+        except RuntimeError:
+            pass
+
+        context_msgs = [
+            m for m in session._messages if m.text and "[Context:" in m.text
+        ]
+        assert len(context_msgs) >= 1
+        static_msg = context_msgs[0].text
+        assert "earlier messages were trimmed" in static_msg
+
 
 # ------------------------------------------------------------------
 # Budget and safety
@@ -246,13 +284,37 @@ class TestChatSafety:
         assert len(tool_result_msgs) > 0
         assert tool_result_msgs[-1].tool_results[0].is_error is True
 
-    def test_ai_provider_exception_handled_gracefully(self):
+    def test_network_error_handled_gracefully(self):
         session, fake_ai = _make_session()
-        fake_ai.chat.side_effect = RuntimeError("Connection reset")
+        fake_ai.chat.side_effect = ConnectionError("Connection refused")
 
         result = session.ask("Question")
 
-        assert "couldn't complete" in result.text.lower()
+        assert "network error" in result.text.lower()
+
+    def test_runtime_error_handled_gracefully(self):
+        session, fake_ai = _make_session()
+        fake_ai.chat.side_effect = RuntimeError("Retries exhausted")
+
+        result = session.ask("Question")
+
+        assert "ai provider error" in result.text.lower()
+
+    def test_timeout_error_handled_gracefully(self):
+        session, fake_ai = _make_session()
+        fake_ai.chat.side_effect = TimeoutError("Read timed out")
+
+        result = session.ask("Question")
+
+        assert "network error" in result.text.lower()
+
+    def test_parse_error_handled_gracefully(self):
+        session, fake_ai = _make_session()
+        fake_ai.chat.side_effect = ValueError("Invalid JSON in response")
+
+        result = session.ask("Question")
+
+        assert "parse" in result.text.lower()
 
 
 # ------------------------------------------------------------------
