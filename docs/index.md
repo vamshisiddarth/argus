@@ -13,6 +13,7 @@ hide:
 **Argus** scans your AWS, GCP, and Azure accounts every week and delivers a prioritized,
 AI-reasoned cost report straight to Slack — identifying idle resources to delete *and*
 over-provisioned resources to right-size, with specific actions and estimated savings for each.
+Or skip the report and ask questions directly: *"What's my biggest waste this month?"*
 
 <div class="hero-buttons" markdown>
 [Get Started](getting-started/index.md){ .md-button .md-button--primary }
@@ -83,6 +84,15 @@ single-digit utilization — with specific node count and instance type recommen
 Resources with no owner tag that nobody knows about — prime deletion candidates.
 </div>
 
+<div class="feature-card" markdown>
+<div class="icon" markdown>:material-chat-question-outline:</div>
+
+**Interactive chat mode**
+
+Ask questions in plain English: *"Which RDS instances have been idle for 30+ days?"*
+Argus investigates live and answers with costs and recommendations.
+</div>
+
 </div>
 
 ---
@@ -109,7 +119,7 @@ No rules per resource type. The same brain works across all three clouds.
 
 ## :material-slack: Example Slack report
 
-```
+```text
 Argus found $1,412.85/month in waste across 6 resources
 
 🔴 HIGH  db-analytics-01  RDS db.r5.4xlarge   $1,240.00/mo
@@ -144,15 +154,13 @@ Argus found $1,412.85/month in waste across 6 resources
 === "Local scan (5 minutes)"
 
     ```bash
-    git clone https://github.com/vamshisiddarth/argus.git
-    cd argus
-    python3.11 -m venv .venv && source .venv/bin/activate
-    pip install -e ".[dev]"
+    pip install argus-cloud-optimizer
 
     cp .env.example .env
     # Set ANTHROPIC_API_KEY and DRY_RUN=true
 
-    argus scan --cloud aws --dry-run
+    argus scan --cloud aws --dry-run   # full weekly scan
+    argus chat --cloud aws             # interactive Q&A
     ```
 
 === "AWS Lambda (one-click)"
