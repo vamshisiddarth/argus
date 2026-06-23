@@ -43,7 +43,11 @@ from core.reports.delivery import (
     notify_all,
     save_reports_locally,
 )
-from core.reports.generator import build_report, build_slack_payload
+from core.reports.generator import (
+    build_report,
+    build_slack_payload,
+    synthesize_executive_summary,
+)
 from core.reports.html import build_html_report
 from core.secrets import resolve_secrets
 from core.validation import ConfigurationError, validate_environment
@@ -187,7 +191,7 @@ def _run_multi_project(
     project_ids: list[str],
     ignore_regions: list[str],
     cloud: str,
-) -> tuple[list[ResourceFinding], str, list[str], dict]:
+) -> tuple[list[ResourceFinding], str, list[str], dict, list[dict[str, str]]]:
     """Scan multiple GCP projects. One adapter + agent loop per project."""
     project_names = _get_project_names()
 
@@ -197,6 +201,7 @@ def _run_multi_project(
     scan_errors: list[dict[str, str]] = []
     total_input = 0
     total_output = 0
+    last_ai_provider = None
 
     for pid in project_ids:
         name = project_names.get(pid, pid)
@@ -204,6 +209,7 @@ def _run_multi_project(
 
         try:
             ai_provider = _build_ai_provider(pid)
+            last_ai_provider = ai_provider
             adapter = GCPAdapter(project_id=pid)
             loop = AgentLoop(ai_provider=ai_provider, cloud_adapter=adapter)
             findings, summary = loop.run(
@@ -222,9 +228,20 @@ def _run_multi_project(
                 {"account_id": pid, "account_name": name, "error": str(exc)}
             )
 
-    executive_summary = (
-        " ".join(all_summaries) if all_summaries else "No findings across all projects."
-    )
+    if len(project_ids) > 1 and all_findings and last_ai_provider is not None:
+        logger.info("synthesizing_unified_summary", projects=len(scanned_ids))
+        unified, synth_input, synth_output = synthesize_executive_summary(
+            all_findings, all_summaries, cloud, last_ai_provider
+        )
+        total_input += synth_input
+        total_output += synth_output
+        executive_summary = unified
+    else:
+        executive_summary = (
+            " ".join(all_summaries)
+            if all_summaries
+            else "No findings across all projects."
+        )
     token_summary = {
         "total_input_tokens": total_input,
         "total_output_tokens": total_output,

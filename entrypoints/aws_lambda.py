@@ -36,7 +36,11 @@ from core.reports.delivery import (
     notify_all,
     save_reports_locally,
 )
-from core.reports.generator import build_report, build_slack_payload
+from core.reports.generator import (
+    build_report,
+    build_slack_payload,
+    synthesize_executive_summary,
+)
 from core.reports.html import build_html_report
 from core.secrets import resolve_secrets
 from core.validation import ConfigurationError, validate_environment
@@ -144,7 +148,7 @@ def _run_multi_account(
     ignore_regions: list[str],
     primary_region: str,
     cloud: str,
-) -> tuple[list[ResourceFinding], str, list[str], dict]:
+) -> tuple[list[ResourceFinding], str, list[str], dict, list[dict[str, str]]]:
     raw = os.environ.get("ACCOUNTS_CONFIG", "[]")
     try:
         accounts: list[dict[str, Any]] = json.loads(raw)
@@ -189,9 +193,20 @@ def _run_multi_account(
                 {"account_id": acct_id, "account_name": acct_name, "error": str(exc)}
             )
 
-    executive_summary = (
-        " ".join(all_summaries) if all_summaries else "No findings across all accounts."
-    )
+    if len(accounts) > 1 and all_findings:
+        logger.info("synthesizing_unified_summary", accounts=len(account_ids))
+        unified, synth_input, synth_output = synthesize_executive_summary(
+            all_findings, all_summaries, cloud, ai_provider
+        )
+        total_input += synth_input
+        total_output += synth_output
+        executive_summary = unified
+    else:
+        executive_summary = (
+            " ".join(all_summaries)
+            if all_summaries
+            else "No findings across all accounts."
+        )
     token_summary = {
         "total_input_tokens": total_input,
         "total_output_tokens": total_output,

@@ -23,7 +23,12 @@ from core.reports.delivery import (
     notify_all,
     post_to_slack,
 )
-from core.reports.generator import SLACK_DIGEST_LIMIT, build_report, build_slack_payload
+from core.reports.generator import (
+    SLACK_DIGEST_LIMIT,
+    build_report,
+    build_slack_payload,
+    synthesize_executive_summary,
+)
 from core.reports.html import build_html_report
 
 # ---------------------------------------------------------------------------
@@ -404,6 +409,83 @@ class TestBuildHtmlReport:
     def test_no_error_banner_when_scan_errors_empty(self):
         html_out = build_html_report(self._report())
         assert "Partial scan" not in html_out
+
+
+# ---------------------------------------------------------------------------
+# synthesize_executive_summary tests
+# ---------------------------------------------------------------------------
+
+
+def _mock_ai(text: str = "Unified summary text.") -> MagicMock:
+    from ai.base import AIResponse
+
+    provider = MagicMock()
+    provider.chat.return_value = AIResponse(
+        stop_reason="end_turn",
+        text=text,
+        tool_calls=[],
+        input_tokens=100,
+        output_tokens=40,
+    )
+    return provider
+
+
+class TestSynthesizeExecutiveSummary:
+    def _findings(self, n: int = 3) -> list[ResourceFinding]:
+        return [_finding(f"r-{i}", cost=float(100 - i * 10)) for i in range(n)]
+
+    def test_returns_ai_text_on_success(self):
+        ai = _mock_ai("Great unified summary across 2 projects.")
+        text, inp, out = synthesize_executive_summary(
+            self._findings(), ["[dev] all good", "[prod] 2 idle"], "gcp", ai
+        )
+        assert text == "Great unified summary across 2 projects."
+        assert inp == 100
+        assert out == 40
+
+    def test_calls_ai_with_findings_digest(self):
+        ai = _mock_ai()
+        synthesize_executive_summary(self._findings(2), ["[dev] summary"], "aws", ai)
+        call_args = ai.chat.call_args
+        prompt_text = call_args.kwargs["messages"][0].text
+        assert "r-0" in prompt_text or "r-1" in prompt_text
+        assert "AWS" in prompt_text
+
+    def test_falls_back_to_joined_summaries_on_ai_error(self):
+        ai = MagicMock()
+        ai.chat.side_effect = RuntimeError("API unavailable")
+        text, inp, out = synthesize_executive_summary(
+            self._findings(),
+            ["[dev] some waste", "[prod] more waste"],
+            "aws",
+            ai,
+        )
+        assert "[dev] some waste" in text
+        assert "[prod] more waste" in text
+        assert inp == 0
+        assert out == 0
+
+    def test_no_findings_returns_fallback_without_ai_call(self):
+        ai = _mock_ai()
+        text, inp, out = synthesize_executive_summary([], [], "azure", ai)
+        assert "No idle resources" in text
+        assert inp == 0
+        ai.chat.assert_not_called()
+
+    def test_empty_ai_response_falls_back(self):
+        ai = _mock_ai(text="")
+        text, inp, out = synthesize_executive_summary(
+            self._findings(), ["[dev] ok"], "gcp", ai
+        )
+        assert "[dev] ok" in text
+
+    def test_token_counts_returned(self):
+        ai = _mock_ai()
+        _, inp, out = synthesize_executive_summary(
+            self._findings(), ["[dev] ok"], "aws", ai
+        )
+        assert inp == 100
+        assert out == 40
 
 
 # ---------------------------------------------------------------------------

@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import json
 import uuid
 from datetime import datetime, timezone
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from core.models.finding import ResourceFinding
+
+if TYPE_CHECKING:
+    from ai.base import AIProvider
 
 # Maximum findings shown as individual rows in the Slack digest
 SLACK_DIGEST_LIMIT = 5
@@ -50,6 +54,91 @@ def build_report(
         "scan_diff": scan_diff,
         "scan_errors": scan_errors or [],
     }
+
+
+def synthesize_executive_summary(
+    findings: list[ResourceFinding],
+    per_account_summaries: list[str],
+    cloud: str,
+    ai_provider: "AIProvider",
+) -> tuple[str, int, int]:
+    """
+    Generate a single unified executive summary across all accounts/projects.
+
+    Called once after all per-account scans complete, with the full merged
+    findings list. Returns (summary_text, input_tokens, output_tokens).
+
+    Falls back to joining per_account_summaries if the AI call fails.
+    """
+    from ai.base import Message
+
+    if not findings and not per_account_summaries:
+        return f"No idle resources found across any {cloud.upper()} accounts.", 0, 0
+
+    total_waste = sum(f.estimated_monthly_cost for f in findings)
+    top_findings = sorted(
+        findings, key=lambda f: f.estimated_monthly_cost, reverse=True
+    )[:10]
+
+    findings_digest = json.dumps(
+        [
+            {
+                "account": getattr(f, "account_name", None) or f.cloud,
+                "resource_id": f.resource_id,
+                "name": f.name,
+                "type": f.resource_type,
+                "region": f.region,
+                "cost_usd": round(f.estimated_monthly_cost, 2),
+                "priority": f.priority,
+                "waste_reason": f.waste_reason,
+            }
+            for f in top_findings
+        ],
+        indent=2,
+    )
+
+    n_accounts = len({s.split("]")[0].lstrip("[") for s in per_account_summaries if s})
+    prompt = (  # noqa: E501
+        f"You are writing the executive summary section of a cloud cost report"
+        f" for engineering leadership.\n\n"
+        f"Scan context:\n"
+        f"- Cloud: {cloud.upper()}\n"
+        f"- Accounts/projects scanned: {n_accounts}\n"
+        f"- Total findings: {len(findings)}\n"
+        f"- Total estimated waste: ${total_waste:,.2f}/month\n\n"
+        f"Top findings across all accounts (by cost):\n{findings_digest}\n\n"
+        f"Per-account summaries from individual scans:\n"
+        f"{chr(10).join(per_account_summaries)}\n\n"
+        f"Write a 3-5 sentence executive summary that:\n"
+        f"1. States the total waste and number of accounts scanned upfront\n"
+        f"2. Identifies which account/project has the largest waste and"
+        f" what the top resource type is\n"
+        f"3. Highlights any cross-account patterns"
+        f' (e.g. "idle RDS instances appear in all three environments")\n'
+        f"4. Ends with a single clear action recommendation for the team\n\n"
+        f"Write only the summary text."
+        f" No headings, no bullet points, no markdown. Plain prose."
+    )
+
+    try:
+        response = ai_provider.chat(
+            messages=[Message(role="user", text=prompt)],
+            tools=[],
+            system_prompt=None,
+        )
+        text = (response.text or "").strip()
+        if text:
+            return text, response.input_tokens, response.output_tokens
+    except Exception:  # noqa: BLE001
+        pass
+
+    # Fallback: join per-account summaries
+    fallback = (
+        " ".join(per_account_summaries)
+        if per_account_summaries
+        else f"No idle resources found across {cloud.upper()} accounts."
+    )
+    return fallback, 0, 0
 
 
 def _estimate_cost(input_tokens: int, output_tokens: int) -> float:
