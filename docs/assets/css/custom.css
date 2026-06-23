@@ -125,6 +125,103 @@
   font-size: 0.75rem;
 }
 
+/* ── Terminal-style code blocks ──────────────────────────── */
+
+/* Dark background for shell/bash/console blocks */
+.highlight .language-bash .hll,
+.highlight .language-shell .hll,
+.highlight .language-console .hll {
+  background: transparent;
+}
+
+/* Give all code blocks a slightly richer background */
+.md-typeset pre > code {
+  border-radius: 8px;
+}
+
+/* Shell/bash blocks: dark terminal look */
+.md-typeset .highlight.language-bash,
+.md-typeset .highlight.language-shell,
+.md-typeset .highlight.language-console {
+  background: #1a1b26;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.md-typeset .highlight.language-bash pre,
+.md-typeset .highlight.language-shell pre,
+.md-typeset .highlight.language-console pre {
+  background: #1a1b26;
+  border-radius: 10px;
+}
+
+.md-typeset .highlight.language-bash code,
+.md-typeset .highlight.language-shell code,
+.md-typeset .highlight.language-console code {
+  color: #a9b1d6;
+}
+
+/* iTerm2-style traffic-light dots before bash blocks with a title */
+.md-typeset .highlight.language-bash[class*="title"] .filename::before,
+.md-typeset div[class*="language-bash"] .filename::before {
+  content: "● ● ●";
+  color: transparent;
+  text-shadow: -30px 0 #ff5f57, 0 0 #febc2e, 30px 0 #28c840;
+  font-size: 0.6rem;
+  margin-right: 0.75rem;
+  letter-spacing: 4px;
+}
+
+/* Terminal-dot header bar on all code blocks that have a title */
+.md-typeset .highlight .filename {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: rgba(255,255,255,0.04);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  border-radius: 10px 10px 0 0;
+  font-size: 0.78rem;
+  font-family: var(--md-code-font);
+  color: var(--md-default-fg-color--light);
+}
+
+/* Traffic-light dots — always visible on all titled code blocks */
+.md-typeset .highlight .filename::before {
+  content: "";
+  display: inline-flex;
+  gap: 5px;
+  width: 12px;
+  height: 12px;
+  background: #ff5f57;
+  border-radius: 50%;
+  box-shadow: 17px 0 0 #febc2e, 34px 0 0 #28c840;
+  flex-shrink: 0;
+  margin-right: 0.6rem;
+}
+
+/* Copy button: always visible, not just on hover */
+.md-typeset .md-clipboard {
+  opacity: 0.6;
+}
+.md-typeset .md-clipboard:hover {
+  opacity: 1;
+}
+
+/* Slightly larger line-height inside code blocks for readability */
+.md-typeset pre code {
+  line-height: 1.6;
+}
+
+/* Content tabs — make active tab more prominent */
+.md-typeset .tabbed-labels > label {
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+.md-typeset .tabbed-labels > label:hover {
+  color: var(--md-primary-fg-color);
+}
+
 /* ── Navbar logo ─────────────────────────────────────────── */
 
 /* Invert logo to white on the indigo header */
