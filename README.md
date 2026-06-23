@@ -389,104 +389,80 @@ No write permissions are ever requested.
 
 ## IAM permissions (GCP)
 
-The Cloud Run Job service account needs these exact IAM permissions. You can grant them
-via predefined roles (easiest) or a custom role with the minimum permission set.
-
-**Predefined roles (copy-paste into gcloud):**
+The Cloud Run Job service account (`argus-sa@<project>.iam.gserviceaccount.com`) needs
+**read-only** access. These are the exact GCP IAM permissions Argus calls:
 
 ```
-roles/cloudasset.viewer          # list all resources
-roles/monitoring.viewer          # read metrics
-roles/logging.viewer             # read audit logs (last-activity timestamps)
-roles/bigquery.dataViewer        # only if BILLING_BQ_TABLE is set
-roles/bigquery.jobUser           # only if BILLING_BQ_TABLE is set
-roles/aiplatform.user            # only if AI_PROVIDER=vertexai (default)
-roles/storage.objectCreator      # only if REPORT_GCS_BUCKET is set
-roles/storage.objectViewer       # only if REPORT_GCS_BUCKET is set
-roles/iam.serviceAccountTokenCreator  # only if REPORT_GCS_BUCKET is set (on the SA itself)
+cloudasset.assets.listAssets              # list all resources (Asset Inventory)
+monitoring.timeSeries.list                # read metric data (Cloud Monitoring)
+monitoring.metricDescriptors.list         # discover available metrics
+logging.logEntries.list                   # read audit log entries (last-activity)
+bigquery.jobs.create                      # only if BILLING_BQ_TABLE is set
+bigquery.tables.getData                   # only if BILLING_BQ_TABLE is set
+aiplatform.endpoints.predict              # only if AI_PROVIDER=vertexai (default)
+storage.objects.create                    # only if REPORT_GCS_BUCKET is set
+storage.objects.get                       # only if REPORT_GCS_BUCKET is set
+iam.serviceAccounts.signBlob              # only if REPORT_GCS_BUCKET is set
 ```
 
-**Exact permissions (for a custom role with minimum surface):**
+No write permissions are ever requested.
 
+**Easiest path — predefined roles** (the deploy script binds these automatically):
+
+```bash
+SA="argus-sa@my-project-id.iam.gserviceaccount.com"
+gcloud projects add-iam-policy-binding my-project-id --member="serviceAccount:$SA" --role="roles/cloudasset.viewer"
+gcloud projects add-iam-policy-binding my-project-id --member="serviceAccount:$SA" --role="roles/monitoring.viewer"
+gcloud projects add-iam-policy-binding my-project-id --member="serviceAccount:$SA" --role="roles/logging.viewer"
+# Add for cost data:
+gcloud projects add-iam-policy-binding my-project-id --member="serviceAccount:$SA" --role="roles/bigquery.dataViewer"
+gcloud projects add-iam-policy-binding my-project-id --member="serviceAccount:$SA" --role="roles/bigquery.jobUser"
 ```
-cloudasset.assets.listAssets              # Asset Inventory: list all project resources
-monitoring.timeSeries.list                # Cloud Monitoring: read metric data
-monitoring.metricDescriptors.list         # Cloud Monitoring: discover available metrics
-logging.logEntries.list                   # Cloud Logging: read audit log entries
-bigquery.jobs.create                      # BigQuery: run cost query             [cost only]
-bigquery.tables.getData                   # BigQuery: read billing export rows   [cost only]
-aiplatform.endpoints.predict              # Vertex AI: invoke AI model           [vertexai only]
-storage.objects.create                    # GCS: upload reports                  [reports only]
-storage.objects.get                       # GCS: read reports, generate signed URLs [reports only]
-iam.serviceAccounts.signBlob              # GCS: sign v4 URLs (self-reference)   [reports only]
-```
 
-**Custom role definition (minimum viable — no cost data, no GCS, Anthropic for AI):**
+**Minimum surface — custom role** (only the exact permissions above, nothing more):
 
-```yaml
-# argus-custom-role.yaml
-title: "Argus Scanner (minimum)"
-description: "Read-only scanning for Argus cost optimizer"
+```bash
+cat > argus-role.yaml << 'EOF'
+title: "Argus Scanner"
+description: "Minimum read-only permissions for Argus"
 stage: GA
 includedPermissions:
   - cloudasset.assets.listAssets
   - monitoring.timeSeries.list
   - monitoring.metricDescriptors.list
   - logging.logEntries.list
-```
+EOF
 
-```bash
-gcloud iam roles create ArgusScanner \
-  --project=my-project-id \
-  --file=argus-custom-role.yaml
-
+gcloud iam roles create ArgusScanner --project=my-project-id --file=argus-role.yaml
 gcloud projects add-iam-policy-binding my-project-id \
-  --member="serviceAccount:argus-sa@my-project-id.iam.gserviceaccount.com" \
-  --role="projects/my-project-id/roles/ArgusScanner"
+  --member="serviceAccount:$SA" --role="projects/my-project-id/roles/ArgusScanner"
 ```
 
-> **BigQuery billing note:** without `BILLING_BQ_TABLE`, cost fields show `$0.00` but resource
-> discovery and idleness detection still work normally.
+> **BigQuery note:** without `BILLING_BQ_TABLE`, cost fields show `$0.00` — resource
+> discovery and idleness detection still work normally via metrics and audit logs.
 
 ---
 
 ## IAM permissions (Azure)
 
-The Function App Managed Identity needs these roles. All are built-in Azure roles — no custom
-role definition required unless you want to restrict further.
-
-**Built-in roles per subscription (copy-paste `az` commands):**
+The Function App Managed Identity needs **read-only** access. These are the exact Azure RBAC
+actions Argus calls:
 
 ```
-Reader                    # Resource Graph, Monitor metrics, Activity Log fallback
-Cost Management Reader    # Cost Management query API
-Log Analytics Reader      # Activity Log KQL via Log Analytics  [optional]
-Storage Blob Data Contributor  # HTML + JSON report upload       [optional]
+Microsoft.ResourceGraph/resources/action                              # list all resources (Resource Graph KQL)
+Microsoft.Insights/metrics/read                                       # read metric data (Azure Monitor)
+Microsoft.Insights/metricDefinitions/read                             # discover available metrics
+Microsoft.Insights/eventtypes/management/values/read                  # Activity Log fallback
+Microsoft.CostManagement/query/action                                 # run cost queries
+Microsoft.CostManagement/*/read                                       # read cost data
+Microsoft.OperationalInsights/workspaces/query/read                   # only if logAnalyticsWorkspaceId is set
+Microsoft.Storage/storageAccounts/blobServices/containers/blobs/write # only if reportStorageAccount is set
+Microsoft.Storage/storageAccounts/blobServices/containers/blobs/read  # only if reportStorageAccount is set
 ```
 
-**Exact Azure RBAC actions granted by each role:**
+No write permissions are ever requested.
 
-```
-# Reader grants:
-*/read                                                          # all read operations
-Microsoft.ResourceGraph/resources/action                        # Resource Graph KQL queries
-Microsoft.Insights/metrics/read                                 # Monitor metric data
-Microsoft.Insights/metricDefinitions/read                       # discover available metrics
-Microsoft.Insights/eventtypes/management/values/read            # Activity Log fallback
-
-# Cost Management Reader adds:
-Microsoft.CostManagement/query/action                           # run cost queries
-Microsoft.CostManagement/*/read                                 # read cost data
-
-# Log Analytics Reader adds (optional):
-Microsoft.OperationalInsights/workspaces/query/read             # Log Analytics KQL queries
-
-# Storage Blob Data Contributor adds (optional):
-Microsoft.Storage/storageAccounts/blobServices/containers/blobs/write   # upload reports
-Microsoft.Storage/storageAccounts/blobServices/containers/blobs/read    # generate SAS URLs
-```
-
-**Grant commands (repeat for each subscription):**
+**Easiest path — built-in roles** (two roles cover all required actions):
 
 ```bash
 PRINCIPAL_ID=$(az deployment group show \
@@ -494,17 +470,40 @@ PRINCIPAL_ID=$(az deployment group show \
   --query properties.outputs.functionAppPrincipalId.value -o tsv)
 
 for SUB_ID in sub-id-1 sub-id-2; do
-  az role assignment create --assignee $PRINCIPAL_ID \
-    --role "Reader" --scope /subscriptions/$SUB_ID
-  az role assignment create --assignee $PRINCIPAL_ID \
-    --role "Cost Management Reader" --scope /subscriptions/$SUB_ID
+  az role assignment create --assignee $PRINCIPAL_ID --role "Reader" --scope /subscriptions/$SUB_ID
+  az role assignment create --assignee $PRINCIPAL_ID --role "Cost Management Reader" --scope /subscriptions/$SUB_ID
 done
 ```
 
-> **Why `Reader` covers most operations:** Azure's built-in `Reader` role includes `*/read`
-> which covers Resource Graph, Monitor metrics, and Activity Log. `Cost Management Reader`
-> must be added separately because cost data uses a `query/action` (not a `read`) verb,
-> which `Reader` does not include.
+**Minimum surface — custom role** (only the exact actions above, nothing more):
+
+```bash
+cat > argus-role.json << 'EOF'
+{
+  "Name": "Argus Scanner",
+  "Description": "Minimum read-only permissions for Argus",
+  "IsCustom": true,
+  "Actions": [
+    "Microsoft.ResourceGraph/resources/action",
+    "Microsoft.Insights/metrics/read",
+    "Microsoft.Insights/metricDefinitions/read",
+    "Microsoft.Insights/eventtypes/management/values/read",
+    "Microsoft.CostManagement/query/action",
+    "Microsoft.CostManagement/*/read"
+  ],
+  "DataActions": ["Microsoft.OperationalInsights/workspaces/query/read"],
+  "AssignableScopes": ["/subscriptions/YOUR-SUB-ID"]
+}
+EOF
+
+az role definition create --role-definition argus-role.json
+az role assignment create --assignee $PRINCIPAL_ID \
+  --role "Argus Scanner" --scope /subscriptions/YOUR-SUB-ID
+```
+
+> **Why `Cost Management Reader` is required separately:** Azure's `Reader` role covers
+> `*/read` but cost queries use a `query/action` verb — not a read — so `Reader` alone
+> is insufficient for cost data.
 
 ---
 
