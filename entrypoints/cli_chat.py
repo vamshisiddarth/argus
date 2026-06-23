@@ -24,11 +24,19 @@ except ImportError:
     _console = None  # type: ignore[assignment]
     _HAS_RICH = False
 
+_TOOL_LABELS = {
+    "list_resources": "Scanning resources",
+    "get_metrics": "Fetching metrics",
+    "get_cost": "Fetching cost data",
+    "get_last_activity": "Checking last activity",
+}
+
 _COMMANDS = {
     "/help": "Show available commands and example questions",
     "/scan": "Run a full batch scan (same as argus scan)",
     "/cost": "Show session token usage and cost",
     "/clear": "Clear conversation history",
+    "/summary": "Compact earlier turns into a context summary",
     "/quit": "Exit the chat",
     "/exit": "Exit the chat",
 }
@@ -63,7 +71,7 @@ def run_chat_repl(
     account_desc = ", ".join(
         f"{a.get('name', 'unnamed')} ({a.get('id', '?')})" for a in accounts
     )
-    _print_banner(__version__, cloud, account_desc)
+    _print_banner(__version__, cloud, account_desc, budget_usd)
 
     while True:
         try:
@@ -87,9 +95,14 @@ def run_chat_repl(
             continue
 
         if not session.is_resources_loaded:
-            _with_status(
-                f"Fetching resources from {cloud.upper()}...", session.load_resources
-            )
+            try:
+                _with_status(
+                    f"Fetching resources from {cloud.upper()}...",
+                    session.load_resources,
+                )
+            except Exception as exc:  # noqa: BLE001
+                _print_load_error(cloud, exc)
+                sys.exit(1)
 
         response = _ask_with_status(session, user_input)
         print()
@@ -122,10 +135,26 @@ def _read_input() -> str:
 
 
 def _ask_with_status(session: ChatSession, user_input: str) -> ChatResponse:
-    if _HAS_RICH:
-        with _console.status("Thinking...", spinner="dots"):
+    if not _HAS_RICH:
+        return session.ask(user_input)
+
+    # Keep a reference to the live Status so the tool callback can update it.
+    _status_holder: list[Any] = []
+
+    def _on_tool(tool_name: str, resource_id: str) -> None:
+        label = _TOOL_LABELS.get(tool_name, tool_name.replace("_", " ").title())
+        msg = f"{label}: {resource_id}..." if resource_id else f"{label}..."
+        if _status_holder:
+            _status_holder[0].update(f"[dim]{msg}[/dim]")
+
+    original_callback = session._on_tool_call
+    session._on_tool_call = _on_tool
+    try:
+        with _console.status("[dim]Thinking...[/dim]", spinner="dots") as _st:
+            _status_holder.append(_st)
             return session.ask(user_input)
-    return session.ask(user_input)
+    finally:
+        session._on_tool_call = original_callback
 
 
 def _with_status(message: str, fn: Any) -> None:
@@ -166,22 +195,37 @@ def _handle_command(cmd: str, session: ChatSession, cloud: str) -> None:
                 f"  argus scan --cloud {cloud}\n"
             )
 
+        case "/summary":
+            _with_status("Summarizing conversation...", session.force_summarize)
+            print("Done — earlier turns condensed into context.\n")
+
         case _:
             print(f"Unknown command: {cmd_lower}. Type /help for available commands.\n")
 
 
-def _print_banner(version: str, cloud: str, account_desc: str) -> None:
+def _print_banner(
+    version: str, cloud: str, account_desc: str, budget_usd: float
+) -> None:
     if _HAS_RICH:
         _console.print(
             f"[bold]Argus v{version}[/bold] — Interactive Cloud Cost Assistant"
         )
         _console.print(
-            f"Cloud: [cyan]{cloud.upper()}[/cyan] | Accounts: {account_desc}"
+            f"Cloud: [cyan]{cloud.upper()}[/cyan]  |  "
+            f"Accounts: {account_desc}  |  "
+            f"Budget: ${budget_usd:.2f}/session"
+        )
+        _console.print(
+            "[dim]Tip: end a line with \\ to continue on the next line.[/dim]"
         )
         _console.print("Type your question, or /help for commands.\n")
     else:
         print(f"Argus v{version} — Interactive Cloud Cost Assistant")
-        print(f"Cloud: {cloud.upper()} | Accounts: {account_desc}")
+        print(
+            f"Cloud: {cloud.upper()}  |  Accounts: {account_desc}  |  "
+            f"Budget: ${budget_usd:.2f}/session"
+        )
+        print("Tip: end a line with \\ to continue on the next line.")
         print("Type your question, or /help for commands.\n")
 
 
@@ -260,6 +304,24 @@ def _build_ai_provider(provider_name: str, cloud: str, primary_region: str) -> A
             from ai.anthropic import AnthropicProvider
 
             return AnthropicProvider()
+
+
+def _print_load_error(cloud: str, exc: Exception) -> None:
+    hints = {
+        "aws": "Check: aws configure, AWS_ACCESS_KEY_ID, or instance role",
+        "gcp": (
+            "Check: gcloud auth application-default login "
+            "or GOOGLE_APPLICATION_CREDENTIALS"
+        ),
+        "azure": (
+            "Check: az login or "
+            "AZURE_CLIENT_ID / AZURE_CLIENT_SECRET / AZURE_TENANT_ID"
+        ),
+    }
+    hint = hints.get(cloud, "Check your cloud credentials")
+    print(f"\nError: could not load {cloud.upper()} resources.")
+    print(hint)
+    print(f"Details: {exc}\n")
 
 
 def _build_adapter(cloud: str, primary_region: str) -> Any:

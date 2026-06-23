@@ -3,6 +3,22 @@
 All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## v0.4.0 (unreleased)
+
+### Added
+
+- **`/summary` command** — compact earlier conversation turns into a context summary on demand, freeing up token budget without losing context
+- **`format_tool_result()`** — all 4 tool outputs (`list_resources`, `get_metrics`, `get_cost`, `get_last_activity`) are now converted to compact human-readable summaries before the AI sees them; no raw JSON ever reaches the model or appears in responses
+
+### Changed
+
+- **Chat spinner updates live** — the status message changes as each tool fires (`Scanning resources...` → `Fetching metrics: i-0abc123...`) instead of showing a static "Thinking..." throughout
+- **History trim is turn-safe** — `_trim_history` now drops complete user/assistant/tool-result turns atomically; tool-call and tool-result messages are never split across a trim boundary
+- **Welcome banner** now shows session budget and the `\` multi-line input tip
+- **`load_resources` failures** produce a cloud-specific actionable hint (`aws configure`, `gcloud auth`, `az login`) instead of an unhandled exception
+- **Rate limit and auth errors** from the AI provider produce distinct user-facing messages instead of a generic `RuntimeError`
+- **15 new unit tests** in `tests/core/test_chat_polish.py` covering all formatters, turn grouping, and `force_summarize`
+
 ## v0.3.0 (2026-06-21)
 
 ### Added

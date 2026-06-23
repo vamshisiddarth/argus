@@ -171,30 +171,55 @@ argus chat                                       # auto-detects cloud
 
 ```
 Argus v0.3.0 — Interactive Cloud Cost Assistant
-Cloud: AWS | Accounts: my-account (123456789012)
+Cloud: AWS  |  Accounts: my-account (123456789012)  |  Budget: $1.00/session
+Tip: end a line with \ to continue on the next line.
 Type your question, or /help for commands.
 
 argus> What are my top 3 wastes?
 
-Based on your AWS account, the three largest idle resources are:
+⠋ Scanning resources...  →  Fetching cost data...
 
-1. NAT Gateway nat-0abc123 in us-east-1 — $32.50/mo
-   Only 847 bytes transferred in 90 days. Recommendation: delete.
+Based on your AWS infrastructure, the three largest idle resources are:
 
-2. RDS Instance db-prod-replica in us-west-2 — $28.80/mo
-   0 connections in 90 days. Recommendation: snapshot and delete.
+1. **NAT Gateway** nat-0abc123 (us-east-1) — $32.50/mo
+   Only 847 bytes transferred in 90 days. Safe to delete.
 
-3. EBS Volume vol-0def456 in us-east-1 — $12.00/mo
-   Unattached. Last activity: 2026-03-15. Recommendation: snapshot and delete.
+2. **RDS Instance** db-prod-replica (us-west-2) — $28.80/mo
+   Zero connections over 90 days. Snapshot and delete.
 
-Total estimated monthly waste: $73.30
+3. **EBS Volume** vol-0def456 (us-east-1) — $12.00/mo
+   Unattached since 2026-03-15 (99 days ago). Snapshot and delete.
+
+Total estimated monthly savings: $73.30
 
 [this turn: 2,847 in / 412 out, $0.0147 | session: 2,847 in / 412 out, $0.0147 / $1.00 budget]
 
 argus> Tell me more about that RDS instance — is it truly idle?
+
+⠋ Fetching metrics: db-prod-replica...  →  Checking last activity: db-prod-replica...
+
+Yes — db-prod-replica shows no activity on any signal:
+
+- CPU: avg 0.1%, max 0.4% over 14 days
+- DatabaseConnections: avg 0, max 0 over 14 days
+- Last activity: 2026-03-21 (93 days ago)
+
+This is a read replica with no readers. The primary db-prod is active.
+Recommendation: delete the replica — saves $28.80/mo immediately.
+
+[this turn: 3,102 in / 287 out, $0.0131 | session: 5,949 in / 699 out, $0.0278 / $1.00 budget]
+
+argus> /summary
+Summarizing conversation...
+Done — earlier turns condensed into context.
+
+argus> What was the first finding again?
+
+The top finding was NAT Gateway nat-0abc123 in us-east-1 at $32.50/mo —
+negligible traffic over 90 days, safe to delete with no impact.
 ```
 
-Available REPL commands: `/help`, `/scan`, `/cost`, `/clear`, `/quit`
+Available REPL commands: `/help`, `/scan`, `/cost`, `/clear`, `/summary`, `/quit`
 
 ### CLI Options
 
