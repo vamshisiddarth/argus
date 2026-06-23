@@ -46,7 +46,7 @@ When `REPORT_GCS_BUCKET` is set, the deploy script **automatically**:
 | Cloud Run Job | Runs the scan |
 | Cloud Scheduler job | Triggers the job weekly |
 | Service account | `argus-sa@<project>.iam.gserviceaccount.com` |
-| IAM bindings | `cloudasset.viewer`, `monitoring.viewer`, `logging.viewer`, `bigquery.dataViewer`, `aiplatform.user` |
+| IAM bindings | See [IAM permissions](#iam-permissions) below |
 
 ## Trigger a manual scan
 
@@ -66,26 +66,82 @@ gcloud logging read \
   --format='value(textPayload)'
 ```
 
+---
+
 ## IAM permissions
 
 The deploy script creates `argus-sa@<project>.iam.gserviceaccount.com` and binds these roles
-automatically for a **single-project** scan. For multi-project, see [Multi-project setup](#multi-project-setup).
+automatically. All permissions are **read-only** — Argus never writes to any cloud resource.
 
-| Role | Purpose |
-|------|---------|
-| `roles/cloudasset.viewer` | List all resources via Asset Inventory |
-| `roles/monitoring.viewer` | Read Cloud Monitoring metrics |
-| `roles/logging.viewer` | Read Cloud Audit Logs for last-activity timestamps |
-| `roles/bigquery.dataViewer` | Read the billing export table |
-| `roles/bigquery.jobUser` | Run BigQuery queries for cost data |
-| `roles/aiplatform.user` | Invoke Vertex AI models (only if `AI_PROVIDER=vertexai`) |
-| `roles/storage.objectCreator` | Write reports to GCS (only if `REPORT_GCS_BUCKET` is set) |
-| `roles/storage.objectViewer` | Generate signed URLs for reports (only if `REPORT_GCS_BUCKET` is set) |
-| `roles/iam.serviceAccountTokenCreator` | Sign GCS URLs (self-reference, only if `REPORT_GCS_BUCKET` is set) |
+### Minimum required roles
 
-No write permissions on any cloud resource are ever requested.
+| Role | IAM permissions granted | Used by | Required |
+|------|------------------------|---------|----------|
+| `roles/cloudasset.viewer` | `cloudasset.assets.listAssets`, `cloudasset.assets.searchAllResources` | Asset Inventory — list all resources across the project | **Yes** |
+| `roles/monitoring.viewer` | `monitoring.timeSeries.list`, `monitoring.metricDescriptors.list` | Cloud Monitoring — CPU, memory, request metrics per resource | **Yes** |
+| `roles/logging.viewer` | `logging.logEntries.list` | Cloud Audit Logs — last-activity timestamps (Admin Activity + Data Access logs) | **Yes** |
+| `roles/bigquery.dataViewer` | `bigquery.tables.getData`, `bigquery.tables.list` | Read the billing export table for cost data | Optional¹ |
+| `roles/bigquery.jobUser` | `bigquery.jobs.create` | Run the cost query job | Optional¹ |
+| `roles/aiplatform.user` | `aiplatform.endpoints.predict` | Invoke Vertex AI models for AI analysis | Optional² |
+| `roles/storage.objectCreator` | `storage.objects.create` | Write JSON + HTML reports to GCS | Optional³ |
+| `roles/storage.objectViewer` | `storage.objects.get`, `storage.objects.list` | Read reports, generate signed URLs | Optional³ |
+| `roles/iam.serviceAccountTokenCreator` | `iam.serviceAccounts.signBlob` | Sign v4 GCS URLs (self-reference on the SA itself) | Optional³ |
 
-To verify what roles are bound after deploy:
+> ¹ Required only when `BILLING_BQ_TABLE` is set. Without it, cost fields show `$0.00`.  
+> ² Required only when `AI_PROVIDER=vertexai` (the default for Cloud Run). Set `AI_PROVIDER=anthropic` + `ANTHROPIC_API_KEY` to skip this role entirely.  
+> ³ Required only when `REPORT_GCS_BUCKET` is set.
+
+### Minimum viable setup (no cost data, no GCS reports, Anthropic API for AI)
+
+If you want the smallest possible permission surface:
+
+```bash
+SA="argus-sa@my-project-id.iam.gserviceaccount.com"
+PROJECT="my-project-id"
+
+gcloud projects add-iam-policy-binding $PROJECT \
+  --member="serviceAccount:$SA" \
+  --role="roles/cloudasset.viewer"
+
+gcloud projects add-iam-policy-binding $PROJECT \
+  --member="serviceAccount:$SA" \
+  --role="roles/monitoring.viewer"
+
+gcloud projects add-iam-policy-binding $PROJECT \
+  --member="serviceAccount:$SA" \
+  --role="roles/logging.viewer"
+```
+
+Then set `AI_PROVIDER=anthropic` and `ANTHROPIC_API_KEY` — no Vertex AI role needed.
+
+### Full setup (all features enabled)
+
+```bash
+SA="argus-sa@my-project-id.iam.gserviceaccount.com"
+PROJECT="my-project-id"
+
+for ROLE in \
+  roles/cloudasset.viewer \
+  roles/monitoring.viewer \
+  roles/logging.viewer \
+  roles/bigquery.dataViewer \
+  roles/bigquery.jobUser \
+  roles/aiplatform.user \
+  roles/storage.objectCreator \
+  roles/storage.objectViewer; do
+  gcloud projects add-iam-policy-binding $PROJECT \
+    --member="serviceAccount:$SA" \
+    --role="$ROLE"
+done
+
+# Self-referential binding for GCS signed URLs
+gcloud iam service-accounts add-iam-policy-binding $SA \
+  --member="serviceAccount:$SA" \
+  --role="roles/iam.serviceAccountTokenCreator" \
+  --project=$PROJECT
+```
+
+### Verify permissions
 
 ```bash
 gcloud projects get-iam-policy my-project-id \
@@ -94,14 +150,56 @@ gcloud projects get-iam-policy my-project-id \
   --format="table(bindings.role)"
 ```
 
+### Terraform equivalent
+
+```hcl
+locals {
+  argus_sa    = "serviceAccount:argus-sa@${var.project_id}.iam.gserviceaccount.com"
+  core_roles  = [
+    "roles/cloudasset.viewer",
+    "roles/monitoring.viewer",
+    "roles/logging.viewer",
+  ]
+  cost_roles  = [
+    "roles/bigquery.dataViewer",
+    "roles/bigquery.jobUser",
+  ]
+}
+
+resource "google_project_iam_member" "argus_core" {
+  for_each = toset(local.core_roles)
+  project  = var.project_id
+  role     = each.value
+  member   = local.argus_sa
+}
+
+resource "google_project_iam_member" "argus_cost" {
+  for_each = toset(local.cost_roles)
+  project  = var.project_id
+  role     = each.value
+  member   = local.argus_sa
+}
+
+# Only needed when AI_PROVIDER=vertexai
+resource "google_project_iam_member" "argus_vertex" {
+  project = var.project_id
+  role    = "roles/aiplatform.user"
+  member  = local.argus_sa
+}
+```
+
+---
+
 ## Multi-project setup
 
 To scan multiple GCP projects in one run, see the
 [Multi-project guide](multi-account.md#gcp--multi-project-with-adc) — it covers:
 
 - Granting the service account roles across all target projects (copy-paste `gcloud` commands)
-- Configuring `GCP_PROJECT_IDS` or `accounts.yaml`
+- Configuring `GCP_PROJECT_IDS` or `ACCOUNTS_CONFIG`
 - Terraform alternative
+
+---
 
 ## Cost data setup
 
@@ -112,3 +210,19 @@ For per-resource cost data, enable BigQuery billing export:
 3. Set `BILLING_BQ_TABLE` in the Cloud Run Job environment variables
 
 Without this, cost fields show `$0.00` — the agent still finds idle resources via metrics and audit logs.
+
+### Enable required APIs
+
+The deploy script runs this automatically. To enable manually:
+
+```bash
+gcloud services enable \
+  cloudasset.googleapis.com \
+  monitoring.googleapis.com \
+  logging.googleapis.com \
+  bigquery.googleapis.com \
+  aiplatform.googleapis.com \
+  run.googleapis.com \
+  cloudscheduler.googleapis.com \
+  --project=my-project-id
+```
