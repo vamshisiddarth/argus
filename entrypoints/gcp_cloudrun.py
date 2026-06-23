@@ -83,6 +83,7 @@ def main() -> None:
     )
     logger.info("scan_start", projects=project_ids, ignore_regions=ignore_regions)
 
+    scan_errors: list[dict[str, str]] = []
     if use_multi:
         all_findings, executive_summary, scanned_ids, token_summary, scan_errors = (
             _run_multi_project(project_ids, ignore_regions, cloud)
@@ -91,7 +92,6 @@ def main() -> None:
         all_findings, executive_summary, scanned_ids, token_summary = (
             _run_single_project(project_ids[0], ignore_regions, cloud)
         )
-        scan_errors: list[dict[str, str]] = []
 
     gcs_bucket = os.environ.get("REPORT_GCS_BUCKET", "").strip()
     previous_report = _load_previous_report(cloud, gcs_bucket)

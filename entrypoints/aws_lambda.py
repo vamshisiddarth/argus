@@ -75,6 +75,7 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
 
     ai_provider = _build_ai_provider()
 
+    scan_errors: list[dict[str, str]] = []
     if accounts_mode == "multi":
         all_findings, executive_summary, account_ids, token_summary, scan_errors = (
             _run_multi_account(ai_provider, ignore_regions, primary_region, cloud)
@@ -83,7 +84,6 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         all_findings, executive_summary, account_ids, token_summary = (
             _run_single_account(ai_provider, ignore_regions, primary_region, cloud)
         )
-        scan_errors: list[dict[str, str]] = []
 
     s3_bucket = os.environ.get("REPORT_S3_BUCKET", "").strip()
     previous_report = _load_previous_report(cloud, s3_bucket)
@@ -160,7 +160,10 @@ def _run_multi_account(
             "ACCOUNTS_MODE=multi but ACCOUNTS_CONFIG is empty "
             "— falling back to single-account mode"
         )
-        return _run_single_account(ai_provider, ignore_regions, primary_region, cloud)
+        findings, summary, ids, tokens = _run_single_account(
+            ai_provider, ignore_regions, primary_region, cloud
+        )
+        return findings, summary, ids, tokens, []
 
     all_findings: list[ResourceFinding] = []
     all_summaries: list[str] = []
