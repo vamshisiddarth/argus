@@ -185,13 +185,34 @@
   line-height: 1.6;
 }
 
-/* Copy / select buttons: white icon, always slightly visible */
+/* Nav container: clear the grey box, fade in on hover */
+.md-typeset .highlight .md-code__nav {
+  background: transparent !important;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.md-typeset .highlight:hover .md-code__nav {
+  opacity: 1;
+}
+
+/* Individual buttons: transparent bg, white icon */
 .md-typeset .highlight .md-code__button {
-  color: rgba(255, 255, 255, 0.45);
-  top: 0.5rem;
+  background: transparent;
 }
 .md-typeset .highlight .md-code__button:hover {
-  color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+.md-typeset .highlight .md-code__button::after {
+  background-color: rgba(255, 255, 255, 0.55);
+}
+.md-typeset .highlight .md-code__button:hover::after {
+  background-color: rgba(255, 255, 255, 0.95);
+}
+
+/* Fix ini/env key tokens — Material hardcodes a dark color for .na */
+.md-typeset .highlight code .na {
+  color: #61afef;
 }
 
 /* Content tabs — make active tab more prominent */
