@@ -125,9 +125,45 @@
   font-size: 0.75rem;
 }
 
+/* ── Code color palette — light mode ────────────────────── */
+[data-md-color-scheme="default"] {
+  --md-code-bg-color:             #f0f2f8;
+  --md-code-fg-color:             #1a237e;
+  --md-code-hl-color:             rgba(92, 107, 192, 0.12);
+  --md-code-hl-keyword-color:     #5c6bc0;
+  --md-code-hl-string-color:      #2e7d32;
+  --md-code-hl-comment-color:     #78909c;
+  --md-code-hl-number-color:      #e65100;
+  --md-code-hl-operator-color:    #5c6bc0;
+  --md-code-hl-punctuation-color: #546e7a;
+  --md-code-hl-name-color:        #1565c0;
+  --md-code-hl-constant-color:    #6a1b9a;
+  --md-code-hl-special-color:     #00695c;
+  --md-code-hl-function-color:    #1565c0;
+  --md-code-hl-generic-color:     #37474f;
+}
+
+/* ── Code color palette — dark mode (Tokyo Night) ────────── */
+[data-md-color-scheme="slate"] {
+  --md-code-bg-color:             #1e2030;
+  --md-code-fg-color:             #c8d3f5;
+  --md-code-hl-color:             rgba(130, 170, 255, 0.1);
+  --md-code-hl-keyword-color:     #82aaff;
+  --md-code-hl-string-color:      #c3e88d;
+  --md-code-hl-comment-color:     #4a5568;
+  --md-code-hl-number-color:      #f78c6c;
+  --md-code-hl-operator-color:    #89ddff;
+  --md-code-hl-punctuation-color: #89ddff;
+  --md-code-hl-name-color:        #89ddff;
+  --md-code-hl-constant-color:    #c792ea;
+  --md-code-hl-special-color:     #4fd6be;
+  --md-code-hl-function-color:    #82aaff;
+  --md-code-hl-generic-color:     #c8d3f5;
+}
+
 /* ── Code block tweaks ───────────────────────────────────── */
 
-/* Slightly larger line-height inside code blocks for readability */
+/* Slightly larger line-height for readability */
 .md-typeset pre code {
   line-height: 1.6;
 }

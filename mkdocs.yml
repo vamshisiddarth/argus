@@ -51,6 +51,7 @@ theme:
     - search.suggest
     - search.share
     - content.code.copy             # copy button on code blocks
+    - content.code.select           # select line ranges for copying
     - content.code.annotate         # code annotations
     - content.tabs.link             # link content tabs together
     - content.action.edit           # "edit this page" button
