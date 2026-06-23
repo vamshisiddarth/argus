@@ -17,13 +17,20 @@ Or skip the report and ask questions directly: *"What's my biggest waste this mo
 
 <div class="hero-buttons" markdown>
 [Get Started](getting-started/index.md){ .md-button .md-button--primary }
-[View on GitHub](https://github.com/vamshisiddarth/argus){ .md-button }
+[:material-github: View on GitHub](https://github.com/vamshisiddarth/argus){ .md-button }
 </div>
 
 <div class="cloud-badges" markdown>
 <span class="cloud-badge cloud-badge--aws" markdown>:material-aws: AWS</span>
 <span class="cloud-badge cloud-badge--gcp" markdown>:material-google-cloud: GCP</span>
 <span class="cloud-badge cloud-badge--azure" markdown>:material-microsoft-azure: Azure</span>
+</div>
+
+<div class="hero-stats">
+  <div class="hero-stat"><strong>3</strong><span>clouds</span></div>
+  <div class="hero-stat"><strong>43+</strong><span>resource types</span></div>
+  <div class="hero-stat"><strong>528</strong><span>tests passing</span></div>
+  <div class="hero-stat"><strong>$0.10–0.50</strong><span>per weekly scan</span></div>
 </div>
 
 </div>

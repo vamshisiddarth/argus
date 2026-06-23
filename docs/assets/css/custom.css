@@ -4,23 +4,29 @@
 
 /* Hero section on the home page */
 .hero {
-  padding: 4rem 0 3rem;
+  padding: 5rem 0 4rem;
   text-align: center;
+}
+
+/* Hide the ¶ permalink anchor in the hero — it's decorative, not a TOC entry */
+.hero h1 .headerlink {
+  display: none;
 }
 
 .hero h1 {
   font-size: 3rem;
   font-weight: 800;
   letter-spacing: -0.02em;
-  margin-bottom: 1rem;
+  margin-bottom: 1.25rem;
+  color: var(--md-default-fg-color);
 }
 
-.hero p.tagline {
-  font-size: 1.25rem;
+.hero > p {
+  font-size: 1.15rem;
   color: var(--md-default-fg-color--light);
-  max-width: 600px;
+  max-width: 580px;
   margin: 0 auto 2rem;
-  line-height: 1.6;
+  line-height: 1.7;
 }
 
 .hero-buttons {
@@ -28,25 +34,59 @@
   gap: 1rem;
   justify-content: center;
   flex-wrap: wrap;
+  margin-bottom: 2.5rem;
+}
+
+/* Stats strip — social proof below the CTA buttons */
+.hero-stats {
+  display: flex;
+  gap: 2rem;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin: 2rem 0 0;
+  padding-top: 2rem;
+  border-top: 1px solid var(--md-default-fg-color--lightest);
+}
+
+.hero-stat {
+  text-align: center;
+}
+
+.hero-stat strong {
+  display: block;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--md-primary-fg-color);
+  line-height: 1.2;
+}
+
+.hero-stat span {
+  font-size: 0.8rem;
+  color: var(--md-default-fg-color--light);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 /* Feature cards grid */
 .feature-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 1.5rem;
+  gap: 1.25rem;
   margin: 2rem 0;
 }
 
 .feature-card {
   border: 1px solid var(--md-default-fg-color--lightest);
+  border-left: 3px solid transparent;
   border-radius: 8px;
   padding: 1.5rem;
-  transition: box-shadow 0.2s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
 
 .feature-card:hover {
-  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  border-left-color: var(--md-primary-fg-color);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+  transform: translateY(-2px);
 }
 
 .feature-card .icon {
