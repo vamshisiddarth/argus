@@ -185,13 +185,13 @@
   line-height: 1.6;
 }
 
-/* Copy button: always visible, positioned within the padded area */
-.md-typeset .md-clipboard {
-  opacity: 0.4;
+/* Copy / select buttons: white icon, always slightly visible */
+.md-typeset .highlight .md-code__button {
+  color: rgba(255, 255, 255, 0.45);
   top: 0.5rem;
 }
-.md-typeset .md-clipboard:hover {
-  opacity: 1;
+.md-typeset .highlight .md-code__button:hover {
+  color: rgba(255, 255, 255, 0.9);
 }
 
 /* Content tabs — make active tab more prominent */
