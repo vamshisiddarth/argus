@@ -171,52 +171,48 @@ argus chat                                       # auto-detects cloud
 
 ```
 Argus v0.3.0 — Interactive Cloud Cost Assistant
-Cloud: AWS  |  Accounts: my-account (123456789012)  |  Budget: $1.00/session
+Cloud: AWS  |  Accounts: prod (123456789012)  |  Budget: $1.00/session
 Tip: end a line with \ to continue on the next line.
 Type your question, or /help for commands.
 
-argus> What are my top 3 wastes?
+argus> What's costing the most and not doing anything?
 
-⠋ Scanning resources...  →  Fetching cost data...
+  → Scanning resources
+  → Fetching cost data
 
-Based on your AWS infrastructure, the three largest idle resources are:
-
-1. **NAT Gateway** nat-0abc123 (us-east-1) — $32.50/mo
-   Only 847 bytes transferred in 90 days. Safe to delete.
-
-2. **RDS Instance** db-prod-replica (us-west-2) — $28.80/mo
-   Zero connections over 90 days. Snapshot and delete.
-
-3. **EBS Volume** vol-0def456 (us-east-1) — $12.00/mo
-   Unattached since 2026-03-15 (99 days ago). Snapshot and delete.
-
-Total estimated monthly savings: $73.30
+Argus: Three idle resources account for $73.30/mo in waste:
+  • nat-0abc123 (NAT Gateway, us-east-1) — $32.50/mo — 847 bytes in 90 days, delete it
+  • db-prod-replica (RDS, us-west-2) — $28.80/mo — zero connections, read replica with no readers
+  • vol-0def456 (EBS, us-east-1) — $12.00/mo — unattached since 2026-03-15
 
 [this turn: 2,847 in / 412 out, $0.0147 | session: 2,847 in / 412 out, $0.0147 / $1.00 budget]
 
-argus> Tell me more about that RDS instance — is it truly idle?
+argus> Is the RDS replica definitely safe to delete?
 
-⠋ Fetching metrics: db-prod-replica...  →  Checking last activity: db-prod-replica...
+  → Fetching metrics: db-prod-replica
+  → Checking last activity: db-prod-replica
 
-Yes — db-prod-replica shows no activity on any signal:
+Argus: Yes. db-prod-replica is confirmed idle — CPU avg 0.1%, DatabaseConnections avg 0,
+last activity 2026-03-21 (93 days ago). The primary db-prod is fully active; this replica
+has no readers. Safe to snapshot and delete. Saves $28.80/mo.
 
-- CPU: avg 0.1%, max 0.4% over 14 days
-- DatabaseConnections: avg 0, max 0 over 14 days
-- Last activity: 2026-03-21 (93 days ago)
+[this turn: 1,923 in / 187 out, $0.0089 | session: 4,770 in / 599 out, $0.0236 / $1.00 budget]
 
-This is a read replica with no readers. The primary db-prod is active.
-Recommendation: delete the replica — saves $28.80/mo immediately.
+argus> What would our total monthly bill look like after cleaning all three up?
 
-[this turn: 3,102 in / 287 out, $0.0131 | session: 5,949 in / 699 out, $0.0278 / $1.00 budget]
+Argus: Current waste: $73.30/mo across the three resources. Deleting all three saves
+$879.60/year. Your remaining infrastructure cost is unchanged — none of these have
+active dependencies based on metrics and activity logs.
+
+[this turn: 1,102 in / 98 out, $0.0047 | session: 5,872 in / 697 out, $0.0283 / $1.00 budget]
 
 argus> /summary
 Summarizing conversation...
 Done — earlier turns condensed into context.
 
-argus> What was the first finding again?
+argus> Remind me which one had the highest monthly cost?
 
-The top finding was NAT Gateway nat-0abc123 in us-east-1 at $32.50/mo —
-negligible traffic over 90 days, safe to delete with no impact.
+Argus: nat-0abc123 (NAT Gateway, us-east-1) at $32.50/mo — negligible traffic over 90 days.
 ```
 
 Available REPL commands: `/help`, `/scan`, `/cost`, `/clear`, `/summary`, `/quit`

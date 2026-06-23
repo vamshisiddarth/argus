@@ -21,10 +21,12 @@ TOKEN_BUDGET = 80_000
 _CHARS_PER_TOKEN = 4
 
 _SUMMARY_PROMPT = (
-    "Summarize this cloud cost conversation in 3 sentences max. "
-    "Preserve: resource IDs, monthly cost figures, idle/active verdicts, "
-    "and any actions the user asked about. "
-    "Omit tool call mechanics — only keep business-relevant findings."
+    "You are summarizing a cloud FinOps conversation for context retention. "
+    "Write 2-3 sentences. You MUST include: exact resource IDs (e.g. i-0abc123), "
+    "monthly cost figures (e.g. $128/mo), idle/active verdicts, and any "
+    "deletion or resize recommendations discussed. "
+    "Omit all tool call mechanics, spinner messages, and raw data. "
+    "Only preserve business-relevant cost findings."
 )
 
 
@@ -479,14 +481,14 @@ def _fmt_get_metrics(raw: str) -> str:
     last_str = f", last {last_point[:10]}" if last_point else ""
     line1 = f"Metrics ({window_days}d{last_str}): {' | '.join(parts)}"
 
-    # Idle signal
+    # Idle signal — only emit when CPU data is present and unambiguous
     cpu_stats = metrics.get("CPUUtilization") or metrics.get("cpu")
-    signal = ""
+    line2 = ""
     if isinstance(cpu_stats, dict):
         avg_cpu = cpu_stats.get("avg")
         if avg_cpu is not None:
-            signal = "idle" if avg_cpu < 5 else "active"
-    line2 = f"Signal: {signal} (CPU avg {avg_cpu:g}%)" if signal else ""
+            verdict = "idle" if avg_cpu < 5 else "active"
+            line2 = f"Signal: {verdict} (CPU avg {avg_cpu:g}%)"
 
     return "\n".join(ln for ln in [line1, line2] if ln)
 
