@@ -78,6 +78,48 @@ All permissions are **read-only** — Argus never writes to any Azure resource.
 > ¹ Required only when `logAnalyticsWorkspaceId` is set. Without it, Argus falls back to the Activity Log REST API (covered by `Reader`).  
 > ² Required only when `reportStorageAccount` is set.
 
+### Custom role (minimum permission surface)
+
+If you want tighter control than the built-in roles, create a custom role with only the
+exact actions Argus calls:
+
+```json
+{
+  "Name": "Argus Scanner",
+  "Description": "Minimum read-only permissions for Argus cost optimizer",
+  "IsCustom": true,
+  "Actions": [
+    "Microsoft.ResourceGraph/resources/action",
+    "Microsoft.Insights/metrics/read",
+    "Microsoft.Insights/metricDefinitions/read",
+    "Microsoft.Insights/eventtypes/management/values/read",
+    "Microsoft.CostManagement/query/action",
+    "Microsoft.CostManagement/*/read"
+  ],
+  "NotActions": [],
+  "DataActions": [
+    "Microsoft.OperationalInsights/workspaces/query/read"
+  ],
+  "AssignableScopes": [
+    "/subscriptions/YOUR-SUB-ID"
+  ]
+}
+```
+
+```bash
+# Save the JSON above as argus-custom-role.json, then:
+az role definition create --role-definition argus-custom-role.json
+
+az role assignment create \
+  --assignee $PRINCIPAL_ID \
+  --role "Argus Scanner" \
+  --scope /subscriptions/YOUR-SUB-ID
+```
+
+> **Note:** Most users should use built-in `Reader` + `Cost Management Reader` — they are
+> simpler, pre-audited by Microsoft, and cover all Argus operations. The custom role above
+> is for environments with strict role minimization requirements.
+
 ### Grant roles: copy-paste commands
 
 ```bash

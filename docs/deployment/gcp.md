@@ -91,6 +91,37 @@ automatically. All permissions are **read-only** — Argus never writes to any c
 > ² Required only when `AI_PROVIDER=vertexai` (the default for Cloud Run). Set `AI_PROVIDER=anthropic` + `ANTHROPIC_API_KEY` to skip this role entirely.  
 > ³ Required only when `REPORT_GCS_BUCKET` is set.
 
+### Custom role (minimum permission surface)
+
+If you prefer a custom role over predefined roles, this is the exact minimum:
+
+```yaml
+# argus-custom-role.yaml  (no cost data, no GCS, Anthropic for AI)
+title: "Argus Scanner"
+description: "Minimum read-only permissions for Argus cost optimizer"
+stage: GA
+includedPermissions:
+  - cloudasset.assets.listAssets
+  - monitoring.timeSeries.list
+  - monitoring.metricDescriptors.list
+  - logging.logEntries.list
+  # Add these for cost data (BILLING_BQ_TABLE):
+  # - bigquery.jobs.create
+  # - bigquery.tables.getData
+  # Add this for Vertex AI (AI_PROVIDER=vertexai):
+  # - aiplatform.endpoints.predict
+```
+
+```bash
+gcloud iam roles create ArgusScanner \
+  --project=my-project-id \
+  --file=argus-custom-role.yaml
+
+gcloud projects add-iam-policy-binding my-project-id \
+  --member="serviceAccount:argus-sa@my-project-id.iam.gserviceaccount.com" \
+  --role="projects/my-project-id/roles/ArgusScanner"
+```
+
 ### Minimum viable setup (no cost data, no GCS reports, Anthropic API for AI)
 
 If you want the smallest possible permission surface:
