@@ -6,14 +6,14 @@ Scan your cloud account from your laptop in under 5 minutes.
 
 **From PyPI (recommended):**
 
-```bash title="Terminal"
+```bash
 pip install argus-cloud-optimizer
 argus --version   # argus 0.3.0
 ```
 
 **From source (for development):**
 
-```bash title="Terminal"
+```bash
 git clone https://github.com/vamshisiddarth/argus.git
 cd argus
 python3.11 -m venv .venv && source .venv/bin/activate
@@ -88,7 +88,7 @@ Open `.env` and set the minimum required values. Pick the tab for your cloud:
 
 Argus auto-detects your cloud from environment variables, or specify explicitly:
 
-```bash title="Terminal"
+```bash
 argus scan --dry-run                  # auto-detects cloud
 argus scan --cloud aws --dry-run      # explicit
 argus scan --cloud gcp --dry-run
@@ -103,7 +103,7 @@ The agent will:
 
 Typical output:
 
-```text title="Output"
+```text
 INFO  scan_start cloud=aws ignore_regions=[] primary_region=us-east-1 mode=single
 INFO  agent_iteration iteration=1
 INFO  tool_executed tool=list_resources is_error=False
@@ -123,7 +123,7 @@ SLACK_WEBHOOK_URL=https://hooks.slack.com/services/T.../B.../...
 DRY_RUN=false
 ```
 
-```bash title="Terminal"
+```bash
 argus scan
 ```
 
@@ -148,13 +148,13 @@ The digest still posts to Slack without a bucket — it just won't have the butt
 
 Ask questions about your infrastructure in natural language instead of running a full scan:
 
-```bash title="Terminal"
+```bash
 pip install argus-cloud-optimizer[chat]   # optional: adds rich formatting
 argus chat                               # auto-detects cloud
 argus chat --cloud aws                   # or specify explicitly
 ```
 
-```text title="Chat session"
+```text
 Argus v0.3.0 — Interactive Cloud Cost Assistant
 Cloud: AWS | Accounts: my-account (123456789012)
 Type your question, or /help for commands.
@@ -174,7 +174,7 @@ Available commands: `/help`, `/scan`, `/cost`, `/clear`, `/quit`
 
 ## :material-console: CLI reference
 
-```text title="argus --help"
+```text
 argus scan  [--cloud aws|gcp|azure] [options]   # full batch scan
 argus chat  [--cloud aws|gcp|azure] [options]   # interactive Q&A
 argus --run-now --cloud aws [options]           # backward-compat alias
