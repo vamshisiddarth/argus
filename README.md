@@ -389,62 +389,27 @@ No write permissions are ever requested.
 
 ## IAM permissions (GCP)
 
-Argus needs **read-only** access. The service account requires:
+Argus needs **read-only** access. The service account (`argus-sa@PROJECT.iam.gserviceaccount.com`) requires:
 
 ```
-# Minimum required
-cloudasset.assets.listAssets        # list all resources via Asset Inventory
-monitoring.timeSeries.list          # read CPU/memory/request metrics
+cloudasset.assets.listAssets        # list all resources (Asset Inventory API)
+monitoring.timeSeries.list          # read CPU / memory / request metrics
 monitoring.metricDescriptors.list   # discover available metric types
 logging.logEntries.list             # read Cloud Audit Logs for last-activity timestamps
-
-# Optional — cost data (set BILLING_BQ_TABLE)
-bigquery.jobs.create                # run the cost query against billing export
-bigquery.tables.getData             # read billing export rows
-
-# Optional — AI inference (default AI_PROVIDER=vertexai; skip with AI_PROVIDER=anthropic)
-aiplatform.endpoints.predict        # invoke Vertex AI model
-
-# Optional — report storage (set REPORT_GCS_BUCKET)
-storage.objects.create              # upload JSON + HTML reports to GCS
-storage.objects.get                 # read reports, generate signed URLs
-iam.serviceAccounts.signBlob        # sign v4 GCS URLs (granted on the SA itself)
+bigquery.jobs.create                # only if BILLING_BQ_TABLE is set
+bigquery.tables.getData             # only if BILLING_BQ_TABLE is set
+aiplatform.endpoints.predict        # only if AI_PROVIDER=vertexai (default)
+storage.objects.create              # only if REPORT_GCS_BUCKET is set
+storage.objects.get                 # only if REPORT_GCS_BUCKET is set
+iam.serviceAccounts.signBlob        # only if REPORT_GCS_BUCKET is set
 ```
 
-No write permissions on any cloud resource are ever requested.
+No write permissions are ever requested.
 
-Grant via predefined roles (what the deploy script does automatically):
+The deploy script binds `roles/cloudasset.viewer`, `roles/monitoring.viewer`, and `roles/logging.viewer` automatically. For a tighter permission surface, create a custom role using only the exact permissions above — see [GCP deployment docs](docs/deployment/gcp.md#iam-permissions) for the one-command setup.
 
-```bash
-SA="argus-sa@PROJECT_ID.iam.gserviceaccount.com"
-PROJECT="PROJECT_ID"
-gcloud projects add-iam-policy-binding $PROJECT --member="serviceAccount:$SA" --role="roles/cloudasset.viewer"
-gcloud projects add-iam-policy-binding $PROJECT --member="serviceAccount:$SA" --role="roles/monitoring.viewer"
-gcloud projects add-iam-policy-binding $PROJECT --member="serviceAccount:$SA" --role="roles/logging.viewer"
-gcloud projects add-iam-policy-binding $PROJECT --member="serviceAccount:$SA" --role="roles/bigquery.dataViewer"   # cost data
-gcloud projects add-iam-policy-binding $PROJECT --member="serviceAccount:$SA" --role="roles/bigquery.jobUser"     # cost data
-gcloud projects add-iam-policy-binding $PROJECT --member="serviceAccount:$SA" --role="roles/aiplatform.user"      # Vertex AI
-```
-
-Or grant only the minimum required permissions via a custom role:
-
-```bash
-cat > argus-role.yaml << 'EOF'
-title: "Argus Scanner"
-stage: GA
-includedPermissions:
-  - cloudasset.assets.listAssets
-  - monitoring.timeSeries.list
-  - monitoring.metricDescriptors.list
-  - logging.logEntries.list
-EOF
-gcloud iam roles create ArgusScanner --project=PROJECT_ID --file=argus-role.yaml
-gcloud projects add-iam-policy-binding PROJECT_ID \
-  --member="serviceAccount:$SA" --role="projects/PROJECT_ID/roles/ArgusScanner"
-```
-
-> **BigQuery billing note:** `BILLING_BQ_TABLE` must point to your GCP billing export table.
-> Without it, cost fields show `$0.00` — resource discovery and idleness detection still work.
+> **BigQuery note:** without `BILLING_BQ_TABLE`, cost fields show `$0.00` — resource
+> discovery and idleness detection still work via metrics and audit logs.
 
 ---
 
@@ -453,64 +418,23 @@ gcloud projects add-iam-policy-binding PROJECT_ID \
 Argus needs **read-only** access. The Managed Identity requires:
 
 ```
-# Minimum required
-Microsoft.ResourceGraph/resources/action                              # list all resources via Resource Graph KQL
-Microsoft.Insights/metrics/read                                       # read CPU/memory/request metrics
+Microsoft.ResourceGraph/resources/action                              # list all resources (Resource Graph KQL)
+Microsoft.Insights/metrics/read                                       # read CPU / memory / request metrics
 Microsoft.Insights/metricDefinitions/read                             # discover available metric types
 Microsoft.Insights/eventtypes/management/values/read                  # Activity Log fallback for last-activity
 Microsoft.CostManagement/query/action                                 # run cost queries
 Microsoft.CostManagement/*/read                                       # read cost data
-
-# Optional — richer last-activity data (set logAnalyticsWorkspaceId)
-Microsoft.OperationalInsights/workspaces/query/read                   # Log Analytics KQL queries
-
-# Optional — report storage (set reportStorageAccount)
-Microsoft.Storage/storageAccounts/blobServices/containers/blobs/write # upload JSON + HTML reports
-Microsoft.Storage/storageAccounts/blobServices/containers/blobs/read  # generate SAS URLs
+Microsoft.OperationalInsights/workspaces/query/read                   # only if logAnalyticsWorkspaceId is set
+Microsoft.Storage/storageAccounts/blobServices/containers/blobs/write # only if reportStorageAccount is set
+Microsoft.Storage/storageAccounts/blobServices/containers/blobs/read  # only if reportStorageAccount is set
 ```
 
-No write permissions on any cloud resource are ever requested.
+No write permissions are ever requested.
 
-Grant via built-in roles (two roles cover all minimum required actions):
+The built-in `Reader` + `Cost Management Reader` roles cover all required actions per subscription. For a tighter permission surface, create a custom role using only the exact actions above — see [Azure deployment docs](docs/deployment/azure.md#iam-permissions) for the one-command setup.
 
-```bash
-PRINCIPAL_ID=$(az deployment group show \
-  --resource-group Argus-RG --name function-app \
-  --query properties.outputs.functionAppPrincipalId.value -o tsv)
-
-for SUB_ID in sub-id-1 sub-id-2; do
-  az role assignment create --assignee $PRINCIPAL_ID --role "Reader"                 --scope /subscriptions/$SUB_ID
-  az role assignment create --assignee $PRINCIPAL_ID --role "Cost Management Reader" --scope /subscriptions/$SUB_ID
-done
-```
-
-Or grant only the minimum required permissions via a custom role:
-
-```bash
-cat > argus-role.json << 'EOF'
-{
-  "Name": "Argus Scanner",
-  "IsCustom": true,
-  "Actions": [
-    "Microsoft.ResourceGraph/resources/action",
-    "Microsoft.Insights/metrics/read",
-    "Microsoft.Insights/metricDefinitions/read",
-    "Microsoft.Insights/eventtypes/management/values/read",
-    "Microsoft.CostManagement/query/action",
-    "Microsoft.CostManagement/*/read"
-  ],
-  "DataActions": [],
-  "AssignableScopes": ["/subscriptions/YOUR-SUB-ID"]
-}
-EOF
-az role definition create --role-definition argus-role.json
-az role assignment create --assignee $PRINCIPAL_ID \
-  --role "Argus Scanner" --scope /subscriptions/YOUR-SUB-ID
-```
-
-> **Cost Management Reader note:** Azure's built-in `Reader` role covers `*/read` but
-> cost queries use a `query/action` verb. `Cost Management Reader` must be added
-> separately — without it, cost fields show `$0.00`.
+> **Cost Management note:** `Reader` covers `*/read` but cost queries use a `query/action`
+> verb. `Cost Management Reader` must be added separately — without it, cost fields show `$0.00`.
 
 ---
 
