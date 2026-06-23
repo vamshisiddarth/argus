@@ -106,7 +106,7 @@ def run_chat_repl(
 
         response = _ask_with_status(session, user_input)
         print()
-        print(response.text)
+        _print_response(response.text)
         print()
         _print_cost_footer(response, session)
 
@@ -131,27 +131,23 @@ def _read_input() -> str:
         else:
             lines.append(continuation)
             break
-    return " ".join(lines).strip()
+    return "\n".join(lines).strip()
 
 
 def _ask_with_status(session: ChatSession, user_input: str) -> ChatResponse:
     if not _HAS_RICH:
         return session.ask(user_input)
 
-    # Keep a reference to the live Status so the tool callback can update it.
-    _status_holder: list[Any] = []
-
     def _on_tool(tool_name: str, resource_id: str) -> None:
         label = _TOOL_LABELS.get(tool_name, tool_name.replace("_", " ").title())
-        msg = f"{label}: {resource_id}..." if resource_id else f"{label}..."
-        if _status_holder:
-            _status_holder[0].update(f"[dim]{msg}[/dim]")
+        msg = f"  → {label}: {resource_id}" if resource_id else f"  → {label}"
+        # _console.log prints a permanent line even inside a status() context
+        _console.print(f"[dim]{msg}[/dim]", highlight=False)
 
     original_callback = session._on_tool_call
     session._on_tool_call = _on_tool
     try:
-        with _console.status("[dim]Thinking...[/dim]", spinner="dots") as _st:
-            _status_holder.append(_st)
+        with _console.status("[dim]Thinking...[/dim]", spinner="dots"):
             return session.ask(user_input)
     finally:
         session._on_tool_call = original_callback
@@ -268,6 +264,14 @@ def _print_cost_summary(summary: dict[str, Any]) -> None:
         _console.print(f"[bold]{line}[/bold]", highlight=False)
     else:
         print(line)
+
+
+def _print_response(text: str) -> None:
+    if _HAS_RICH:
+        _console.print("[bold cyan]Argus:[/bold cyan]", highlight=False, end=" ")
+        _console.print(text, highlight=False)
+    else:
+        print(f"Argus: {text}")
 
 
 def _print_dim(text: str) -> None:

@@ -21,9 +21,10 @@ TOKEN_BUDGET = 80_000
 _CHARS_PER_TOKEN = 4
 
 _SUMMARY_PROMPT = (
-    "Summarize the key facts from this conversation so far in 2-3 sentences. "
-    "Focus on: which resources were discussed, what was found (idle/active/costs), "
-    "and any conclusions reached. Be specific — include resource IDs and numbers."
+    "Summarize this cloud cost conversation in 3 sentences max. "
+    "Preserve: resource IDs, monthly cost figures, idle/active verdicts, "
+    "and any actions the user asked about. "
+    "Omit tool call mechanics — only keep business-relevant findings."
 )
 
 
@@ -402,7 +403,6 @@ def _fmt_list_resources(raw: str) -> str:
     if not resources:
         return "No resources found."
 
-    # Count by type
     type_counts: dict[str, int] = {}
     regions: set[str] = set()
     for r in resources:
@@ -411,36 +411,28 @@ def _fmt_list_resources(raw: str) -> str:
         if r.get("region"):
             regions.add(r["region"])
 
-    # Build type summary — show top 3 types, group rest as "other"
     sorted_types = sorted(type_counts.items(), key=lambda x: x[1], reverse=True)
     top_types = sorted_types[:3]
     other_count = sum(c for _, c in sorted_types[3:])
     type_parts = [f"{c} {t}" for t, c in top_types]
     if other_count:
         type_parts.append(f"{other_count} other")
+    region_str = ", ".join(sorted(regions)) if regions else "?"
 
-    region_str = ", ".join(sorted(regions)) if regions else "unknown region"
-    header = (
-        f"Found {len(resources)} resources across {region_str} "
-        f"({', '.join(type_parts)})."
-    )
+    # Line 1: count + breakdown
+    line1 = f"{len(resources)} resources in {region_str}: {', '.join(type_parts)}"
 
-    # Top 5 by cost_usd
+    # Line 2: top 3 by cost inline
     with_cost = sorted(resources, key=lambda r: r.get("cost_usd", 0.0), reverse=True)
-    top5 = with_cost[:5]
-    lines = [header, "Top 5 by estimated monthly cost:"]
-    for r in top5:
-        rid = r.get("id", "?")
-        rtype = r.get("type", "?")
-        region = r.get("region", "?")
+    top3 = with_cost[:3]
+    cost_parts = []
+    for r in top3:
+        rid = r.get("name") or r.get("id", "?")
         cost = r.get("cost_usd", 0.0)
-        name = r.get("name", "")
-        label = f"{rid}" + (f" ({name})" if name else "")
-        lines.append(f"  • {label} [{rtype}, {region}] — ${cost:.2f}/mo")
+        cost_parts.append(f"{rid} ${cost:.0f}/mo")
+    line2 = "Top by cost: " + " | ".join(cost_parts) if cost_parts else ""
 
-    n = len(resources)
-    lines.append(f"Full inventory ({n} resources) available for follow-up questions.")
-    return "\n".join(lines)
+    return "\n".join(ln for ln in [line1, line2] if ln)
 
 
 def _fmt_get_metrics(raw: str) -> str:
@@ -449,15 +441,8 @@ def _fmt_get_metrics(raw: str) -> str:
     window_days: int = data.get("window_days", 14)
 
     if not metrics:
-        return (
-            f"No metric data available for this resource "
-            f"in the {window_days}-day lookback window."
-        )
+        return f"No metrics ({window_days}d window) — resource may not emit data."
 
-    lines = [f"Metrics ({window_days}-day window):"]
-    last_point: str | None = data.get("last_datapoint")
-
-    # Pick the most informative metrics — prefer CPU, network, request counts
     _PRIORITY = [
         "CPUUtilization",
         "cpu",
@@ -474,34 +459,36 @@ def _fmt_get_metrics(raw: str) -> str:
         key=lambda kv: _PRIORITY.index(kv[0]) if kv[0] in _PRIORITY else len(_PRIORITY),
     )
 
-    shown = 0
+    # Build compact metric pairs: "CPU avg 1.2% max 8.4%"
+    parts: list[str] = []
     for metric_name, stats in ordered:
-        if shown >= 5:
+        if len(parts) >= 4:
             break
         if not isinstance(stats, dict):
             continue
         avg = stats.get("avg")
         maximum = stats.get("max")
-        parts = []
+        seg = metric_name
         if avg is not None:
-            parts.append(f"avg {avg:g}")
+            seg += f" avg {avg:g}"
         if maximum is not None:
-            parts.append(f"max {maximum:g}")
-        if parts:
-            lines.append(f"  • {metric_name}: {', '.join(parts)}")
-            shown += 1
+            seg += f" max {maximum:g}"
+        parts.append(seg)
 
-    if last_point:
-        lines.append(f"Last datapoint: {last_point[:10]}.")
+    last_point: str | None = data.get("last_datapoint")
+    last_str = f", last {last_point[:10]}" if last_point else ""
+    line1 = f"Metrics ({window_days}d{last_str}): {' | '.join(parts)}"
 
-    # Heuristic idle signal based on CPU avg
+    # Idle signal
     cpu_stats = metrics.get("CPUUtilization") or metrics.get("cpu")
+    signal = ""
     if isinstance(cpu_stats, dict):
-        avg_cpu = cpu_stats.get("avg", 0)
-        if avg_cpu is not None and avg_cpu < 5:
-            lines.append("Signal: consistently idle (CPU < 5% average).")
+        avg_cpu = cpu_stats.get("avg")
+        if avg_cpu is not None:
+            signal = "idle" if avg_cpu < 5 else "active"
+    line2 = f"Signal: {signal} (CPU avg {avg_cpu:g}%)" if signal else ""
 
-    return "\n".join(lines)
+    return "\n".join(ln for ln in [line1, line2] if ln)
 
 
 def _fmt_get_cost(raw: str) -> str:
@@ -510,18 +497,18 @@ def _fmt_get_cost(raw: str) -> str:
         return "No cost data returned."
 
     total = sum(costs.values())
-    sorted_items = sorted(costs.items(), key=lambda x: x[1], reverse=True)
+    nonzero = sorted(
+        ((rid, amt) for rid, amt in costs.items() if amt > 0),
+        key=lambda x: x[1],
+        reverse=True,
+    )
+    zero_count = sum(1 for amt in costs.values() if amt == 0.0)
 
-    lines = ["Cost data (30 days):", f"Total: ${total:.2f}"]
-    zero_count = 0
-    for rid, amount in sorted_items:
-        if amount == 0.0:
-            zero_count += 1
-            continue
-        lines.append(f"  • {rid}: ${amount:.2f}")
+    top_parts = [f"{rid} ${amt:.2f}" for rid, amt in nonzero[:4]]
     if zero_count:
-        lines.append(f"  • ({zero_count} resource(s) at $0.00 — no cost data recorded)")
-    return "\n".join(lines)
+        top_parts.append(f"{zero_count} at $0")
+
+    return f"Cost (30d): ${total:.2f} total — {' | '.join(top_parts)}"
 
 
 def _fmt_get_last_activity(raw: str) -> str:
