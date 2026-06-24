@@ -130,7 +130,7 @@ The Function App managed identity needs:
 | Role | Scope | Purpose |
 |------|-------|---------|
 | `Reader` | Each subscription | List resources, read metadata |
-| `Monitoring Reader` | Resource group | Read Azure Monitor metrics |
+| `Monitoring Reader` | Each subscription | Read Azure Monitor metrics |
 | `Cost Management Reader` | Each subscription | Read cost data |
 
 !!! tip "Granting subscription-level Reader"

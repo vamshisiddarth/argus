@@ -8,29 +8,29 @@ hide:
 
 <div class="hero" markdown>
 
-# Stop Wasting Money on Idle and Oversized Cloud Resources
+<div class="hero-badge"><span class="hero-badge-version">v0.3.0</span> · Open Source · MIT License</div>
 
-**Argus** scans your AWS, GCP, and Azure accounts every week and delivers a prioritized,
-AI-reasoned cost report straight to Slack — identifying idle resources to delete *and*
-over-provisioned resources to right-size, with specific actions and estimated savings for each.
-Or skip the report and ask questions directly: *"What's my biggest waste this month?"*
+# Stop Wasting Money on Idle Cloud Resources
+
+AI finds what's wasting money across AWS, GCP, and Azure — idle, oversized, orphaned.
+Ranked findings with exact actions, straight to Slack. Or ask questions live.
 
 <div class="hero-buttons" markdown>
 [Get Started](getting-started/index.md){ .md-button .md-button--primary }
 [:material-github: View on GitHub](https://github.com/vamshisiddarth/argus){ .md-button }
 </div>
 
-<div class="cloud-badges" markdown>
-<span class="cloud-badge cloud-badge--aws" markdown>:material-aws: AWS</span>
-<span class="cloud-badge cloud-badge--gcp" markdown>:material-google-cloud: GCP</span>
-<span class="cloud-badge cloud-badge--azure" markdown>:material-microsoft-azure: Azure</span>
+<div class="cloud-badges">
+<span class="cloud-badge cloud-badge--aws"><span class="cb-icon">AWS</span><span class="cb-label">Amazon Web Services</span></span>
+<span class="cloud-badge cloud-badge--gcp"><span class="cb-icon">GCP</span><span class="cb-label">Google Cloud</span></span>
+<span class="cloud-badge cloud-badge--azure"><span class="cb-icon">Azure</span><span class="cb-label">Microsoft Azure</span></span>
 </div>
 
 <div class="hero-stats">
   <div class="hero-stat"><strong>3</strong><span>clouds</span></div>
   <div class="hero-stat"><strong>43+</strong><span>resource types</span></div>
-  <div class="hero-stat"><strong>528</strong><span>tests passing</span></div>
-  <div class="hero-stat"><strong>$0.10–0.50</strong><span>per weekly scan</span></div>
+  <div class="hero-stat"><strong>528</strong><span>tests</span></div>
+  <div class="hero-stat"><strong>~$0.25</strong><span>per scan</span></div>
 </div>
 
 </div>
@@ -106,59 +106,114 @@ Argus investigates live and answers with costs and recommendations.
 
 ## :material-cog-play-outline: How it works
 
-```mermaid
-graph LR
-    A[Cloud Account] -->|Resource Explorer\nAsset Inventory\nResource Graph| B[list_resources]
-    B --> C{Agent Loop\nReAct}
-    C -->|CloudWatch\nCloud Monitoring\nAzure Monitor| D[get_metrics]
-    C -->|Cost Explorer\nBigQuery\nCost Management| E[get_cost]
-    C -->|CloudTrail\nAudit Logs\nActivity Log| F[get_last_activity]
-    D & E & F --> C
-    C -->|Findings ranked\nby waste| G[submit_findings]
-    G --> H[Slack Report]
-```
+<div class="arch-wrap">
+<svg viewBox="0 0 800 420" xmlns="http://www.w3.org/2000/svg" class="arch-svg">
+<defs>
+  <marker id="ar" viewBox="0 0 10 7" markerWidth="8" markerHeight="6" refX="9" refY="3.5" orient="auto"><path d="M0,0 L10,3.5 L0,7 z" class="ah"/></marker>
+  <marker id="ar-u" viewBox="0 0 10 7" markerWidth="8" markerHeight="6" refX="9" refY="3.5" orient="auto"><path d="M0,0 L10,3.5 L0,7 z" class="ah-u"/></marker>
+  <marker id="ar-o" viewBox="0 0 10 7" markerWidth="8" markerHeight="6" refX="9" refY="3.5" orient="auto"><path d="M0,0 L10,3.5 L0,7 z" class="ah-o"/></marker>
+  <marker id="ar-r" viewBox="0 0 10 7" markerWidth="8" markerHeight="6" refX="9" refY="3.5" orient="auto"><path d="M0,0 L10,3.5 L0,7 z" class="ah-r"/></marker>
+</defs>
+<!-- Cloud Account -->
+<rect x="10" y="152" width="110" height="52" rx="8" class="n-src"/>
+<text x="65" y="174" text-anchor="middle" class="nt">Cloud</text>
+<text x="65" y="191" text-anchor="middle" class="nt nt-b">Account</text>
+<!-- list_resources -->
+<rect x="148" y="152" width="132" height="52" rx="8" class="n-tool"/>
+<text x="214" y="171" text-anchor="middle" class="nt nt-d" font-size="10">Asset Inventory</text>
+<text x="214" y="189" text-anchor="middle" class="nt nt-b">list_resources</text>
+<!-- Agent Loop — tall central box; outputs hang below, tools connect horizontally right -->
+<rect x="316" y="90" width="148" height="210" rx="12" class="n-agent"/>
+<text x="390" y="122" text-anchor="middle" class="nt nt-b" font-size="13">Agent Loop</text>
+<text x="390" y="140" text-anchor="middle" class="nt nt-d">ReAct</text>
+<line x1="330" y1="150" x2="450" y2="150" class="n-div"/>
+<text x="390" y="167" text-anchor="middle" class="nt nt-d" font-size="10">think→act→observe</text>
+<text x="390" y="183" text-anchor="middle" class="nt nt-d" font-size="10">no idle thresholds</text>
+<text x="390" y="199" text-anchor="middle" class="nt nt-d" font-size="10">AWS · GCP · Azure</text>
+<!-- get_metrics -->
+<rect x="500" y="105" width="185" height="50" rx="8" class="n-tool"/>
+<text x="592" y="124" text-anchor="middle" class="nt nt-d" font-size="10">CloudWatch · Monitoring</text>
+<text x="592" y="143" text-anchor="middle" class="nt nt-b">get_metrics</text>
+<!-- get_cost -->
+<rect x="500" y="183" width="185" height="50" rx="8" class="n-tool"/>
+<text x="592" y="202" text-anchor="middle" class="nt nt-d" font-size="10">Cost Explorer · BigQuery</text>
+<text x="592" y="221" text-anchor="middle" class="nt nt-b">get_cost</text>
+<!-- get_last_activity -->
+<rect x="500" y="255" width="185" height="50" rx="8" class="n-tool"/>
+<text x="592" y="274" text-anchor="middle" class="nt nt-d" font-size="10">CloudTrail · Audit Logs</text>
+<text x="592" y="293" text-anchor="middle" class="nt nt-b">get_last_activity</text>
+<!-- User question -->
+<rect x="10" y="310" width="142" height="52" rx="26" class="n-user"/>
+<text x="81" y="332" text-anchor="middle" class="nt">User</text>
+<text x="81" y="350" text-anchor="middle" class="nt nt-b">question</text>
+<!-- Slack Report — below agent, left side -->
+<rect x="195" y="368" width="148" height="45" rx="8" class="n-out"/>
+<text x="269" y="387" text-anchor="middle" class="nt nt-d" font-size="10">argus scan</text>
+<text x="269" y="404" text-anchor="middle" class="nt nt-b">Slack Report</text>
+<!-- Chat Answer — below agent, right side -->
+<rect x="432" y="368" width="148" height="45" rx="8" class="n-out"/>
+<text x="506" y="387" text-anchor="middle" class="nt nt-d" font-size="10">argus chat</text>
+<text x="506" y="404" text-anchor="middle" class="nt nt-b">Chat Answer</text>
+<!-- ── Edges ── -->
+<!-- Cloud → list_resources -->
+<line x1="120" y1="178" x2="146" y2="178" class="e" marker-end="url(#ar)"/>
+<!-- list_resources → Agent (36 px gap, arrow clearly visible) -->
+<line x1="276" y1="178" x2="314" y2="178" class="e" marker-end="url(#ar)"/>
+<!-- User question → Agent (orthogonal: right → up → right into agent left side) -->
+<path d="M 152,336 L 234,336 L 234,295 L 316,295" class="e e-u" marker-end="url(#ar-u)"/>
+<!-- Agent ↔ get_metrics (horizontal pair, 36 px gap) -->
+<line x1="464" y1="122" x2="498" y2="122" class="e" marker-end="url(#ar)"/>
+<line x1="498" y1="136" x2="464" y2="136" class="e e-r" marker-end="url(#ar-r)"/>
+<!-- Agent ↔ get_cost (horizontal pair) -->
+<line x1="464" y1="200" x2="498" y2="200" class="e" marker-end="url(#ar)"/>
+<line x1="498" y1="214" x2="464" y2="214" class="e e-r" marker-end="url(#ar-r)"/>
+<!-- Agent ↔ get_last_activity (horizontal pair) -->
+<line x1="464" y1="268" x2="498" y2="268" class="e" marker-end="url(#ar)"/>
+<line x1="498" y1="282" x2="464" y2="282" class="e e-r" marker-end="url(#ar-r)"/>
+<!-- Agent → Slack Report (orthogonal: down → left → down into Slack top) -->
+<path d="M 355,300 L 355,348 L 269,348 L 269,368" class="e e-o" marker-end="url(#ar-o)"/>
+<!-- Agent → Chat Answer (orthogonal: down → right → down into Chat top) -->
+<path d="M 440,300 L 440,348 L 524,348 L 524,368" class="e e-o" marker-end="url(#ar-o)"/>
+</svg>
+</div>
 
 Argus uses a **ReAct agent loop** — the AI decides what to investigate, calls the right
 tools in the right order, and reasons about idleness qualitatively. No hardcoded thresholds.
 No rules per resource type. The same brain works across all three clouds.
+
+Prefer conversational exploration? `argus chat` runs the same agent loop interactively —
+ask *"Which RDS instances have been idle for 30+ days?"* and get a live, grounded answer.
 
 ---
 
 ## :material-slack: Example Slack report
 
 ```text
-Argus found $1,412.85/month in waste across 6 resources
+Argus — AWS Waste Report (2026-06-24)
 
-🔴 HIGH  db-analytics-01  RDS db.r5.4xlarge   $1,240.00/mo
-         CPU avg 4.2%, 2.1 connections over 90 days (Multi-AZ enabled)
-         RIGHT-SIZE: db.r5.4xlarge → db.r5.xlarge · disable Multi-AZ → saves ~$900/mo
+💸 $1,432.85/month estimated waste
+📊 6 idle resources across 1 account
 
-🔴 HIGH  cache-prod-001   ElastiCache r6g.xl  $142.00/mo
-         CacheHitRate 91%, CurrConnections avg 3 over 90 days
-         RIGHT-SIZE: cache.r6g.xlarge → cache.r6g.large · saves ~$71/mo
+Six resources were identified as idle or over-provisioned. The RDS instance
+accounts for 87% of waste and should be right-sized immediately.
 
-🔴 HIGH  i-0abc123def     EC2 t3.large         $28.40/mo
-         CPU avg 0.0014% over 90 days, no CloudTrail events
-         Recommendation: Terminate or snapshot and delete
+─────────────────────────────────────
+Top findings
+🔴 `db-analytics-01`  · RDS      · $1,240.00/mo
+🔴 `cache-prod-001`   · ElastiCache · $142.00/mo
+🔴 `i-0abc123def`     · EC2      ·    $28.40/mo
+🟡 `nat-0def456`      · NAT Gateway · $10.80/mo
+🟡 `vol-orphan`       · EBS      ·     $8.00/mo
+⚪ +1 more finding in the full report
 
-🟡 MED   nat-0def456      NAT Gateway          $10.80/mo
-         Zero bytes transferred in 90 days
-         Recommendation: Delete — no traffic routing through this gateway
-
-🟡 MED   vol-orphan       EBS 100 GiB gp3       $8.00/mo
-         Unattached, zero I/O since creation
-         Recommendation: Snapshot and delete
-
-🟢 LOW   eipalloc-xyz     Elastic IP             $3.65/mo
-         Unassociated since account creation
-         Recommendation: Release the IP
+[ 📄 Full report (HTML) ]  [ vamshisiddarth/argus ]
 ```
 
 ---
 
 ## :material-rocket-launch-outline: Quick start
 
-=== "Local scan (5 minutes)"
+=== "Local scan"
 
     ```bash
     pip install argus-cloud-optimizer
@@ -170,11 +225,7 @@ Argus found $1,412.85/month in waste across 6 resources
     argus chat --cloud aws             # interactive Q&A
     ```
 
-=== "AWS Lambda (one-click)"
-
-    [![Launch Stack](https://s3.amazonaws.com/cloudformation-examples/cloudformation-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/create/review?templateURL=https://argus-releases.s3.amazonaws.com/latest/single-account.yaml)
-
-    Or via CLI:
+=== "AWS Lambda"
 
     ```bash
     aws cloudformation deploy \
@@ -186,7 +237,9 @@ Argus found $1,412.85/month in waste across 6 resources
           PrimaryRegion=us-east-1
     ```
 
-=== "GCP Cloud Run"
+    Deploys a Lambda + EventBridge rule (weekly scan) + IAM role. See [AWS deployment guide](deployment/aws.md) for multi-account setup.
+
+=== "GCP"
 
     ```bash
     export GOOGLE_CLOUD_PROJECT=my-project
@@ -194,7 +247,7 @@ Argus found $1,412.85/month in waste across 6 resources
     bash deploy/gcp/deploy.sh
     ```
 
-=== "Azure Function"
+=== "Azure"
 
     ```bash
     az deployment group create \

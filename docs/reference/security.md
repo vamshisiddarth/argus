@@ -62,7 +62,7 @@ The AI call sends a compressed resource summary (IDs, metrics, costs) — not ra
 |----------|-----------|-----------|
 | AWS Bedrock | Stays in your AWS account. Model invocation logs are off by default. | No training on your data ([AWS policy](https://aws.amazon.com/bedrock/faqs/)) |
 | Anthropic API | Sent to Anthropic's API endpoint. | Not used for training. See [Anthropic's privacy policy](https://www.anthropic.com/privacy) |
-| Vertex AI / Azure OpenAI | Phase 8 — same principle: stays in your cloud account | Governed by your cloud provider agreement |
+| Vertex AI / Azure OpenAI | Stays in your cloud account | Governed by your cloud provider agreement |
 
 ## Credential handling
 

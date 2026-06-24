@@ -106,8 +106,21 @@ When a report bucket is configured, Argus uploads a self-contained HTML report a
 
 The HTML file is self-contained (no external CDN), works offline, and includes a filterable/sortable findings table with expandable AI reasoning rows.
 
+## Scan tuning
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `MAX_RESOURCES_PER_SCAN` | No | `200` | Resources passed to the AI after cost-sorting. Raise for large accounts (increases token cost). |
+| `METRICS_LOOKBACK_DAYS` | No | `90` | CloudWatch / Cloud Monitoring / Monitor lookback window. Set to `14` for faster local dev. |
+| `MAX_AGENT_ITERATIONS` | No | `50` | ReAct loop iteration cap. Increase only if the agent consistently hits the limit on very large accounts. |
+| `LLM_BUDGET_USD` | No | `2.00` | Hard spend cap per scan in USD. Set to `0` to disable. |
+| `ADAPTER_CONCURRENCY` | No | `10` | Max parallel threads for metric and activity fetches. |
+
 ## Logging
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `LOG_LEVEL` | No | `INFO` | `DEBUG` \| `INFO` \| `WARNING` \| `ERROR` |
+
+!!! tip "Complete reference"
+    See [Environment Variables](../reference/env-vars.md) for the full list including secret manager integration, report storage, and scan tuning details.

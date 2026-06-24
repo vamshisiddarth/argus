@@ -24,7 +24,7 @@ theme:
       primary: indigo
       accent: indigo
       toggle:
-        icon: material/toggle-switch-off
+        icon: material/weather-night
         name: Switch to dark mode
     # Dark mode
     - media: "(prefers-color-scheme: dark)"
@@ -32,7 +32,7 @@ theme:
       primary: indigo
       accent: indigo
       toggle:
-        icon: material/toggle-switch
+        icon: material/weather-sunny
         name: Switch to light mode
 
   font:
@@ -54,7 +54,6 @@ theme:
     - content.code.select           # select line ranges for copying
     - content.code.annotate         # code annotations
     - content.tabs.link             # link content tabs together
-    - content.action.edit           # "edit this page" button
     - toc.follow                    # sidebar TOC follows scroll
 
 # ---------------------------------------------------------------------------
@@ -131,12 +130,24 @@ nav:
 # ---------------------------------------------------------------------------
 # Extra
 # ---------------------------------------------------------------------------
+copyright: "© 2026 Argus · MIT License"
+
 extra:
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/vamshisiddarth/argus
       name: Argus on GitHub
+    - icon: material/bug-outline
+      link: https://github.com/vamshisiddarth/argus/issues
+      name: Report an issue
+    - icon: material/heart-outline
+      link: https://github.com/vamshisiddarth/argus/blob/main/CONTRIBUTING.md
+      name: Contributing
   generator: false   # hide "Made with Material" footer
 
 extra_css:
   - assets/css/custom.css
+
+extra_javascript:
+  - assets/js/version-badge.js
+  - assets/js/theme-toggle.js

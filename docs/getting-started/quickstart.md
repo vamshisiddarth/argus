@@ -68,7 +68,7 @@ Open `.env` and set the minimum required values. Pick the tab for your cloud:
 
     !!! info "BigQuery billing export"
         Argus uses BigQuery billing export for cost data.
-        [Enable billing export](https://cloud.google.com/billing/docs/how-to/export-data-bigquery) and set `GCP_BILLING_TABLE` in `.env`.
+        [Enable billing export](https://cloud.google.com/billing/docs/how-to/export-data-bigquery) and set `BILLING_BQ_TABLE` in `.env`.
 
 === "Azure"
 
