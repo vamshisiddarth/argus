@@ -14,9 +14,26 @@ Argus finds idle and wasted cloud resources — stopped EC2 instances, unattache
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Docs](https://img.shields.io/badge/docs-vamshisiddarth.github.io%2Fargus-blue)](https://vamshisiddarth.github.io/argus/)
 
-<p align="center">
-  <img src="docs/assets/images/slack-demo.png" alt="Argus Slack report" width="600">
-</p>
+```text
+Argus — AWS Waste Report (2026-06-24)
+
+💸 $1,432.85/month estimated waste
+📊 6 idle resources across 1 account
+
+Six resources were identified as idle or over-provisioned. The RDS instance
+accounts for 87% of waste and should be right-sized immediately.
+
+─────────────────────────────────────
+Top findings
+🔴 db-analytics-01  · RDS         · $1,240.00/mo
+🔴 cache-prod-001   · ElastiCache  ·   $142.00/mo
+🔴 i-0abc123def     · EC2          ·    $28.40/mo
+🟡 nat-0def456      · NAT Gateway  ·    $10.80/mo
+🟡 vol-orphan       · EBS          ·     $8.00/mo
+⚪ +1 more finding in the full report
+
+[ 📄 Full report (HTML) ]  [ vamshisiddarth/argus ]
+```
 
 ---
 
@@ -28,25 +45,6 @@ Every week (or on demand), Argus:
 2. **Analyzes** each candidate — CloudWatch/Cloud Monitoring/Azure Monitor metrics, Cost Explorer/BigQuery/Cost Management cost data, and CloudTrail/Audit Log/Activity Log last-activity timestamps
 3. **Reasons** about idleness using Claude (via AWS Bedrock, Anthropic API, or Vertex AI) — no hardcoded thresholds
 4. **Reports** a compact digest (Slack, Microsoft Teams, or generic webhook) with top findings and a link to a full self-contained HTML report
-
-Example Slack output:
-
-```
-Argus — AWS Waste Report (2026-06-17)
-
-💸 $42.65/month estimated waste   📊 4 idle resources across 1 account
-
-Two stopped EC2 instances and a forgotten NAT Gateway account for 72% of
-total waste. One EBS volume has had no I/O in over 30 days.
-
-Top findings
-🔴  i-0abc123def  ·  EC2 t3.large    ·  $28.40/mo
-🔴  nat-0def456   ·  NAT Gateway     ·  $10.80/mo
-🟡  vol-orphan    ·  EBS gp3 100GiB  ·  $8.00/mo
-🟢  eipalloc-xyz  ·  Elastic IP      ·  $3.65/mo
-
-[ 📄 Full report (HTML) ]   [ vamshisiddarth/argus ]
-```
 
 The **Full report** button links to a self-contained HTML file (S3 / GCS / Azure Blob) with a filterable/sortable table and expandable AI reasoning per finding. Works offline, no login required.
 
