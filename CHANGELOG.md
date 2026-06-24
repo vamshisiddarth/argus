@@ -3,37 +3,13 @@
 All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
-## v0.4.0 (unreleased)
-
-### Added
-
-- **`/summary` command** — compact earlier conversation turns into a context summary on demand, freeing up token budget without losing context
-- **`format_tool_result()`** — all 4 tool outputs (`list_resources`, `get_metrics`, `get_cost`, `get_last_activity`) are now converted to compact human-readable summaries before the AI sees them; no raw JSON ever reaches the model or appears in responses
-
-### Changed
-
-- **Chat spinner updates live** — the status message changes as each tool fires (`Scanning resources...` → `Fetching metrics: i-0abc123...`) instead of showing a static "Thinking..." throughout
-- **History trim is turn-safe** — `_trim_history` now drops complete user/assistant/tool-result turns atomically; tool-call and tool-result messages are never split across a trim boundary
-- **Welcome banner** now shows session budget and the `\` multi-line input tip
-- **`load_resources` failures** produce a cloud-specific actionable hint (`aws configure`, `gcloud auth`, `az login`) instead of an unhandled exception
-- **Rate limit and auth errors** from the AI provider produce distinct user-facing messages instead of a generic `RuntimeError`
-- **15 new unit tests** in `tests/core/test_chat_polish.py` covering all formatters, turn grouping, and `force_summarize`
-
-## v0.3.0 (2026-06-24)
-
-### Documentation
-
-- **Homepage diagram** — replaced mermaid with a custom inline SVG: outputs below the agent with orthogonal connectors, horizontal tool arrows, no line overlaps; all text fits within box boundaries
-- **Sun/moon pill toggle** — replaced Material's default toggle icon with a polished animated pill in the header
-- **Dynamic version badge** — hero badge version now fetched live from GitHub Releases API; no manual updates needed
-- **Reference accuracy fixes** — removed non-existent `BEDROCK_TEMPERATURE` var; corrected Azure `Monitoring Reader` scope to per-subscription; removed stale "Phase 8 —" prefix from security model table; added missing Security Model and Troubleshooting links to reference index
-- **Quickstart fix** — corrected `GCP_BILLING_TABLE` → `BILLING_BQ_TABLE`
-- **Configuration page** — added scan tuning section (`MAX_RESOURCES_PER_SCAN`, `METRICS_LOOKBACK_DAYS`, `MAX_AGENT_ITERATIONS`, `LLM_BUDGET_USD`) with pointer to full env-vars reference
-- **README** — replaced Slack screenshot with current text digest format matching the docs home page
+## v0.4.0 (2026-06-24)
 
 ### Added
 
 - **Interactive chat mode** — `argus chat --cloud aws` starts a conversational REPL for cloud cost Q&A. Ask natural language questions about your infrastructure, get answers backed by real metrics and cost data. Supports multi-turn follow-ups.
+- **`/summary` command** — compact earlier conversation turns into a context summary on demand, freeing up token budget without losing context.
+- **`format_tool_result()`** — all 4 tool outputs (`list_resources`, `get_metrics`, `get_cost`, `get_last_activity`) are now converted to compact human-readable summaries before the AI sees them; no raw JSON ever reaches the model or appears in responses.
 - **Subcommand CLI** — `argus scan` (replaces `argus --run-now`) and `argus chat`. The `--run-now` flag still works as a backward-compatible alias.
 - **Cloud auto-detection** — `--cloud` flag is now optional. Argus detects the cloud from environment variables: `GCP_PROJECT_ID` → gcp, `AZURE_SUBSCRIPTION_IDS` → azure, AWS credentials → aws. Explicit `--cloud` always takes priority.
 - **Per-session token budget** — chat mode defaults to $1.00/session (configurable via `--llm-budget`). Per-turn and cumulative cost displayed after every response.
@@ -47,10 +23,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 - **GCP multi-project support** — scan multiple GCP projects in a single run. Set `GCP_PROJECT_IDS=proj-a,proj-b` or use `accounts.yaml` with a `projects` key. One adapter + agent loop per project, findings aggregated across all projects.
 - **Azure multi-subscription via `accounts.yaml`** — `ACCOUNTS_CONFIG` JSON or `accounts.yaml` `subscriptions` key now supported alongside `AZURE_SUBSCRIPTION_IDS` env var. Named subscriptions appear in reports.
 - **Multi-cloud `accounts.yaml`** — single config file supports all three clouds: `accounts` (AWS), `projects` (GCP), `subscriptions` (Azure). `--accounts` flag works for all clouds, not just AWS.
-- **92 new unit tests** for ChatSession, cloud auto-detection, multi-project/subscription, and adapter coverage.
+- **107 new unit tests** — ChatSession, cloud auto-detection, multi-project/subscription, adapter coverage, and chat polish (formatters, turn grouping, `force_summarize`).
 
 ### Changed
 
+- **Chat spinner updates live** — the status message changes as each tool fires (`Scanning resources...` → `Fetching metrics: i-0abc123...`) instead of showing a static "Thinking..." throughout.
+- **History trim is turn-safe** — `_trim_history` now drops complete user/assistant/tool-result turns atomically; tool-call and tool-result messages are never split across a trim boundary.
+- **Welcome banner** now shows session budget and the `\` multi-line input tip.
+- **`load_resources` failures** produce a cloud-specific actionable hint (`aws configure`, `gcloud auth`, `az login`) instead of an unhandled exception.
+- **Rate limit and auth errors** from the AI provider produce distinct user-facing messages instead of a generic `RuntimeError`.
 - CLI restructured to use subcommands. `argus --run-now` still works but `argus scan` is the canonical form.
 - `--cloud` no longer defaults to `aws` — auto-detected from env vars, or errors with a clear message if undetectable.
 - Right-sizing rules and priority thresholds extracted into shared constants used by both batch and chat prompts.
@@ -59,10 +40,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 - `/scan` command now tells the user to run `argus scan` instead of hacky internal entrypoint calls.
 - REPL supports arrow keys, input history (via readline), and multi-line input (trailing backslash continuation).
 - Chat demo (`examples/chat_demo.py`) accepts `--cloud` flag and uses cloud-appropriate resource types.
-- Quickstart docs show tabbed setup for AWS, GCP, and Azure.
 - `--accounts` flag now works for GCP and Azure (previously AWS only).
 - Startup validation accepts `GCP_PROJECT_IDS` and `ACCOUNTS_CONFIG` as alternatives to single-project/subscription env vars.
-- Test count: 431 → **528**.
+- Test count: 431 → **538**.
+
+### Documentation
+
+- **Homepage diagram** — replaced mermaid with a custom inline SVG: outputs below the agent with orthogonal connectors, horizontal tool arrows, no line overlaps; all text fits within box boundaries.
+- **Sun/moon pill toggle** — replaced Material's default toggle icon with a polished animated pill in the header.
+- **Dynamic version badge** — hero badge version now fetched live from GitHub Releases API; no manual updates needed.
+- **Reference accuracy fixes** — removed non-existent `BEDROCK_TEMPERATURE` var; corrected Azure `Monitoring Reader` scope to per-subscription; removed stale "Phase 8 —" prefix from security model table; added missing Security Model and Troubleshooting links to reference index.
+- **Quickstart fix** — corrected `GCP_BILLING_TABLE` → `BILLING_BQ_TABLE`.
+- **Configuration page** — added scan tuning section (`MAX_RESOURCES_PER_SCAN`, `METRICS_LOOKBACK_DAYS`, `MAX_AGENT_ITERATIONS`, `LLM_BUDGET_USD`) with pointer to full env-vars reference.
+- **README** — replaced Slack screenshot with current text digest format matching the docs home page.
 
 ---
 

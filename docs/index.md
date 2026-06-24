@@ -8,7 +8,7 @@ hide:
 
 <div class="hero" markdown>
 
-<div class="hero-badge"><span class="hero-badge-version">v0.3.0</span> · Open Source · MIT License</div>
+<div class="hero-badge"><span class="hero-badge-version">v0.4.0</span> · Open Source · MIT License</div>
 
 # Stop Wasting Money on Idle Cloud Resources
 
