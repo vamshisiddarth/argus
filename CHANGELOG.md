@@ -19,7 +19,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 - **Rate limit and auth errors** from the AI provider produce distinct user-facing messages instead of a generic `RuntimeError`
 - **15 new unit tests** in `tests/core/test_chat_polish.py` covering all formatters, turn grouping, and `force_summarize`
 
-## v0.3.0 (2026-06-21)
+## v0.3.0 (2026-06-24)
+
+### Documentation
+
+- **Homepage diagram** — replaced mermaid with a custom inline SVG: outputs below the agent with orthogonal connectors, horizontal tool arrows, no line overlaps; all text fits within box boundaries
+- **Sun/moon pill toggle** — replaced Material's default toggle icon with a polished animated pill in the header
+- **Dynamic version badge** — hero badge version now fetched live from GitHub Releases API; no manual updates needed
+- **Reference accuracy fixes** — removed non-existent `BEDROCK_TEMPERATURE` var; corrected Azure `Monitoring Reader` scope to per-subscription; removed stale "Phase 8 —" prefix from security model table; added missing Security Model and Troubleshooting links to reference index
+- **Quickstart fix** — corrected `GCP_BILLING_TABLE` → `BILLING_BQ_TABLE`
+- **Configuration page** — added scan tuning section (`MAX_RESOURCES_PER_SCAN`, `METRICS_LOOKBACK_DAYS`, `MAX_AGENT_ITERATIONS`, `LLM_BUDGET_USD`) with pointer to full env-vars reference
+- **README** — replaced Slack screenshot with current text digest format matching the docs home page
 
 ### Added
 
