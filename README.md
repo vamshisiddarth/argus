@@ -37,6 +37,20 @@ Top findings
 
 ---
 
+## 🆕 What's new in v0.4.0
+
+> **Biggest release yet.** Argus jumps from scheduled reporter to a conversational FinOps companion.
+
+- **Interactive chat mode** — `argus chat` lets you ask natural-language questions about your cloud costs and get intelligent, context-aware answers backed by real metrics and cost data.
+- **True multi-cloud, multi-account** — GCP multi-project and Azure multi-subscription support with unified reporting across all accounts in a single run.
+- **Expanded resource coverage** — 31 GCP resource types (up from 22) and 40 Azure resource types (up from 26), all with curated metric mappings.
+- **Chat UX polish** — live spinner updates per tool call, AI-generated context summaries, turn-safe history trimming, and rich terminal formatting via `pip install argus-cloud-optimizer[chat]`.
+- **Docs overhaul** — new architecture diagram, corrected IAM permissions for all three clouds, and accurate env-var reference.
+
+[Full changelog →](CHANGELOG.md)
+
+---
+
 ## What it does
 
 Every week (or on demand), Argus:
