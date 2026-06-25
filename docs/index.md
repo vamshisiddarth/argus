@@ -227,7 +227,7 @@ Top findings
 
 === "AWS Lambda"
 
-    ```bash
+    ```text
     aws cloudformation deploy \
       --template-file deploy/aws/single-account/template.yaml \
       --stack-name Argus \
