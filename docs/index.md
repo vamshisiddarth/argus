@@ -276,3 +276,37 @@ Top findings
     A full AWS scan across 100 resources costs roughly **$0.25–0.50** using the Anthropic API
     (direct key) or **~$0.10** via AWS Bedrock. A single right-sizing recommendation
     (e.g. `db.r5.4xlarge → db.r5.xlarge`) typically saves **100–1,000× the scan cost** per month.
+
+---
+
+## :material-rocket-launch-outline: What's next
+
+<div class="feature-grid" markdown>
+
+<div class="feature-card" markdown>
+<div class="icon" markdown>:material-database-outline:</div>
+
+**Resource Registry**
+
+A single declarative source of truth for every resource type — makes adding new types and clouds a one-file change.
+</div>
+
+<div class="feature-card" markdown>
+<div class="icon" markdown>:material-wrench-outline:</div>
+
+**Remediation v1**
+
+Act on findings directly from Slack — approve a deletion, stop an idle instance, release an unassociated IP.
+</div>
+
+<div class="feature-card" markdown>
+<div class="icon" markdown>:material-api:</div>
+
+**MCP Server**
+
+Expose Argus as an MCP tool so Claude Desktop, Cursor, or any AI assistant can query your cloud costs live.
+</div>
+
+</div>
+
+[See the full roadmap](roadmap.md){ .md-button }
