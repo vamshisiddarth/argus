@@ -8,7 +8,7 @@ Scan your cloud account from your laptop in under 5 minutes.
 
 ```bash
 pip install argus-cloud-optimizer
-argus --version   # argus 0.4.0
+argus --version   # argus x.y.z
 ```
 
 **From source (for development):**
@@ -155,7 +155,7 @@ argus chat --cloud aws                   # or specify explicitly
 ```
 
 ```text
-Argus v0.4.0 — Interactive Cloud Cost Assistant
+Argus vx.y.z — Interactive Cloud Cost Assistant
 Cloud: AWS | Accounts: my-account (123456789012)
 Type your question, or /help for commands.
 
