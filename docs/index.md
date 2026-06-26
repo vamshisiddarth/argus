@@ -300,11 +300,11 @@ Act on findings directly from Slack — approve a deletion, stop an idle instanc
 </div>
 
 <div class="feature-card" markdown>
-<div class="icon" markdown>:material-api:</div>
+<div class="icon" markdown>:material-chart-timeline:</div>
 
-**MCP Server**
+**Historical Tracking**
 
-Expose Argus as an MCP tool so Claude Desktop, Cursor, or any AI assistant can query your cloud costs live.
+Week-over-week comparison of findings — see what's new, what's resolved, and what keeps coming back.
 </div>
 
 </div>
