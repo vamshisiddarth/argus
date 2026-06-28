@@ -48,7 +48,7 @@ class AISettings(BaseSettings):
     # Vertex AI
     vertexai_project: str | None = Field(None, alias="VERTEXAI_PROJECT")
     vertexai_location: str = Field("us-central1", alias="VERTEXAI_LOCATION")
-    vertexai_model: str = Field("gemini-1.5-pro-002", alias="VERTEXAI_MODEL")
+    vertexai_model: str = Field("google/gemini-1.5-pro-002", alias="VERTEXAI_MODEL")
 
     # Azure OpenAI
     azure_openai_endpoint: str | None = Field(None, alias="AZURE_OPENAI_ENDPOINT")

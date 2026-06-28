@@ -128,6 +128,14 @@ class AzureOpenAIProvider(AIProvider):
         for attempt in range(MAX_RETRIES):
             try:
                 return self._client.chat.completions.create(**kwargs)
+            except openai.BadRequestError as exc:
+                # Reasoning models (o1/o3/o4) require max_completion_tokens instead
+                # of max_tokens. Retry once with the corrected key so any deployment
+                # name works, including user-named deployments like "my-o4-mini".
+                if "max_completion_tokens" in str(exc) and "max_tokens" in kwargs:
+                    kwargs["max_completion_tokens"] = kwargs.pop("max_tokens")
+                    continue
+                raise
             except openai.RateLimitError:
                 if attempt < MAX_RETRIES - 1:
                     logger.warning(

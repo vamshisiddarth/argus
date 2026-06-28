@@ -9,7 +9,9 @@ No API key needed when running on Cloud Run / GCE with the right service account
 Environment variables:
     VERTEXAI_PROJECT   GCP project ID (required)
     VERTEXAI_LOCATION  GCP region (default: us-central1)
-    VERTEXAI_MODEL     Model name (default: gemini-1.5-pro-002)
+    VERTEXAI_MODEL     Model name (default: google/gemini-1.5-pro-002)
+                       Must include publisher prefix for the OpenAI-compat endpoint
+                       (e.g. google/gemini-1.5-pro-002, google/gemini-2.0-flash-001)
 """
 
 from __future__ import annotations
@@ -38,10 +40,11 @@ class VertexAIProvider(AIProvider):
     or directly via vertexai package. Falls back to the OpenAI-compatible
     Vertex AI endpoint so we can reuse the openai SDK already in requirements.txt.
 
-    Model: gemini-1.5-pro-002 (default) — supports function calling + large context.
+    Model: google/gemini-1.5-pro-002 (default) — the publisher prefix is required
+    by the OpenAI-compatible Vertex AI endpoint (/endpoints/openapi).
     """
 
-    DEFAULT_MODEL = "gemini-1.5-pro-002"
+    DEFAULT_MODEL = "google/gemini-1.5-pro-002"
     DEFAULT_LOCATION = "us-central1"
     DEFAULT_MAX_TOKENS = 4096
     DEFAULT_TEMPERATURE = 0.0

@@ -9,7 +9,7 @@ swapping providers requires only changing `AI_PROVIDER` in your environment.
 |----------|---------|------|-------|
 | **Anthropic API** | Local dev, any cloud | `ANTHROPIC_API_KEY` | claude-sonnet-4-6 |
 | **AWS Bedrock** | AWS production | IAM execution role | anthropic.claude-sonnet-4-6 |
-| **Vertex AI** | GCP production | Application Default Credentials | gemini-1.5-pro-002 |
+| **Vertex AI** | GCP production | Application Default Credentials | google/gemini-1.5-pro-002 |
 | **Azure OpenAI** | Azure production | Managed identity / `az login` | gpt-4o |
 
 ## Anthropic API
@@ -51,7 +51,7 @@ The default for GCP Cloud Run deployments.
 AI_PROVIDER=vertexai
 VERTEXAI_PROJECT=my-gcp-project
 VERTEXAI_LOCATION=us-central1    # optional
-VERTEXAI_MODEL=gemini-1.5-pro-002  # optional
+VERTEXAI_MODEL=google/gemini-1.5-pro-002  # optional
 ```
 
 **Authentication:** Uses Google Application Default Credentials.

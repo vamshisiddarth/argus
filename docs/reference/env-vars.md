@@ -16,7 +16,7 @@ Complete reference for all Argus environment variables.
 | `BEDROCK_MAX_TOKENS` | `2048` | Maximum tokens in Bedrock response |
 | `VERTEXAI_PROJECT` | — | Required when `AI_PROVIDER=vertexai` |
 | `VERTEXAI_LOCATION` | `us-central1` | Vertex AI region |
-| `VERTEXAI_MODEL` | `gemini-1.5-pro-002` | Vertex AI model name |
+| `VERTEXAI_MODEL` | `google/gemini-1.5-pro-002` | Vertex AI model name |
 | `AZURE_OPENAI_ENDPOINT` | — | Required when `AI_PROVIDER=azure_openai` |
 | `AZURE_OPENAI_DEPLOYMENT` | `gpt-4o` | Azure OpenAI deployment name |
 | `AZURE_OPENAI_API_VERSION` | `2024-10-21` | Azure OpenAI API version |

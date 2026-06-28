@@ -15,7 +15,7 @@ In Lambda / Cloud Run / Azure Function, set these as environment variables in th
 | `BEDROCK_REGION` | No | `us-east-1` | Region where Bedrock is enabled |
 | `VERTEXAI_PROJECT` | When `AI_PROVIDER=vertexai` | — | GCP project for Vertex AI |
 | `VERTEXAI_LOCATION` | No | `us-central1` | Vertex AI region |
-| `VERTEXAI_MODEL` | No | `gemini-1.5-pro-002` | Vertex AI model name |
+| `VERTEXAI_MODEL` | No | `google/gemini-1.5-pro-002` | Vertex AI model name |
 | `AZURE_OPENAI_ENDPOINT` | When `AI_PROVIDER=azure_openai` | — | e.g. `https://my-resource.openai.azure.com/` |
 | `AZURE_OPENAI_DEPLOYMENT` | No | `gpt-4o` | Azure OpenAI deployment name |
 | `AZURE_OPENAI_API_KEY` | No | — | Only for local dev without `az login` |
