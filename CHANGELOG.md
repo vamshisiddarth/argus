@@ -11,10 +11,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 - **GCP INVALID_ARGUMENT on disabled APIs** — Cloud Asset Inventory now strips any asset type whose API is not enabled in the project and retries. Previously, a single disabled API (e.g., Bigtable, Spanner, AlloyDB) caused the entire scan to crash.
 - **GCP Cloud Logging `timeout` kwarg** — removed unsupported `timeout=` parameter from `list_entries()` call; caused `TypeError` on current `google-cloud-logging` versions.
 - **Budget exceeded exit code** — all entrypoints (CLI, Lambda, Cloud Run, Azure Function) now exit with code 2 when the scan budget is exceeded. Previously exited 0, making it impossible for orchestrators to detect the abort condition.
+- **`RESOURCE_EXPLORER_REGION` ignored** — `AWSAdapter.for_account()` was always using `PRIMARY_REGION` as the aggregator region, silently ignoring the `RESOURCE_EXPLORER_REGION` env var. Accounts with an aggregator index outside `us-east-1` were scanned with the wrong region and got empty results.
+- **Slack delivery failure swallowed** — `notify_all()` was catching all delivery errors, logging them, and returning normally (exit 0). Users had no way to know their weekly report never arrived. Now returns `False` when all providers fail; Lambda raises `RuntimeError` (CloudWatch marks invocation failed), Cloud Run and Azure Function exit with code 1.
+- **Slack delivery decoupled from report upload** — all three entrypoints now wrap the storage upload (S3 / GCS / Blob) in a separate try/except so Slack digest fires even if the upload fails.
+- **GCS v4 Signed URL on Cloud Run** — Cloud Run credentials carry no private key, causing signed URL generation to fail silently. The helper now passes `service_account_email` + short-lived `access_token` from ADC to `generate_signed_url()`, which uses the signBlob API instead of a local key.
+- **Missing GCP dependencies** — `google-cloud-bigquery` and `google-cloud-storage` were absent from `requirements/gcp.txt`, causing billing queries and GCS report uploads to fail at runtime.
+- **Missing Azure Function runtime** — `azure-functions` was absent from `requirements/azure.txt`; `function_app.py` and `host.json` (required by the v2 Python model) were missing from the repo entirely.
+- **GCP deploy script** — `deploy/gcp/deploy.sh` was submitting the container build without `--build-arg CLOUD=gcp`, defaulting to the AWS image. Also added preflight checks for `gcloud` auth and ADC, and fixed `--args` so the Cloud Run Job runs `scan --cloud gcp` instead of `--help`.
+- **AWS IAM** — added `cloudwatch:ListMetrics` to both `single-account/template.yaml` and `spoke-role.yaml`; without it, dynamic CloudWatch metric discovery was denied.
 
 ### Added
 
-- 37 new unit tests covering the above fixes: INVALID_ARGUMENT retry loop, NotFound → PermissionError mapping, timeout regression guard, and budget exit-code assertions.
+- 7 new unit tests covering the above fixes: `RESOURCE_EXPLORER_REGION` env var propagation, `notify_all()` return value and failure behaviour, entrypoint exit codes on delivery failure.
+- 37 unit tests from the initial 0.4.1 batch: INVALID_ARGUMENT retry loop, NotFound → PermissionError mapping, timeout regression guard, and budget exit-code assertions.
 
 ---
 
