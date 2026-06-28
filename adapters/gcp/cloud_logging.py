@@ -76,7 +76,7 @@ def _service_from_resource_type(resource_type: str) -> str | None:
     mapping: dict[str, str] = {
         "compute.googleapis.com/Instance": "compute.googleapis.com",
         "compute.googleapis.com/Disk": "compute.googleapis.com",
-        "sql.googleapis.com/Instance": "cloudsql.googleapis.com",
+        "sqladmin.googleapis.com/Instance": "cloudsql.googleapis.com",
         "container.googleapis.com/Cluster": "container.googleapis.com",
         "storage.googleapis.com/Bucket": "storage.googleapis.com",
         "bigquery.googleapis.com/Dataset": "bigquery.googleapis.com",

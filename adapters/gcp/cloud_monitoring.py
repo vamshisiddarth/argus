@@ -26,7 +26,7 @@ _METRICS: dict[str, list[tuple[str, str]]] = {
         ("compute.googleapis.com/instance/disk/read_ops_count", "sum"),
         ("compute.googleapis.com/instance/disk/write_ops_count", "sum"),
     ],
-    "sql.googleapis.com/Instance": [
+    "sqladmin.googleapis.com/Instance": [
         ("cloudsql.googleapis.com/database/cpu/utilization", "mean"),
         ("cloudsql.googleapis.com/database/network/connections", "mean"),
         ("cloudsql.googleapis.com/database/network/received_bytes_count", "sum"),
@@ -394,7 +394,7 @@ def _resource_filter(resource_id: str, resource_type: str) -> str:
     match resource_type:
         case "compute.googleapis.com/Instance":
             return f'resource.labels.instance_id="{name}"'
-        case "sql.googleapis.com/Instance":
+        case "sqladmin.googleapis.com/Instance":
             return f'resource.labels.database_id="{name}"'
         case "container.googleapis.com/Cluster":
             return f'resource.labels.cluster_name="{name}"'

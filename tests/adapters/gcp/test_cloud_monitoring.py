@@ -27,7 +27,7 @@ class TestResourceFilter:
     def test_cloud_sql_instance(self):
         f = _resource_filter(
             "//sqladmin.googleapis.com/projects/p/instances/my-db",
-            "sql.googleapis.com/Instance",
+            "sqladmin.googleapis.com/Instance",
         )
         assert 'database_id="my-db"' in f
 

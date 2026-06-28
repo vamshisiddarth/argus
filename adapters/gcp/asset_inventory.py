@@ -32,7 +32,7 @@ SCANNED_ASSET_TYPES: list[str] = [
     "compute.googleapis.com/VpnTunnel",
     "vpcaccess.googleapis.com/Connector",  # Serverless VPC
     # --- Databases ---
-    "sql.googleapis.com/Instance",  # Cloud SQL
+    "sqladmin.googleapis.com/Instance",  # Cloud SQL
     "spanner.googleapis.com/Instance",
     "bigtable.googleapis.com/Instance",
     "alloydb.googleapis.com/Cluster",  # AlloyDB (managed Postgres)
