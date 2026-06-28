@@ -218,6 +218,66 @@ class TestAzureOpenAIProvider:
         assert "max_completion_tokens" in second_call_kwargs
         assert "max_tokens" not in second_call_kwargs
 
+    def test_retries_without_temperature_on_reasoning_model(self):
+        """Reasoning models reject temperature; retry without it."""
+        import openai
+
+        mock_client = MagicMock()
+        good_response = _make_text_completion("Done.")
+        call_count = 0
+
+        def side_effect(**kwargs):
+            nonlocal call_count
+            call_count += 1
+            if "temperature" in kwargs:
+                raise openai.BadRequestError(
+                    "temperature is not supported for this model",
+                    response=MagicMock(status_code=400),
+                    body={},
+                )
+            return good_response
+
+        mock_client.chat.completions.create.side_effect = side_effect
+        provider = _make_provider_with_key(mock_client)
+
+        result = provider.chat(messages=[Message(role="user", text="Go")], tools=[])
+
+        assert call_count == 2
+        assert result.text == "Done."
+        second_call_kwargs = mock_client.chat.completions.create.call_args_list[1][1]
+        assert "temperature" not in second_call_kwargs
+
+    def test_retries_once_when_both_params_rejected(self):
+        """Both max_tokens and temperature rejections handled in a single retry."""
+        import openai
+
+        mock_client = MagicMock()
+        good_response = _make_text_completion("Done.")
+        call_count = 0
+
+        def side_effect(**kwargs):
+            nonlocal call_count
+            call_count += 1
+            if "max_tokens" in kwargs or "temperature" in kwargs:
+                raise openai.BadRequestError(
+                    "max_completion_tokens required; temperature not supported",
+                    response=MagicMock(status_code=400),
+                    body={},
+                )
+            return good_response
+
+        mock_client.chat.completions.create.side_effect = side_effect
+        provider = _make_provider_with_key(mock_client)
+
+        result = provider.chat(messages=[Message(role="user", text="Go")], tools=[])
+
+        assert call_count == 2  # one retry, not two
+        assert result.text == "Done."
+        second_call_kwargs = mock_client.chat.completions.create.call_args_list[1][1]
+        assert "max_completion_tokens" in second_call_kwargs
+        assert "max_tokens" not in second_call_kwargs
+        assert "temperature" not in second_call_kwargs
+
     def test_raises_bad_request_when_not_max_tokens_related(self):
         import openai
 

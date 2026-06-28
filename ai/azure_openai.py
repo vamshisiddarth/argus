@@ -129,11 +129,19 @@ class AzureOpenAIProvider(AIProvider):
             try:
                 return self._client.chat.completions.create(**kwargs)
             except openai.BadRequestError as exc:
-                # Reasoning models (o1/o3/o4) require max_completion_tokens instead
-                # of max_tokens. Retry once with the corrected key so any deployment
-                # name works, including user-named deployments like "my-o4-mini".
-                if "max_completion_tokens" in str(exc) and "max_tokens" in kwargs:
+                # Reasoning models (o1/o3/o4) have two restrictions vs standard models:
+                #   1. Require max_completion_tokens instead of max_tokens.
+                #   2. Do not accept temperature (fixed at 1).
+                # Catch both in one retry so we don't need two round-trips.
+                err_msg = str(exc)
+                changed = False
+                if "max_completion_tokens" in err_msg and "max_tokens" in kwargs:
                     kwargs["max_completion_tokens"] = kwargs.pop("max_tokens")
+                    changed = True
+                if "temperature" in err_msg and "temperature" in kwargs:
+                    kwargs.pop("temperature")
+                    changed = True
+                if changed:
                     continue
                 raise
             except openai.RateLimitError:
