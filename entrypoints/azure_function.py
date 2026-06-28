@@ -135,6 +135,7 @@ def main(mytimer: Any) -> None:
     )
     if budget_exceeded:
         import sys
+
         sys.exit(2)
 
 
