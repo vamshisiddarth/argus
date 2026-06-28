@@ -85,9 +85,14 @@ def main() -> None:
 
     scan_errors: list[dict[str, str]] = []
     if use_multi:
-        all_findings, executive_summary, scanned_ids, token_summary, scan_errors, skipped_types = (
-            _run_multi_project(project_ids, ignore_regions, cloud)
-        )
+        (
+            all_findings,
+            executive_summary,
+            scanned_ids,
+            token_summary,
+            scan_errors,
+            skipped_types,
+        ) = _run_multi_project(project_ids, ignore_regions, cloud)
     else:
         all_findings, executive_summary, scanned_ids, token_summary, skipped_types = (
             _run_single_project(project_ids[0], ignore_regions, cloud)
@@ -195,14 +200,22 @@ def _run_single_project(
         ignore_regions=ignore_regions,
         accounts=[{"id": project_id, "name": project_id}],
     )
-    return findings, summary, [project_id], loop.tracker.summary(), adapter.skipped_asset_types
+    return (
+        findings,
+        summary,
+        [project_id],
+        loop.tracker.summary(),
+        adapter.skipped_asset_types,
+    )
 
 
 def _run_multi_project(
     project_ids: list[str],
     ignore_regions: list[str],
     cloud: str,
-) -> tuple[list[ResourceFinding], str, list[str], dict, list[dict[str, str]], list[str]]:
+) -> tuple[
+    list[ResourceFinding], str, list[str], dict, list[dict[str, str]], list[str]
+]:
     """Scan multiple GCP projects. One adapter + agent loop per project."""
     project_names = _get_project_names()
 
@@ -259,7 +272,14 @@ def _run_multi_project(
         "total_input_tokens": total_input,
         "total_output_tokens": total_output,
     }
-    return all_findings, executive_summary, scanned_ids, token_summary, scan_errors, list(dict.fromkeys(all_skipped))
+    return (
+        all_findings,
+        executive_summary,
+        scanned_ids,
+        token_summary,
+        scan_errors,
+        list(dict.fromkeys(all_skipped)),
+    )
 
 
 # ---------------------------------------------------------------------------
