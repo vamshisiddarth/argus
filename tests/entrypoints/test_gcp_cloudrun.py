@@ -504,13 +504,16 @@ class TestBuildAIProvider:
 
 class TestSaveReportsToGCS:
     @patch("entrypoints.gcp_cloudrun.build_html_report", return_value="<html></html>")
-    def test_uploads_json_and_html_and_returns_signed_url(self, mock_html, monkeypatch):
+    @patch(
+        "entrypoints.gcp_cloudrun._generate_signed_url",
+        return_value="https://storage.example.com/signed",
+    )
+    def test_uploads_json_and_html_and_returns_signed_url(
+        self, mock_sign, mock_html, monkeypatch
+    ):
         monkeypatch.setenv("REPORT_URL_EXPIRY", "3600")
 
         mock_blob = MagicMock()
-        mock_blob.generate_signed_url.return_value = (
-            "https://storage.example.com/signed"
-        )
         mock_bucket = MagicMock()
         mock_bucket.blob.return_value = mock_blob
         mock_client = MagicMock()
@@ -536,7 +539,7 @@ class TestSaveReportsToGCS:
 
         assert mock_bucket.blob.call_count == 2
         assert mock_blob.upload_from_string.call_count == 2
-        assert mock_blob.generate_signed_url.call_count == 1
+        assert mock_sign.call_count == 1
         assert url == "https://storage.example.com/signed"
 
     def test_returns_none_when_storage_not_installed(self):
