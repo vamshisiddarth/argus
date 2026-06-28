@@ -288,6 +288,8 @@ def _run_scan(args: argparse.Namespace) -> None:
 
     if result is not None:
         print(json.dumps(result, indent=2))
+    if isinstance(result, dict) and result.get("budget_exceeded"):
+        sys.exit(2)
 
 
 def _run_chat(args: argparse.Namespace) -> None:

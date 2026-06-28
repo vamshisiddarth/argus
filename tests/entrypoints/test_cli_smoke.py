@@ -13,6 +13,8 @@ import json
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from adapters.base import MetricSummary, Resource
 from ai.base import AIResponse, ToolCall
 
@@ -257,7 +259,9 @@ class TestCLISmokeBudgetExceeded:
         ):
             from entrypoints.cli import main
 
-            main(["--cloud", "aws", "--run-now", "--dry-run"])
+            with pytest.raises(SystemExit) as exc_info:
+                main(["--cloud", "aws", "--run-now", "--dry-run"])
+            assert exc_info.value.code == 2
 
         # Should still produce a report (with 0 findings and budget message)
         report_files = list(tmp_path.rglob("*.json"))

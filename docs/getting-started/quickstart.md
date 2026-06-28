@@ -7,9 +7,15 @@ Scan your cloud account from your laptop in under 5 minutes.
 **From PyPI (recommended):**
 
 ```bash
+python3 -m venv .venv && source .venv/bin/activate
 pip install argus-cloud-optimizer
 argus --version   # argus x.y.z
 ```
+
+!!! note "Why a virtual environment?"
+    On macOS Sonoma/Sequoia and most modern Linux distros, `pip install` without
+    a venv fails with `externally-managed-environment`. The two-line pattern above
+    works everywhere and avoids the `--break-system-packages` flag.
 
 **From source (for development):**
 
@@ -55,6 +61,16 @@ Open `.env` and set the minimum required values. Pick the tab for your cloud:
         aws resource-explorer-2 update-index-type --type AGGREGATOR --region us-east-1
         ```
 
+    !!! info "AWS Cost Explorer — one-time activation"
+        Argus uses Cost Explorer for per-resource cost data. If you've never enabled it:
+
+        1. AWS Console → **Billing and Cost Management** → **Cost Explorer**
+        2. Click **Enable Cost Explorer**
+        3. Wait up to **24 hours** for data to populate
+
+        Your first scan may show `$0.00` cost on all findings until data is available.
+        This is expected — metrics and last-activity signals still work normally.
+
 === "GCP"
 
     ```ini title=".env"
@@ -66,9 +82,18 @@ Open `.env` and set the minimum required values. Pick the tab for your cloud:
     DRY_RUN=true
     ```
 
+    !!! info "GCP Application Default Credentials — quota project"
+        After `gcloud auth application-default login`, run one more command:
+        ```bash
+        gcloud auth application-default set-quota-project YOUR_PROJECT_ID
+        ```
+        Without this, the Cloud Asset Inventory API call fails with a cryptic
+        `PERMISSION_DENIED` error even when your credentials are valid.
+
     !!! info "BigQuery billing export"
         Argus uses BigQuery billing export for cost data.
         [Enable billing export](https://cloud.google.com/billing/docs/how-to/export-data-bigquery) and set `BILLING_BQ_TABLE` in `.env`.
+        Without it, cost fields show `$0.00` — metrics and activity still work.
 
 === "Azure"
 
@@ -113,6 +138,33 @@ INFO  tool_executed tool=get_cost is_error=False
 INFO  agent_complete findings_count=4
 INFO  scan_complete findings=4 total_waste_usd=42.65
 ```
+
+!!! tip "Local reports are saved automatically"
+    Every scan — including dry-run — saves two files locally:
+
+    ```
+    local_reports/<cloud>/YYYY/MM/DD/<scan-id>.json   # full findings + metrics
+    local_reports/<cloud>/YYYY/MM/DD/<scan-id>.html   # human-readable report
+    ```
+
+    Open the HTML file in a browser to review results without posting to Slack.
+    This is especially useful when iterating on configuration or debugging findings.
+
+!!! info "Scan history and week-over-week diff"
+    Argus compares each scan against the previous one and adds a `scan_diff` block
+    to the JSON report:
+
+    ```json
+    "scan_diff": {
+      "new_findings": 3,
+      "recurring_findings": 2,
+      "resolved_findings": 1
+    }
+    ```
+
+    A finding is **resolved** when it no longer appears in the current scan.
+    **Recurring** means it was flagged in the previous scan too — useful for
+    tracking resources that teams are slow to act on.
 
 ## :material-slack: 4. Post to Slack
 

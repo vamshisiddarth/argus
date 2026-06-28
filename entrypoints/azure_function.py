@@ -122,11 +122,16 @@ def main(mytimer: Any) -> None:
     payload = build_slack_payload(report, report_url=report_url)
     notify_all(payload)
 
+    budget_exceeded = executive_summary.startswith("Scan aborted")
     logger.info(
         "scan_complete",
         findings=report["findings_count"],
         total_waste_usd=round(report["total_estimated_waste_usd"], 2),
+        budget_exceeded=budget_exceeded,
     )
+    if budget_exceeded:
+        import sys
+        sys.exit(2)
 
 
 def _get_subscription_ids() -> tuple[list[str], dict[str, str]]:
