@@ -5,6 +5,7 @@ import pytest
 from adapters.base import Resource
 from adapters.gcp.asset_inventory import (
     SCANNED_ASSET_TYPES,
+    _extract_bad_asset_type,
     _parse_asset,
     _to_region,
     list_resources,
@@ -124,6 +125,63 @@ class TestListResources:
             with pytest.raises(PermissionError, match="cloudasset"):
                 list_resources(project_id="my-proj")
 
+    def test_raises_permission_error_on_not_found(self):
+        from google.api_core.exceptions import NotFound
+
+        with patch(
+            "adapters.gcp.asset_inventory.asset_v1.AssetServiceClient"
+        ) as mock_cls:
+            mock_client = MagicMock()
+            mock_cls.return_value = mock_client
+            mock_client.list_assets.side_effect = NotFound("project not found")
+            with pytest.raises(PermissionError, match="not found"):
+                list_resources(project_id="this-project-does-not-exist")
+
+    def test_strips_bad_asset_type_and_retries_on_invalid_argument(self):
+        from google.api_core.exceptions import InvalidArgument
+
+        mock_asset = _make_asset(
+            name="//compute.googleapis.com/projects/p/zones/us-central1-a/instances/vm1",
+            asset_type="compute.googleapis.com/Instance",
+            data={"name": "vm1", "zone": "us-central1-a"},
+        )
+
+        call_count = 0
+
+        def fake_list_assets(request, timeout=None):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise InvalidArgument(
+                    "Invalid asset type: bigtable.googleapis.com/Instance"
+                )
+            return [mock_asset]
+
+        with patch(
+            "adapters.gcp.asset_inventory.asset_v1.AssetServiceClient"
+        ) as mock_cls:
+            mock_client = MagicMock()
+            mock_cls.return_value = mock_client
+            mock_client.list_assets.side_effect = fake_list_assets
+            resources = list_resources(project_id="my-proj")
+
+        assert len(resources) == 1
+        assert call_count == 2  # first attempt failed, second succeeded
+
+    def test_raises_runtime_error_on_unknown_invalid_argument(self):
+        from google.api_core.exceptions import InvalidArgument
+
+        with patch(
+            "adapters.gcp.asset_inventory.asset_v1.AssetServiceClient"
+        ) as mock_cls:
+            mock_client = MagicMock()
+            mock_cls.return_value = mock_client
+            mock_client.list_assets.side_effect = InvalidArgument(
+                "Some other unrecognized error"
+            )
+            with pytest.raises(RuntimeError, match="INVALID_ARGUMENT"):
+                list_resources(project_id="my-proj")
+
     def test_excludes_ignored_regions(self):
         mock_asset = _make_asset(
             name="//compute.googleapis.com/projects/p/zones/us-central1-a/instances/vm1",
@@ -141,6 +199,30 @@ class TestListResources:
             )
 
         assert resources == []
+
+
+# ---------------------------------------------------------------------------
+# _extract_bad_asset_type
+# ---------------------------------------------------------------------------
+class TestExtractBadAssetType:
+    def test_finds_matching_type(self):
+        types = ["bigtable.googleapis.com/Instance", "compute.googleapis.com/Instance"]
+        result = _extract_bad_asset_type(
+            "Invalid asset type: bigtable.googleapis.com/Instance", types
+        )
+        assert result == "bigtable.googleapis.com/Instance"
+
+    def test_returns_none_when_no_match(self):
+        types = ["compute.googleapis.com/Instance"]
+        result = _extract_bad_asset_type("Some unrelated error message", types)
+        assert result is None
+
+    def test_returns_first_match(self):
+        types = ["bigtable.googleapis.com/Instance", "spanner.googleapis.com/Instance"]
+        result = _extract_bad_asset_type(
+            "bigtable.googleapis.com/Instance is not valid", types
+        )
+        assert result == "bigtable.googleapis.com/Instance"
 
 
 # ---------------------------------------------------------------------------

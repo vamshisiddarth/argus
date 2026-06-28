@@ -3,7 +3,12 @@ from __future__ import annotations
 from typing import Any
 
 import structlog
-from google.api_core.exceptions import GoogleAPICallError, PermissionDenied
+from google.api_core.exceptions import (
+    GoogleAPICallError,
+    InvalidArgument,
+    NotFound,
+    PermissionDenied,
+)
 from google.cloud import asset_v1
 
 from adapters.base import Resource
@@ -58,39 +63,70 @@ def list_resources(
 ) -> list[Resource]:
     """
     Return all billable GCP resources in a project using Cloud Asset Inventory.
-    Uses a single paginated API call — no per-resource-type enumeration needed.
+
+    Uses a single paginated API call. If a specific asset type's API is not
+    enabled in the project, Cloud Asset Inventory returns INVALID_ARGUMENT.
+    We catch that, strip the offending type, and retry — so a project without
+    Bigtable or Spanner enabled doesn't block the entire scan.
     """
     client = asset_v1.AssetServiceClient()
     parent = f"projects/{project_id}"
     ignore_set = set(ignore_regions or [])
     resources: list[Resource] = []
+    asset_types = list(SCANNED_ASSET_TYPES)  # mutable — bad types get stripped
 
-    request = asset_v1.ListAssetsRequest(
-        parent=parent,
-        asset_types=SCANNED_ASSET_TYPES,
-        content_type=asset_v1.ContentType.RESOURCE,
-    )
-
-    try:
-        for asset in retry_on_transient(
-            client.list_assets, request=request, timeout=60
-        ):
-            parsed = _parse_asset(asset, ignore_set)
-            if parsed:
-                resources.append(parsed)
-    except PermissionDenied as exc:
-        raise PermissionError(
-            f"Argus service account is missing cloudasset.assets.listAssets "
-            f"permission on project {project_id}."
-        ) from exc
-    except GoogleAPICallError as exc:
-        raise RuntimeError(f"Cloud Asset Inventory API error: {exc}") from exc
+    while True:
+        request = asset_v1.ListAssetsRequest(
+            parent=parent,
+            asset_types=asset_types,
+            content_type=asset_v1.ContentType.RESOURCE,
+        )
+        try:
+            for asset in retry_on_transient(
+                client.list_assets, request=request, timeout=60
+            ):
+                parsed = _parse_asset(asset, ignore_set)
+                if parsed:
+                    resources.append(parsed)
+            break  # success — exit retry loop
+        except InvalidArgument as exc:
+            # An asset type whose API is not enabled in this project causes
+            # INVALID_ARGUMENT. Strip it and retry with the remaining types.
+            bad_type = _extract_bad_asset_type(str(exc), asset_types)
+            if bad_type:
+                logger.warning(
+                    "asset_type_api_not_enabled_skipping",
+                    asset_type=bad_type,
+                    project_id=project_id,
+                )
+                asset_types.remove(bad_type)
+                resources = []  # reset — avoid duplicates from partial page
+            else:
+                raise RuntimeError(
+                    f"Cloud Asset Inventory INVALID_ARGUMENT (unknown type): {exc}"
+                ) from exc
+        except (PermissionDenied, NotFound) as exc:
+            raise PermissionError(
+                f"Project '{project_id}' not found or Argus lacks permission. "
+                f"Check the project ID and ensure cloudasset.assets.listAssets "
+                f"is granted to your credentials."
+            ) from exc
+        except GoogleAPICallError as exc:
+            raise RuntimeError(f"Cloud Asset Inventory API error: {exc}") from exc
 
     logger.info(
         "asset_inventory_complete",
         extra={"project_id": project_id, "total": len(resources)},
     )
     return resources
+
+
+def _extract_bad_asset_type(error_msg: str, asset_types: list[str]) -> str | None:
+    """Return the first asset type string found in the INVALID_ARGUMENT error message."""
+    for asset_type in asset_types:
+        if asset_type in error_msg:
+            return asset_type
+    return None
 
 
 def _parse_asset(asset: Any, ignore_set: set[str]) -> Resource | None:

@@ -52,7 +52,6 @@ def get_last_activity(
                 filter_=log_filter,
                 order_by=gcp_logging.DESCENDING,
                 page_size=1,
-                timeout=60,
             )
         )
     except GoogleAPICallError as exc:
