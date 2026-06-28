@@ -1,7 +1,7 @@
 [project]
 name = "argus-cloud-optimizer"
 dynamic = ["version"]
-description = "AI-powered multi-cloud cost optimization agent"
+description = "Argus — AI Cloud Detective for AWS, GCP, and Azure"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.11"

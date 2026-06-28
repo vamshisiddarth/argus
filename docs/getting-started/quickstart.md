@@ -207,7 +207,7 @@ argus chat --cloud aws                   # or specify explicitly
 ```
 
 ```text
-Argus vx.y.z — Interactive Cloud Cost Assistant
+Argus vx.y.z — AI Cloud Detective
 Cloud: AWS | Accounts: my-account (123456789012)
 Type your question, or /help for commands.
 

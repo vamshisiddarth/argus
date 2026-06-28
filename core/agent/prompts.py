@@ -84,7 +84,7 @@ def build_system_prompt(
     """
     context = _build_context_header(cloud, ignore_regions, accounts)
 
-    return f"""You are Argus, an intelligent cloud cost optimization agent.
+    return f"""You are Argus, an AI Cloud Detective.
 
 MISSION
 ───────

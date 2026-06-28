@@ -2,9 +2,9 @@
   <img src="docs/assets/images/logo-full.svg" alt="Argus" height="72">
 </p>
 
-<p align="center"><strong>AI-powered cloud cost optimization agent for AWS, GCP, and Azure.</strong></p>
+<p align="center"><strong>Argus — AI Cloud Detective for AWS, GCP, and Azure.</strong></p>
 
-Argus finds idle and wasted cloud resources — stopped EC2 instances, unattached EBS volumes, orphaned Elastic IPs, underutilized RDS databases — and delivers a prioritized, AI-reasoned report to Slack every week.
+Argus is an open-source AI Cloud Detective — it hunts idle and wasted cloud resources across AWS, GCP, and Azure (stopped EC2 instances, unattached EBS volumes, orphaned Elastic IPs, underutilized RDS databases) and delivers a prioritized, AI-reasoned report to Slack every week. No rules. No thresholds. Just reasoning.
 
 [![CI](https://github.com/vamshisiddarth/argus/actions/workflows/ci.yml/badge.svg)](https://github.com/vamshisiddarth/argus/actions/workflows/ci.yml)
 [![Publish](https://github.com/vamshisiddarth/argus/actions/workflows/publish.yml/badge.svg)](https://github.com/vamshisiddarth/argus/actions/workflows/publish.yml)
@@ -182,7 +182,7 @@ argus chat                                       # auto-detects cloud
 ```
 
 ```
-Argus v0.4.1 — Interactive Cloud Cost Assistant
+Argus v0.4.1 — AI Cloud Detective
 Cloud: AWS  |  Accounts: prod (123456789012)  |  Budget: $1.00/session
 Tip: end a line with \ to continue on the next line.
 Type your question, or /help for commands.

@@ -45,7 +45,7 @@ def main(argv: list[str] | None = None) -> None:
 
     parser = argparse.ArgumentParser(
         prog="argus",
-        description="Argus — AI-powered cloud cost optimization agent",
+        description="Argus — AI Cloud Detective for AWS, GCP, and Azure",
     )
     parser.add_argument(
         "--version",

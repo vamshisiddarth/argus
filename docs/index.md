@@ -1,6 +1,6 @@
 ---
 title: Argus
-description: AI-powered cloud cost optimization agent for AWS, GCP, and Azure
+description: Argus — AI Cloud Detective for AWS, GCP, and Azure
 hide:
   - navigation
   - toc

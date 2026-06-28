@@ -203,9 +203,7 @@ def _print_banner(
     version: str, cloud: str, account_desc: str, budget_usd: float
 ) -> None:
     if _HAS_RICH:
-        _console.print(
-            f"[bold]Argus v{version}[/bold] — Interactive Cloud Cost Assistant"
-        )
+        _console.print(f"[bold]Argus v{version}[/bold] — AI Cloud Detective")
         _console.print(
             f"Cloud: [cyan]{cloud.upper()}[/cyan]  |  "
             f"Accounts: {account_desc}  |  "
@@ -216,7 +214,7 @@ def _print_banner(
         )
         _console.print("Type your question, or /help for commands.\n")
     else:
-        print(f"Argus v{version} — Interactive Cloud Cost Assistant")
+        print(f"Argus v{version} — AI Cloud Detective")
         print(
             f"Cloud: {cloud.upper()}  |  Accounts: {account_desc}  |  "
             f"Budget: ${budget_usd:.2f}/session"
