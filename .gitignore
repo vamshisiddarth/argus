@@ -41,3 +41,4 @@ site/
 
 # SAM — generated after sam deploy --guided (may contain webhook URLs)
 samconfig.toml
+.claude/settings.local.json
