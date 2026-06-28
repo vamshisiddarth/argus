@@ -125,7 +125,7 @@ def list_resources(
 
 
 def _extract_bad_asset_type(error_msg: str, asset_types: list[str]) -> str | None:
-    """Return the first asset type string found in the INVALID_ARGUMENT error message."""
+    """Return the first asset type string found in an INVALID_ARGUMENT error."""
     for asset_type in asset_types:
         if asset_type in error_msg:
             return asset_type

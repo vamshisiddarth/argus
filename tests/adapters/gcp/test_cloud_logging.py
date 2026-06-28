@@ -39,7 +39,7 @@ class TestGetLastActivity:
         assert result is None
 
     def test_list_entries_called_without_timeout_kwarg(self):
-        """Regression: list_entries() does not accept timeout= in installed SDK version."""
+        """Regression: list_entries() does not accept timeout= in the installed SDK."""
         with patch("adapters.gcp.cloud_logging.gcp_logging.Client") as mock_cls:
             mock_client = MagicMock()
             mock_cls.return_value = mock_client
