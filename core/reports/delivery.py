@@ -219,7 +219,14 @@ def build_notification_providers() -> list[NotificationProvider]:
     return providers
 
 
-def notify_all(payload: dict[str, Any], dry_run: bool | None = None) -> None:
+def notify_all(payload: dict[str, Any], dry_run: bool | None = None) -> bool:
+    """
+    Send payload to all configured notification providers.
+
+    Returns True if at least one provider delivered successfully, False if
+    every provider failed. Callers should treat False as a delivery failure
+    and exit non-zero so the scheduler / CloudWatch alarm fires.
+    """
     from core.config import get_settings
 
     resolved_dry_run = dry_run if dry_run is not None else get_settings().report.dry_run
@@ -229,18 +236,25 @@ def notify_all(payload: dict[str, Any], dry_run: bool | None = None) -> None:
             "dry_run_notification_skipped",
             payload_preview=json.dumps(payload, indent=2)[:500],
         )
-        return
+        return True
 
     providers = build_notification_providers()
+    any_succeeded = False
     for provider in providers:
         try:
             provider.notify(payload)
+            any_succeeded = True
         except (NotificationDeliveryError, OSError) as exc:
             logger.error(
                 "notification_delivery_failed",
                 provider=type(provider).__name__,
                 error=str(exc),
             )
+
+    if not any_succeeded and providers:
+        logger.error("all_notification_providers_failed", provider_count=len(providers))
+
+    return any_succeeded or not providers
 
 
 # ---------------------------------------------------------------------------

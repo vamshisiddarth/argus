@@ -199,6 +199,37 @@ class TestMainSlackFailure:
         main()
         mock_post.assert_called_once()
 
+    @patch("entrypoints.gcp_cloudrun.notify_all", return_value=False)
+    @patch("entrypoints.gcp_cloudrun.build_slack_payload", return_value={"blocks": []})
+    @patch("entrypoints.gcp_cloudrun.build_report")
+    @patch("entrypoints.gcp_cloudrun.AgentLoop")
+    @patch("entrypoints.gcp_cloudrun.GCPAdapter")
+    @patch("entrypoints.gcp_cloudrun._build_ai_provider")
+    def test_exits_1_when_all_providers_fail(
+        self,
+        mock_ai,
+        mock_adapter_cls,
+        mock_loop_cls,
+        mock_build_report,
+        mock_build_payload,
+        mock_post,
+        monkeypatch,
+    ):
+        monkeypatch.setenv("GCP_PROJECT_ID", "proj")
+        monkeypatch.delenv("GCP_PROJECT_IDS", raising=False)
+        monkeypatch.delenv("ACCOUNTS_MODE", raising=False)
+
+        mock_loop_cls.return_value = _make_mock_loop(summary="Summary.")
+        mock_build_report.return_value = _fake_report()
+
+        import pytest
+
+        from entrypoints.gcp_cloudrun import main
+
+        with pytest.raises(SystemExit) as exc_info:
+            main()
+        assert exc_info.value.code == 1
+
 
 # ---------------------------------------------------------------------------
 # Multi-project support

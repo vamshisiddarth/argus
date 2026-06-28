@@ -410,3 +410,41 @@ class TestGetCurrentAccountId:
         from entrypoints.aws_lambda import _get_current_account_id
 
         assert _get_current_account_id() == "unknown"
+
+
+# ---------------------------------------------------------------------------
+# handler — notify_all returns False → Lambda must raise so CloudWatch fires
+# ---------------------------------------------------------------------------
+
+
+class TestHandlerSlackDeliveryFailureRaises:
+    @patch("entrypoints.aws_lambda.notify_all", return_value=False)
+    @patch("entrypoints.aws_lambda.build_slack_payload", return_value={"blocks": []})
+    @patch("entrypoints.aws_lambda.build_report")
+    @patch("entrypoints.aws_lambda.AgentLoop")
+    @patch("entrypoints.aws_lambda.AWSAdapter")
+    @patch(
+        "entrypoints.aws_lambda._get_current_account_id", return_value="123456789012"
+    )
+    @patch("entrypoints.aws_lambda._build_ai_provider")
+    def test_raises_when_all_providers_fail(
+        self,
+        mock_ai,
+        mock_acct_id,
+        mock_adapter_cls,
+        mock_loop_cls,
+        mock_build_report,
+        mock_build_payload,
+        mock_notify,
+        monkeypatch,
+    ):
+        monkeypatch.setenv("ACCOUNTS_MODE", "single")
+        mock_loop_cls.return_value.run.return_value = ([], "Summary.")
+        mock_build_report.return_value = _fake_report()
+
+        import pytest
+
+        from entrypoints.aws_lambda import handler
+
+        with pytest.raises(RuntimeError, match="Slack delivery failed"):
+            handler({}, None)

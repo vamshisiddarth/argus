@@ -127,7 +127,7 @@ def main() -> None:
     # report_url=None means the "Full report" button is omitted — that's fine.
     structlog.contextvars.bind_contextvars(scan_id=report["scan_id"])
     payload = build_slack_payload(report, report_url=report_url)
-    notify_all(payload)
+    delivered = notify_all(payload)
 
     budget_exceeded = executive_summary.startswith("Scan aborted")
     logger.info(
@@ -135,9 +135,12 @@ def main() -> None:
         findings=report["findings_count"],
         total_waste_usd=round(report["total_estimated_waste_usd"], 2),
         budget_exceeded=budget_exceeded,
+        slack_delivered=delivered,
     )
     if budget_exceeded:
         sys.exit(2)
+    if not delivered:
+        sys.exit(1)
 
 
 # ---------------------------------------------------------------------------

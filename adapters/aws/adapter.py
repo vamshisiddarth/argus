@@ -82,4 +82,6 @@ class AWSAdapter(CloudAdapter):
     ) -> "AWSAdapter":
         """Convenience constructor — resolves auth and returns a ready adapter."""
         session = auth.get_session(account=account, region=region)
-        return cls(session=session, aggregator_region=region)
+        # Pass aggregator_region=None so __init__ honours RESOURCE_EXPLORER_REGION
+        # env var before falling back to the default "us-east-1".
+        return cls(session=session, aggregator_region=None)

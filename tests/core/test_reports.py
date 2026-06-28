@@ -657,8 +657,9 @@ class TestNotifyAll:
         monkeypatch.setenv("NOTIFICATION_PROVIDER", "slack")
         monkeypatch.setenv("SLACK_WEBHOOK_URL", "https://slack.example.com/hook")
         with patch("urllib.request.urlopen") as mock_open:
-            notify_all(SAMPLE_PAYLOAD, dry_run=True)
+            result = notify_all(SAMPLE_PAYLOAD, dry_run=True)
         mock_open.assert_not_called()
+        assert result is True  # dry-run counts as success
 
     def test_delivers_to_all_providers(self, monkeypatch):
         monkeypatch.setenv("NOTIFICATION_PROVIDER", "slack,webhook")
@@ -671,6 +672,38 @@ class TestNotifyAll:
         mock_resp.__exit__ = MagicMock(return_value=False)
 
         with patch("urllib.request.urlopen", return_value=mock_resp) as mock_open:
-            notify_all(SAMPLE_PAYLOAD, dry_run=False)
+            result = notify_all(SAMPLE_PAYLOAD, dry_run=False)
 
         assert mock_open.call_count == 2
+        assert result is True
+
+    def test_returns_false_when_all_providers_fail(self, monkeypatch):
+        monkeypatch.setenv("NOTIFICATION_PROVIDER", "slack")
+        monkeypatch.setenv("SLACK_WEBHOOK_URL", "https://slack.example.com/hook")
+        with patch("urllib.request.urlopen", side_effect=OSError("connection refused")):
+            result = notify_all(SAMPLE_PAYLOAD, dry_run=False)
+        assert result is False
+
+    def test_returns_true_when_one_provider_succeeds(self, monkeypatch):
+        monkeypatch.setenv("NOTIFICATION_PROVIDER", "slack,webhook")
+        monkeypatch.setenv("SLACK_WEBHOOK_URL", "https://slack.example.com/hook")
+        monkeypatch.setenv("WEBHOOK_URL", "https://hook.example.com/endpoint")
+
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = b"ok"
+        mock_resp.__enter__ = lambda s: s
+        mock_resp.__exit__ = MagicMock(return_value=False)
+
+        call_count = 0
+
+        def urlopen_side_effect(req, timeout=None):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise OSError("first provider failed")
+            return mock_resp
+
+        with patch("urllib.request.urlopen", side_effect=urlopen_side_effect):
+            result = notify_all(SAMPLE_PAYLOAD, dry_run=False)
+
+        assert result is True  # second provider succeeded

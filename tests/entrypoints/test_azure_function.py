@@ -238,6 +238,37 @@ class TestMainSlackFailure:
         main(_mock_timer())
         mock_post.assert_called_once()
 
+    @patch("entrypoints.azure_function.notify_all", return_value=False)
+    @patch(
+        "entrypoints.azure_function.build_slack_payload", return_value={"blocks": []}
+    )
+    @patch("entrypoints.azure_function.build_report")
+    @patch("entrypoints.azure_function.AgentLoop")
+    @patch("entrypoints.azure_function.AzureAdapter")
+    @patch("entrypoints.azure_function._build_ai_provider")
+    def test_exits_1_when_all_providers_fail(
+        self,
+        mock_ai,
+        mock_adapter_cls,
+        mock_loop_cls,
+        mock_build_report,
+        mock_build_payload,
+        mock_post,
+        monkeypatch,
+    ):
+        monkeypatch.setenv("AZURE_SUBSCRIPTION_IDS", "sub-111")
+
+        mock_loop_cls.return_value.run.return_value = ([], "Summary.")
+        mock_build_report.return_value = _fake_report()
+
+        import pytest
+
+        from entrypoints.azure_function import main
+
+        with pytest.raises(SystemExit) as exc_info:
+            main(_mock_timer())
+        assert exc_info.value.code == 1
+
 
 # ---------------------------------------------------------------------------
 # _build_ai_provider

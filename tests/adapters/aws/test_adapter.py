@@ -95,3 +95,20 @@ class TestForAccountClassMethod:
         mock_auth.assert_called_once_with(account=None, region="eu-west-1")
         assert isinstance(adapter, AWSAdapter)
         assert adapter._session is mock_session
+
+    def test_for_account_honours_resource_explorer_region_env_var(self, monkeypatch):
+        monkeypatch.setenv("RESOURCE_EXPLORER_REGION", "ap-southeast-1")
+        mock_session = MagicMock()
+        with patch("adapters.aws.adapter.auth.get_session", return_value=mock_session):
+            adapter = AWSAdapter.for_account(account=None, region="us-east-1")
+
+        # PRIMARY_REGION (us-east-1) must NOT override RESOURCE_EXPLORER_REGION
+        assert adapter._aggregator_region == "ap-southeast-1"
+
+    def test_for_account_falls_back_to_default_when_no_env_var(self, monkeypatch):
+        monkeypatch.delenv("RESOURCE_EXPLORER_REGION", raising=False)
+        mock_session = MagicMock()
+        with patch("adapters.aws.adapter.auth.get_session", return_value=mock_session):
+            adapter = AWSAdapter.for_account(account=None, region="eu-west-1")
+
+        assert adapter._aggregator_region == "us-east-1"
