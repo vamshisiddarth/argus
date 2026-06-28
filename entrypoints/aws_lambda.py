@@ -101,10 +101,14 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     )
     report_url: str | None = None
     if s3_bucket:
-        report_url = _save_reports_to_s3(report, s3_bucket)
+        try:
+            report_url = _save_reports_to_s3(report, s3_bucket)
+        except Exception as exc:  # noqa: BLE001
+            logger.error("report_upload_failed_continuing", error=str(exc))
     else:
         save_reports_locally(report)
 
+    # Deliver Slack digest regardless of whether report upload succeeded.
     structlog.contextvars.bind_contextvars(scan_id=report["scan_id"])
     payload = build_slack_payload(report, report_url=report_url)
     notify_all(payload)

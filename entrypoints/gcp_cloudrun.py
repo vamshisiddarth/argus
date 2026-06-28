@@ -85,13 +85,14 @@ def main() -> None:
 
     scan_errors: list[dict[str, str]] = []
     if use_multi:
-        all_findings, executive_summary, scanned_ids, token_summary, scan_errors = (
+        all_findings, executive_summary, scanned_ids, token_summary, scan_errors, skipped_types = (
             _run_multi_project(project_ids, ignore_regions, cloud)
         )
     else:
-        all_findings, executive_summary, scanned_ids, token_summary = (
+        all_findings, executive_summary, scanned_ids, token_summary, skipped_types = (
             _run_single_project(project_ids[0], ignore_regions, cloud)
         )
+        scan_errors = []
 
     gcs_bucket = os.environ.get("REPORT_GCS_BUCKET", "").strip()
     previous_report = _load_previous_report(cloud, gcs_bucket)
@@ -106,13 +107,19 @@ def main() -> None:
         agent_output_tokens=int(token_summary.get("total_output_tokens", 0)),
         scan_diff=scan_diff,
         scan_errors=scan_errors,
+        skipped_resource_types=skipped_types,
     )
     report_url: str | None = None
     if gcs_bucket:
-        report_url = _save_reports_to_gcs(report, gcs_bucket)
+        try:
+            report_url = _save_reports_to_gcs(report, gcs_bucket)
+        except Exception as exc:  # noqa: BLE001
+            logger.error("report_upload_failed_continuing", error=str(exc))
     else:
         save_reports_locally(report)
 
+    # Deliver Slack digest regardless of whether report upload succeeded.
+    # report_url=None means the "Full report" button is omitted — that's fine.
     structlog.contextvars.bind_contextvars(scan_id=report["scan_id"])
     payload = build_slack_payload(report, report_url=report_url)
     notify_all(payload)
@@ -178,7 +185,7 @@ def _run_single_project(
     project_id: str,
     ignore_regions: list[str],
     cloud: str,
-) -> tuple[list[ResourceFinding], str, list[str], dict]:
+) -> tuple[list[ResourceFinding], str, list[str], dict, list[str]]:
     structlog.contextvars.bind_contextvars(account_id=project_id)
     ai_provider = _build_ai_provider(project_id)
     adapter = GCPAdapter(project_id=project_id)
@@ -188,14 +195,14 @@ def _run_single_project(
         ignore_regions=ignore_regions,
         accounts=[{"id": project_id, "name": project_id}],
     )
-    return findings, summary, [project_id], loop.tracker.summary()
+    return findings, summary, [project_id], loop.tracker.summary(), adapter.skipped_asset_types
 
 
 def _run_multi_project(
     project_ids: list[str],
     ignore_regions: list[str],
     cloud: str,
-) -> tuple[list[ResourceFinding], str, list[str], dict, list[dict[str, str]]]:
+) -> tuple[list[ResourceFinding], str, list[str], dict, list[dict[str, str]], list[str]]:
     """Scan multiple GCP projects. One adapter + agent loop per project."""
     project_names = _get_project_names()
 
@@ -203,6 +210,7 @@ def _run_multi_project(
     all_summaries: list[str] = []
     scanned_ids: list[str] = []
     scan_errors: list[dict[str, str]] = []
+    all_skipped: list[str] = []
     total_input = 0
     total_output = 0
     last_ai_provider = None
@@ -226,6 +234,7 @@ def _run_multi_project(
             scanned_ids.append(pid)
             total_input += loop.tracker.total_input_tokens
             total_output += loop.tracker.total_output_tokens
+            all_skipped.extend(adapter.skipped_asset_types)
         except PermissionError as exc:
             logger.error("project_scan_failed", project_id=pid, error=str(exc))
             scan_errors.append(
@@ -250,7 +259,7 @@ def _run_multi_project(
         "total_input_tokens": total_input,
         "total_output_tokens": total_output,
     }
-    return all_findings, executive_summary, scanned_ids, token_summary, scan_errors
+    return all_findings, executive_summary, scanned_ids, token_summary, scan_errors, list(dict.fromkeys(all_skipped))
 
 
 # ---------------------------------------------------------------------------
@@ -342,15 +351,56 @@ def _save_reports_to_gcs(report: dict[str, Any], bucket_name: str) -> str | None
         )
         logger.info("html_report_saved", location=f"gs://{bucket_name}/{html_key}")
 
-        url: str = html_blob.generate_signed_url(
-            expiration=timedelta(seconds=expiry_seconds),
-            method="GET",
-            version="v4",
-        )
-        logger.info("signed_url_generated", expires_in_seconds=expiry_seconds)
+        url: str | None = _generate_signed_url(html_blob, expiry_seconds)
+        if url:
+            logger.info("signed_url_generated", expires_in_seconds=expiry_seconds)
+        else:
+            logger.warning(
+                "signed_url_skipped",
+                msg="Report uploaded but URL signing unavailable "
+                "(no private key on Cloud Run credentials). "
+                "Grant roles/iam.serviceAccountTokenCreator to the service account "
+                "or use Workload Identity.",
+            )
         return url
     except google_exceptions.GoogleAPIError as exc:
         logger.error("gcs_upload_failed", error=str(exc))
+        return None
+
+
+def _generate_signed_url(blob: Any, expiry_seconds: int) -> str | None:
+    """
+    Generate a v4 signed URL for a GCS blob.
+
+    On Cloud Run / Compute Engine the default credentials carry no private key,
+    so we pass the service account email + short-lived access token explicitly.
+    The service account must have roles/iam.serviceAccountTokenCreator on itself
+    for the signBlob API to work (granted by deploy.sh).
+    """
+    try:
+        import google.auth
+        import google.auth.transport.requests
+
+        credentials, _ = google.auth.default(
+            scopes=["https://www.googleapis.com/auth/cloud-platform"]
+        )
+        credentials.refresh(google.auth.transport.requests.Request())
+
+        sa_email: str | None = getattr(credentials, "service_account_email", None)
+        token: str | None = getattr(credentials, "token", None)
+
+        kwargs: dict[str, Any] = {
+            "expiration": timedelta(seconds=expiry_seconds),
+            "method": "GET",
+            "version": "v4",
+        }
+        if sa_email and token:
+            kwargs["service_account_email"] = sa_email
+            kwargs["access_token"] = token
+
+        return blob.generate_signed_url(**kwargs)  # type: ignore[no-any-return]
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("signed_url_generation_failed", error=str(exc))
         return None
 
 

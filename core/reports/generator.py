@@ -23,6 +23,7 @@ def build_report(
     agent_output_tokens: int = 0,
     scan_diff: dict[str, Any] | None = None,
     scan_errors: list[dict[str, str]] | None = None,
+    skipped_resource_types: list[str] | None = None,
 ) -> dict[str, Any]:
     """
     Convert a list of ResourceFinding objects into the canonical JSON report.
@@ -53,6 +54,7 @@ def build_report(
         ),
         "scan_diff": scan_diff,
         "scan_errors": scan_errors or [],
+        "skipped_resource_types": skipped_resource_types or [],
     }
 
 
@@ -206,6 +208,25 @@ def build_slack_payload(
         },
         {"type": "divider"},
     ]
+
+    skipped_types = report.get("skipped_resource_types") or []
+    if skipped_types:
+        short_names = [t.split("/")[-1] for t in skipped_types]
+        blocks.append(
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": (
+                        f":information_source: *Skipped {len(skipped_types)} resource "
+                        f"type{'s' if len(skipped_types) != 1 else ''} "
+                        f"(API not enabled in project):* "
+                        + ", ".join(f"`{n}`" for n in short_names)
+                    ),
+                },
+            }
+        )
+        blocks.append({"type": "divider"})
 
     scan_errors = report.get("scan_errors") or []
     if scan_errors:

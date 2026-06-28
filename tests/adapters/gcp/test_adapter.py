@@ -20,12 +20,14 @@ class TestGCPAdapterDelegation:
         expected = [Resource(SAMPLE_ID, SAMPLE_TYPE, "gcp", "us-central1")]
 
         with patch(
-            "adapters.gcp.adapter.asset_inventory.list_resources", return_value=expected
+            "adapters.gcp.adapter.asset_inventory.list_resources",
+            return_value=(expected, []),
         ) as mock_fn:
             result = adapter.list_resources()
 
         mock_fn.assert_called_once_with(project_id="my-proj", ignore_regions=None)
         assert result == expected
+        assert adapter.skipped_asset_types == []
 
     def test_get_metrics_calls_cloud_monitoring(self):
         adapter = _make_adapter()

@@ -66,6 +66,7 @@ Resources:
                 Effect: Allow
                 Action:
                   - cloudwatch:GetMetricData
+                  - cloudwatch:ListMetrics
                 Resource: "*"
 
               # Cost Explorer — cost data (read-only, per-resource billing breakdown)

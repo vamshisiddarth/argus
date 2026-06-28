@@ -5,7 +5,7 @@ description: What's coming next in Argus
 
 # Roadmap
 
-v0.4.0 focused on making multi-cloud usage practical and adding interactive chat. Here's what's coming next. No dates are promised; items ship when they're ready and well-tested.
+v0.4.1 focused on making multi-cloud usage practical and adding interactive chat. Here's what's coming next. No dates are promised; items ship when they're ready and well-tested.
 
 Have a feature request? [Open an issue](https://github.com/vamshisiddarth/argus/issues) — community input shapes what gets built next.
 

@@ -60,20 +60,22 @@ SCANNED_ASSET_TYPES: list[str] = [
 def list_resources(
     project_id: str,
     ignore_regions: list[str] | None = None,
-) -> list[Resource]:
+) -> tuple[list[Resource], list[str]]:
     """
-    Return all billable GCP resources in a project using Cloud Asset Inventory.
+    Return (resources, skipped_asset_types) for a GCP project.
 
-    Uses a single paginated API call. If a specific asset type's API is not
-    enabled in the project, Cloud Asset Inventory returns INVALID_ARGUMENT.
-    We catch that, strip the offending type, and retry — so a project without
-    Bigtable or Spanner enabled doesn't block the entire scan.
+    Uses a single paginated Cloud Asset Inventory call. If any asset type's API
+    is not enabled in the project, INVALID_ARGUMENT is returned for that type.
+    We strip it and retry so a project without Bigtable/Spanner/etc. enabled
+    doesn't block the whole scan. Callers receive the list of skipped types so
+    they can surface a warning in the Slack digest.
     """
     client = asset_v1.AssetServiceClient()
     parent = f"projects/{project_id}"
     ignore_set = set(ignore_regions or [])
     resources: list[Resource] = []
     asset_types = list(SCANNED_ASSET_TYPES)  # mutable — bad types get stripped
+    skipped_types: list[str] = []
 
     while True:
         request = asset_v1.ListAssetsRequest(
@@ -99,6 +101,7 @@ def list_resources(
                     asset_type=bad_type,
                     project_id=project_id,
                 )
+                skipped_types.append(bad_type)
                 asset_types.remove(bad_type)
                 resources = []  # reset — avoid duplicates from partial page
             else:
@@ -118,7 +121,7 @@ def list_resources(
         "asset_inventory_complete",
         extra={"project_id": project_id, "total": len(resources)},
     )
-    return resources
+    return resources, skipped_types
 
 
 def _extract_bad_asset_type(error_msg: str, asset_types: list[str]) -> str | None:

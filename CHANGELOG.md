@@ -3,6 +3,21 @@
 All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## v0.4.1 (2026-06-28)
+
+### Fixed
+
+- **GCP Cloud SQL asset type** — corrected from `sql.googleapis.com/Instance` to `sqladmin.googleapis.com/Instance` in Asset Inventory, Cloud Monitoring, and Cloud Logging. Cloud SQL resources were missing from all GCP scans.
+- **GCP INVALID_ARGUMENT on disabled APIs** — Cloud Asset Inventory now strips any asset type whose API is not enabled in the project and retries. Previously, a single disabled API (e.g., Bigtable, Spanner, AlloyDB) caused the entire scan to crash.
+- **GCP Cloud Logging `timeout` kwarg** — removed unsupported `timeout=` parameter from `list_entries()` call; caused `TypeError` on current `google-cloud-logging` versions.
+- **Budget exceeded exit code** — all entrypoints (CLI, Lambda, Cloud Run, Azure Function) now exit with code 2 when the scan budget is exceeded. Previously exited 0, making it impossible for orchestrators to detect the abort condition.
+
+### Added
+
+- 37 new unit tests covering the above fixes: INVALID_ARGUMENT retry loop, NotFound → PermissionError mapping, timeout regression guard, and budget exit-code assertions.
+
+---
+
 ## v0.4.0 (2026-06-24)
 
 ### Added

@@ -37,7 +37,7 @@ Top findings
 
 ---
 
-## 🆕 What's new in v0.4.0
+## 🆕 What's new in v0.4.1
 
 > **Biggest release yet.** Argus jumps from scheduled reporter to a conversational FinOps companion.
 
@@ -117,7 +117,7 @@ docker run --rm \
 
 ```bash
 pip install argus-cloud-optimizer
-argus --version   # argus 0.4.0
+argus --version   # argus 0.4.1
 argus --help
 ```
 
@@ -182,7 +182,7 @@ argus chat                                       # auto-detects cloud
 ```
 
 ```
-Argus v0.4.0 — Interactive Cloud Cost Assistant
+Argus v0.4.1 — Interactive Cloud Cost Assistant
 Cloud: AWS  |  Accounts: prod (123456789012)  |  Budget: $1.00/session
 Tip: end a line with \ to continue on the next line.
 Type your question, or /help for commands.

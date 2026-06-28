@@ -150,6 +150,7 @@ Resources:
                 Effect: Allow
                 Action:
                   - cloudwatch:GetMetricData
+                  - cloudwatch:ListMetrics
                 Resource: "*"
 
               - Sid: CostExplorer

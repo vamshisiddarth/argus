@@ -8,7 +8,7 @@ hide:
 
 <div class="hero" markdown>
 
-<div class="hero-badge"><span class="hero-badge-version">v0.4.0</span> · Open Source · MIT License</div>
+<div class="hero-badge"><span class="hero-badge-version">v0.4.1</span> · Open Source · MIT License</div>
 
 # Stop Wasting Money on Idle Cloud Resources
 
@@ -29,7 +29,7 @@ Ranked findings with exact actions, straight to Slack. Or ask questions live.
 <div class="hero-stats">
   <div class="hero-stat"><strong>3</strong><span>clouds</span></div>
   <div class="hero-stat"><strong>43+</strong><span>resource types</span></div>
-  <div class="hero-stat"><strong>528</strong><span>tests</span></div>
+  <div class="hero-stat"><strong>565</strong><span>tests</span></div>
   <div class="hero-stat"><strong>~$0.25</strong><span>per scan</span></div>
 </div>
 

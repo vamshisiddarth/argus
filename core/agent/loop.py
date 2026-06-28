@@ -195,6 +195,7 @@ class AgentLoop:
         resources = self._adapter.list_resources(ignore_regions=ignore_regions or None)
         resources = _apply_exclusion_filters(resources)
         total_discovered = len(resources)
+        logger.info("resources_discovered", count=total_discovered)
 
         if not resources:
             self._prefiltered_payload = []
@@ -241,6 +242,11 @@ class AgentLoop:
             "prefilter_complete",
             discovered=total_discovered,
             sent_to_ai=len(payload),
+        )
+        logger.info(
+            "ai_analysis_starting",
+            resources=len(payload),
+            msg=f"Analyzing {len(payload)} resources with AI (this takes 2-5 minutes)…",
         )
         return payload
 

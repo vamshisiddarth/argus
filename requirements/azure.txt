@@ -3,6 +3,7 @@
 
 -r base.txt
 
+azure-functions==1.21.3         # Azure Functions runtime (timer trigger + host.json)
 azure-identity==1.19.0          # Azure auth (DefaultAzureCredential)
 azure-mgmt-resourcegraph==8.0.0 # Resource Graph — list all Azure resources
 azure-monitor-query==1.4.0      # Azure Monitor — metrics

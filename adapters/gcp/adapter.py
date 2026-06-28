@@ -33,12 +33,16 @@ class GCPAdapter(CloudAdapter):
             )
         self._project_id: str = resolved
         self._bq_billing_table = bq_billing_table or os.environ.get("BILLING_BQ_TABLE")
+        # Populated after list_resources() — asset types skipped due to disabled APIs
+        self.skipped_asset_types: list[str] = []
 
     def list_resources(self, ignore_regions: list[str] | None = None) -> list[Resource]:
-        return asset_inventory.list_resources(
+        resources, skipped = asset_inventory.list_resources(
             project_id=self._project_id,
             ignore_regions=ignore_regions,
         )
+        self.skipped_asset_types = skipped
+        return resources
 
     def get_metrics(
         self,

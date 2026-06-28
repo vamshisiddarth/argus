@@ -108,10 +108,11 @@ class TestListResources:
             mock_client = MagicMock()
             mock_cls.return_value = mock_client
             mock_client.list_assets.return_value = [mock_asset]
-            resources = list_resources(project_id="my-proj")
+            resources, skipped = list_resources(project_id="my-proj")
 
         assert len(resources) == 1
         assert resources[0].name == "vm1"
+        assert skipped == []
 
     def test_raises_permission_error_on_denied(self):
         from google.api_core.exceptions import PermissionDenied
@@ -163,10 +164,11 @@ class TestListResources:
             mock_client = MagicMock()
             mock_cls.return_value = mock_client
             mock_client.list_assets.side_effect = fake_list_assets
-            resources = list_resources(project_id="my-proj")
+            resources, skipped = list_resources(project_id="my-proj")
 
         assert len(resources) == 1
         assert call_count == 2  # first attempt failed, second succeeded
+        assert skipped == ["bigtable.googleapis.com/Instance"]
 
     def test_raises_runtime_error_on_unknown_invalid_argument(self):
         from google.api_core.exceptions import InvalidArgument
@@ -194,11 +196,12 @@ class TestListResources:
             mock_client = MagicMock()
             mock_cls.return_value = mock_client
             mock_client.list_assets.return_value = [mock_asset]
-            resources = list_resources(
+            resources, skipped = list_resources(
                 project_id="my-proj", ignore_regions=["us-central1"]
             )
 
         assert resources == []
+        assert skipped == []
 
 
 # ---------------------------------------------------------------------------

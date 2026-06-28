@@ -7,4 +7,6 @@ google-cloud-asset==3.26.0      # Asset Inventory — list all GCP resources
 google-cloud-monitoring==2.23.0 # Cloud Monitoring — metrics
 google-cloud-billing==1.14.0    # Billing API — cost data
 google-cloud-logging==3.11.3    # Cloud Audit Logs — last activity timestamps
+google-cloud-bigquery==3.27.0   # BigQuery — billing export cost queries
+google-cloud-storage==2.19.0    # GCS — report upload + signed URL delivery
 openai==1.55.0                  # Vertex AI OpenAI-compatible endpoint
