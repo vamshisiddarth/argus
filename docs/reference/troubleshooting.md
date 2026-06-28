@@ -25,13 +25,34 @@ Cost Explorer must be activated in the AWS console before the API works:
 
 ### Bedrock: "AccessDeniedException" for model invocation
 
-You need to request model access in the Bedrock console:
+You need to enable model access in the Bedrock console:
 
-1. Go to **Amazon Bedrock → Model access**
-2. Request access for **Anthropic Claude Sonnet**
-3. Wait for approval (usually instant for Sonnet)
+1. Go to **Amazon Bedrock → Model catalog** (or search "Bedrock" in the AWS console and open **Model access** from the left nav)
+2. Find **Claude Sonnet** (Anthropic) and click **Request access** / **Enable**
+3. Access is usually granted instantly for Sonnet
 
 Make sure `BEDROCK_REGION` matches the region where you enabled model access.
+
+### Bedrock: "INVALID_PAYMENT_INSTRUMENT"
+
+This is a billing issue, not an IAM issue. AWS requires a valid payment method on the account before Bedrock can be used.
+
+1. Go to **AWS Console → Account Settings → Payment methods**
+2. Add or verify a payment method
+3. Wait ~1 minute for it to propagate, then retry the scan
+
+### Azure OpenAI: 400 BadRequest for o4-mini / o1 / o3 deployments
+
+Reasoning models require a newer API version than the default (`2024-10-21`):
+
+```ini
+AZURE_OPENAI_API_VERSION=2024-12-01-preview
+```
+
+Argus automatically retries without `temperature` when a reasoning model rejects it — no extra config needed for that.
+
+!!! note
+    Check [Azure OpenAI API releases](https://learn.microsoft.com/en-us/azure/ai-services/openai/api-version-deprecation) for the latest stable version that supports your model.
 
 ### Pre-signed URL returns 403
 

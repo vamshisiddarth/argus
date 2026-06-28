@@ -9,7 +9,7 @@ In Lambda / Cloud Run / Azure Function, set these as environment variables in th
 |----------|----------|---------|-------------|
 | `AI_PROVIDER` | No | `bedrock` (Lambda) / `anthropic` (CLI) | `anthropic` \| `bedrock` \| `vertexai` \| `azure_openai` |
 | `AI_MODEL` | No | _(per-provider default)_ | Override model for any provider |
-| `AI_TEMPERATURE` | No | `0.0` | Model temperature (0.0–1.0) |
+| `AI_TEMPERATURE` | No | `0.0` | Model temperature (0.0–1.0). Ignored for Azure OpenAI reasoning models (o1/o3/o4-mini). |
 | `ANTHROPIC_API_KEY` | When `AI_PROVIDER=anthropic` | — | Anthropic direct API key |
 | `BEDROCK_MODEL_ID` | No | `anthropic.claude-sonnet-4-6` | Bedrock model ID |
 | `BEDROCK_REGION` | No | `us-east-1` | Region where Bedrock is enabled |

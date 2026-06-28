@@ -8,7 +8,7 @@ Complete reference for all Argus environment variables.
 |----------|---------|-------------|
 | `AI_PROVIDER` | `bedrock` (Lambda) · `anthropic` (CLI) | `anthropic` \| `bedrock` \| `vertexai` \| `azure_openai` |
 | `AI_MODEL` | _(per-provider default)_ | Override the model for any provider. Takes precedence over provider-specific model vars. |
-| `AI_TEMPERATURE` | `0.0` | Model temperature (0.0 = deterministic, 1.0 = creative). Applies to all providers. |
+| `AI_TEMPERATURE` | `0.0` | Model temperature (0.0 = deterministic, 1.0 = creative). Ignored for Azure OpenAI reasoning model deployments (o1/o3/o4-mini) — Argus drops it automatically on retry. |
 | `ANTHROPIC_API_KEY` | — | Required when `AI_PROVIDER=anthropic` |
 | `ANTHROPIC_MODEL` | `claude-sonnet-4-6` | Model name when using Anthropic API directly |
 | `BEDROCK_MODEL_ID` | `anthropic.claude-sonnet-4-6` | Bedrock model ID |
@@ -19,7 +19,7 @@ Complete reference for all Argus environment variables.
 | `VERTEXAI_MODEL` | `google/gemini-1.5-pro-002` | Vertex AI model name |
 | `AZURE_OPENAI_ENDPOINT` | — | Required when `AI_PROVIDER=azure_openai` |
 | `AZURE_OPENAI_DEPLOYMENT` | `gpt-4o` | Azure OpenAI deployment name |
-| `AZURE_OPENAI_API_VERSION` | `2024-10-21` | Azure OpenAI API version |
+| `AZURE_OPENAI_API_VERSION` | `2024-10-21` | Azure OpenAI API version. Reasoning model deployments (o1/o3/o4-mini) require `2024-12-01-preview` or later. |
 | `AZURE_OPENAI_API_KEY` | — | Local dev only — use managed identity in production |
 
 ## :material-aws: AWS

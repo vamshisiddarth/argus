@@ -37,8 +37,9 @@ BEDROCK_REGION=us-east-1                        # optional
 
 **Requirements:**
 - Bedrock must be enabled in `BEDROCK_REGION`
-- Model access must be requested: Bedrock console → Model access → Claude Sonnet
+- Model access must be enabled: Bedrock console → Model catalog → Claude Sonnet → Enable
 - Lambda execution role needs `bedrock:InvokeModel`
+- AWS account must have a valid payment method (Bedrock returns `INVALID_PAYMENT_INSTRUMENT` otherwise — see [Troubleshooting](../reference/troubleshooting.md))
 
 **Features:**
 - Exponential backoff on `ThrottlingException` (3 retries, 1s/2s/4s delays)
@@ -63,6 +64,11 @@ VERTEXAI_MODEL=google/gemini-1.5-pro-002  # optional
 - Automatic credential refresh when token expires (1-hour TTL)
 - Exponential backoff on rate limits
 
+!!! warning "Always include the publisher prefix in `VERTEXAI_MODEL`"
+    The OpenAI-compatible Vertex AI endpoint requires a `publisher/model` format.
+    Use `google/gemini-2.5-flash`, not `gemini-2.5-flash` — the bare model name
+    returns `400 Malformed publisher model`.
+
 ## Azure OpenAI (GPT-4o)
 
 The default for Azure Function deployments.
@@ -83,6 +89,22 @@ AZURE_OPENAI_API_KEY=...
 **Features:**
 - Wraps `AuthenticationError` into a friendly `EnvironmentError` with setup instructions
 - Exponential backoff on rate limits
+- Automatic retry for reasoning model restrictions: if the deployment rejects `max_tokens` or `temperature`, Argus retries with `max_completion_tokens` and no temperature — no config change needed
+
+**Reasoning models (o1, o3, o4-mini):**
+
+Many subscriptions — especially newer or free-tier ones — can only deploy reasoning models.
+Two things to know:
+
+| Setting | Standard models (gpt-4o) | Reasoning models (o1/o3/o4-mini) |
+|---------|--------------------------|----------------------------------|
+| `AZURE_OPENAI_API_VERSION` | `2024-10-21` works | Requires `2024-12-01-preview` or later |
+| `AI_TEMPERATURE` | Respected | Silently dropped (Argus handles automatically) |
+
+```ini
+# Required when using o4-mini, o1, or o3 deployments
+AZURE_OPENAI_API_VERSION=2024-12-01-preview
+```
 
 ## The AIProvider interface
 
