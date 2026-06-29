@@ -1,54 +1,9 @@
-<svg width="1200" height="320" viewBox="0 0 1200 320" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <style>
-      .logo { fill: #4F46E5; }
-      .wordmark {
-        font-family: Inter, Poppins, Montserrat, Arial, sans-serif;
-        font-size: 220px;
-        font-weight: 800;
-        fill: #4F46E5;
-      }
-    </style>
-  </defs>
-
-  <!-- Custom "A" path.
-       Counter triangle: top y=40, crossbar y=120, center-x=230.
-       At y=80 (midpoint): left inner edge ≈ x=195, right ≈ x=265. -->
-  <path class="logo"
-        d="M80 280
-           L180 40
-           L280 40
-           L380 280
-           L315 280
-           L250 120
-           L210 120
-           L145 280
-           Z"/>
-
-  <!-- Eye in A triangle counter. Center: (230, 80).
-       Eye spans x=197..263, fitting within counter walls with 3px margin. -->
-
-  <!-- Top eyelid -->
-  <path d="M197,80 Q230,50 263,80"
-        fill="none" stroke="white" stroke-width="5" stroke-linecap="round"/>
-  <!-- Bottom eyelid -->
-  <path d="M197,80 Q230,105 263,80"
-        fill="none" stroke="white" stroke-width="5" stroke-linecap="round"/>
-
-  <!-- Lashes -->
-  <line x1="202" y1="65" x2="197" y2="48" stroke="white" stroke-width="4" stroke-linecap="round"/>
-  <line x1="216" y1="54" x2="213" y2="37" stroke="white" stroke-width="4" stroke-linecap="round"/>
-  <line x1="230" y1="50" x2="230" y2="33" stroke="white" stroke-width="4" stroke-linecap="round"/>
-  <line x1="244" y1="54" x2="247" y2="37" stroke="white" stroke-width="4" stroke-linecap="round"/>
-  <line x1="258" y1="65" x2="263" y2="48" stroke="white" stroke-width="4" stroke-linecap="round"/>
-
-  <!-- Iris -->
-  <circle cx="230" cy="80" r="20" fill="white"/>
-  <!-- Pupil -->
-  <circle cx="230" cy="80" r="8"  fill="#4F46E5"/>
-  <!-- Highlight -->
-  <circle cx="237" cy="73" r="4"  fill="white" opacity="0.7"/>
-
-  <!-- "rgus" wordmark -->
-  <text x="410" y="255" class="wordmark">rgus</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <circle cx="24" cy="24" r="22" fill="#2a2a3e" stroke="#8b8fff" stroke-width="3"/>
+  <circle cx="24" cy="24" r="16.5" fill="white"/>
+  <circle cx="24" cy="24" r="9.5" fill="#3b2a1a"/>
+  <circle cx="24" cy="24" r="5.5" fill="#1a0f0a"/>
+  <circle cx="20" cy="20" r="2.8" fill="white"/>
+  <circle cx="27" cy="28" r="1.2" fill="white" opacity="0.6"/>
+  <ellipse cx="15" cy="14" rx="4" ry="2" fill="white" opacity="0.25" transform="rotate(-30 15 14)"/>
 </svg>

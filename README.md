@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/images/logo-full.svg" alt="Argus" height="72">
+  <img src="docs/assets/images/logo.svg" alt="Argus" height="72">
 </p>
 
 <p align="center"><strong>Argus — AI Cloud Detective for AWS, GCP, and Azure.</strong></p>

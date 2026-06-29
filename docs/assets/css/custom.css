@@ -681,20 +681,17 @@
 [data-md-color-scheme="default"] .md-search__input {
   color: #1e1b4b !important;
 }
-[data-md-color-scheme="default"] .md-header .md-logo img,
-[data-md-color-scheme="default"] .md-header .md-logo svg {
-  filter: none;
-}
-
-/* Invert logo to white */
-.md-header .md-logo img,
-.md-header .md-logo svg {
-  filter: brightness(0) invert(1);
-}
-
-/* Hide site-name text — logo SVG carries the wordmark */
+/* Hide site-name text — logo JS carries the wordmark */
 .md-header__title {
   visibility: hidden;
+}
+
+/* Let logo.js render without MkDocs image constraints */
+.md-header__button.md-logo img,
+.md-header__button.md-logo svg {
+  filter: none !important;
+  height: auto !important;
+  width: auto !important;
 }
 
 /* ── Hero aurora blobs ───────────────────────────────────── */

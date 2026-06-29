@@ -152,3 +152,4 @@ extra_css:
 extra_javascript:
   - assets/js/version-badge.js
   - assets/js/theme-toggle.js
+  - assets/js/logo.js
