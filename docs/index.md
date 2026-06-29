@@ -6,18 +6,21 @@ hide:
   - toc
 ---
 
-<div class="hero" markdown>
+<div class="hero">
+<div class="hero-inner">
+<div class="hero-left" markdown>
 
-<div class="hero-badge"><span class="hero-badge-version">v0.4.1</span> · Open Source · MIT License</div>
+<div class="hero-badge" markdown><span class="hero-badge-version">v0.4.1</span> · Open Source · MIT License</div>
 
-# Stop Wasting Money on Idle Cloud Resources
+<h1 class="hero-h1">Stop Wasting Money<br>on Idle Cloud Resources</h1>
 
-AI finds what's wasting money across AWS, GCP, and Azure — idle, oversized, orphaned.
-Ranked findings with exact actions, straight to Slack. Or ask questions live.
+<p class="hero-sub">AI finds what's wasting money across AWS, GCP, and Azure — idle, oversized, orphaned. Ranked findings with exact actions, straight to Slack. Or ask questions live.</p>
 
-<div class="hero-buttons" markdown>
-[Get Started](getting-started/index.md){ .md-button .md-button--primary }
-[:material-github: View on GitHub](https://github.com/vamshisiddarth/argus){ .md-button }
+<div class="hero-buttons">
+<a href="getting-started/" class="md-button md-button--primary">Get Started</a>
+<a href="https://github.com/vamshisiddarth/argus" class="md-button">
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-3px;margin-right:6px"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>View on GitHub
+</a>
 </div>
 
 <div class="cloud-badges">
@@ -27,12 +30,25 @@ Ranked findings with exact actions, straight to Slack. Or ask questions live.
 </div>
 
 <div class="hero-stats">
-  <div class="hero-stat"><strong>3</strong><span>clouds</span></div>
-  <div class="hero-stat"><strong>43+</strong><span>resource types</span></div>
-  <div class="hero-stat"><strong>565</strong><span>tests</span></div>
-  <div class="hero-stat"><strong>~$0.25</strong><span>per scan</span></div>
+  <div class="hero-stat"><strong data-count="3">3</strong><span>clouds</span></div>
+  <div class="hero-stat"><strong data-count="43" data-suffix="+">43+</strong><span>resource types</span></div>
+  <div class="hero-stat"><strong data-count="565">565</strong><span>tests</span></div>
+  <div class="hero-stat"><strong data-count="0.25" data-prefix="~$">~$0.25</strong><span>per scan</span></div>
 </div>
 
+</div>
+<div class="hero-right">
+<div class="hero-terminal">
+  <div class="ht-bar">
+    <span class="ht-dot" style="background:#ff5f57"></span>
+    <span class="ht-dot" style="background:#febc2e"></span>
+    <span class="ht-dot" style="background:#28c840"></span>
+    <span class="ht-bar-title">argus chat — AWS · us-east-1</span>
+  </div>
+  <div class="ht-body" id="ht-body"></div>
+</div>
+</div>
+</div>
 </div>
 
 ---
@@ -106,108 +122,66 @@ Argus investigates live and answers with costs and recommendations.
 
 ## :material-cog-play-outline: How it works
 
-<div class="arch-wrap">
-<svg viewBox="0 0 800 420" xmlns="http://www.w3.org/2000/svg" class="arch-svg">
-<defs>
-  <marker id="ar" viewBox="0 0 10 7" markerWidth="8" markerHeight="6" refX="9" refY="3.5" orient="auto"><path d="M0,0 L10,3.5 L0,7 z" class="ah"/></marker>
-  <marker id="ar-u" viewBox="0 0 10 7" markerWidth="8" markerHeight="6" refX="9" refY="3.5" orient="auto"><path d="M0,0 L10,3.5 L0,7 z" class="ah-u"/></marker>
-  <marker id="ar-o" viewBox="0 0 10 7" markerWidth="8" markerHeight="6" refX="9" refY="3.5" orient="auto"><path d="M0,0 L10,3.5 L0,7 z" class="ah-o"/></marker>
-  <marker id="ar-r" viewBox="0 0 10 7" markerWidth="8" markerHeight="6" refX="9" refY="3.5" orient="auto"><path d="M0,0 L10,3.5 L0,7 z" class="ah-r"/></marker>
-</defs>
-<!-- Cloud Account -->
-<rect x="10" y="152" width="110" height="52" rx="8" class="n-src"/>
-<text x="65" y="174" text-anchor="middle" class="nt">Cloud</text>
-<text x="65" y="191" text-anchor="middle" class="nt nt-b">Account</text>
-<!-- list_resources -->
-<rect x="148" y="152" width="132" height="52" rx="8" class="n-tool"/>
-<text x="214" y="171" text-anchor="middle" class="nt nt-d" font-size="10">Asset Inventory</text>
-<text x="214" y="189" text-anchor="middle" class="nt nt-b">list_resources</text>
-<!-- Agent Loop — tall central box; outputs hang below, tools connect horizontally right -->
-<rect x="316" y="90" width="148" height="210" rx="12" class="n-agent"/>
-<text x="390" y="122" text-anchor="middle" class="nt nt-b" font-size="13">Agent Loop</text>
-<text x="390" y="140" text-anchor="middle" class="nt nt-d">ReAct</text>
-<line x1="330" y1="150" x2="450" y2="150" class="n-div"/>
-<text x="390" y="167" text-anchor="middle" class="nt nt-d" font-size="10">think→act→observe</text>
-<text x="390" y="183" text-anchor="middle" class="nt nt-d" font-size="10">no idle thresholds</text>
-<text x="390" y="199" text-anchor="middle" class="nt nt-d" font-size="10">AWS · GCP · Azure</text>
-<!-- get_metrics -->
-<rect x="500" y="105" width="185" height="50" rx="8" class="n-tool"/>
-<text x="592" y="124" text-anchor="middle" class="nt nt-d" font-size="10">CloudWatch · Monitoring</text>
-<text x="592" y="143" text-anchor="middle" class="nt nt-b">get_metrics</text>
-<!-- get_cost -->
-<rect x="500" y="183" width="185" height="50" rx="8" class="n-tool"/>
-<text x="592" y="202" text-anchor="middle" class="nt nt-d" font-size="10">Cost Explorer · BigQuery</text>
-<text x="592" y="221" text-anchor="middle" class="nt nt-b">get_cost</text>
-<!-- get_last_activity -->
-<rect x="500" y="255" width="185" height="50" rx="8" class="n-tool"/>
-<text x="592" y="274" text-anchor="middle" class="nt nt-d" font-size="10">CloudTrail · Audit Logs</text>
-<text x="592" y="293" text-anchor="middle" class="nt nt-b">get_last_activity</text>
-<!-- User question -->
-<rect x="10" y="310" width="142" height="52" rx="26" class="n-user"/>
-<text x="81" y="332" text-anchor="middle" class="nt">User</text>
-<text x="81" y="350" text-anchor="middle" class="nt nt-b">question</text>
-<!-- Slack Report — below agent, left side -->
-<rect x="195" y="368" width="148" height="45" rx="8" class="n-out"/>
-<text x="269" y="387" text-anchor="middle" class="nt nt-d" font-size="10">argus scan</text>
-<text x="269" y="404" text-anchor="middle" class="nt nt-b">Slack Report</text>
-<!-- Chat Answer — below agent, right side -->
-<rect x="432" y="368" width="148" height="45" rx="8" class="n-out"/>
-<text x="506" y="387" text-anchor="middle" class="nt nt-d" font-size="10">argus chat</text>
-<text x="506" y="404" text-anchor="middle" class="nt nt-b">Chat Answer</text>
-<!-- ── Edges ── -->
-<!-- Cloud → list_resources -->
-<line x1="120" y1="178" x2="146" y2="178" class="e" marker-end="url(#ar)"/>
-<!-- list_resources → Agent (36 px gap, arrow clearly visible) -->
-<line x1="276" y1="178" x2="314" y2="178" class="e" marker-end="url(#ar)"/>
-<!-- User question → Agent (orthogonal: right → up → right into agent left side) -->
-<path d="M 152,336 L 234,336 L 234,295 L 316,295" class="e e-u" marker-end="url(#ar-u)"/>
-<!-- Agent ↔ get_metrics (horizontal pair, 36 px gap) -->
-<line x1="464" y1="122" x2="498" y2="122" class="e" marker-end="url(#ar)"/>
-<line x1="498" y1="136" x2="464" y2="136" class="e e-r" marker-end="url(#ar-r)"/>
-<!-- Agent ↔ get_cost (horizontal pair) -->
-<line x1="464" y1="200" x2="498" y2="200" class="e" marker-end="url(#ar)"/>
-<line x1="498" y1="214" x2="464" y2="214" class="e e-r" marker-end="url(#ar-r)"/>
-<!-- Agent ↔ get_last_activity (horizontal pair) -->
-<line x1="464" y1="268" x2="498" y2="268" class="e" marker-end="url(#ar)"/>
-<line x1="498" y1="282" x2="464" y2="282" class="e e-r" marker-end="url(#ar-r)"/>
-<!-- Agent → Slack Report (orthogonal: down → left → down into Slack top) -->
-<path d="M 355,300 L 355,348 L 269,348 L 269,368" class="e e-o" marker-end="url(#ar-o)"/>
-<!-- Agent → Chat Answer (orthogonal: down → right → down into Chat top) -->
-<path d="M 440,300 L 440,348 L 524,348 L 524,368" class="e e-o" marker-end="url(#ar-o)"/>
-</svg>
+<div class="how-steps">
+  <div class="how-step">
+    <div class="how-num">1</div>
+    <h3>Discover</h3>
+    <p>One API call to the cloud's asset inventory returns every billable resource across all regions — sorted by cost descending so the most expensive candidates are investigated first.</p>
+  </div>
+  <div class="how-connector">→</div>
+  <div class="how-step">
+    <div class="how-num">2</div>
+    <h3>Investigate</h3>
+    <p>A ReAct agent loop reasons like a human analyst — pulling 90-day metrics, actual spend, and last-activity timestamps only for resources where it matters. No hardcoded thresholds.</p>
+  </div>
+  <div class="how-connector">→</div>
+  <div class="how-step">
+    <div class="how-num">3</div>
+    <h3>Report</h3>
+    <p>Prioritized findings land in Slack with exact dollar amounts and specific actions — delete, right-size, or tag for review. Or skip the batch scan and ask questions live with <code>argus chat</code>.</p>
+  </div>
 </div>
 
-Argus uses a **ReAct agent loop** — the AI decides what to investigate, calls the right
-tools in the right order, and reasons about idleness qualitatively. No hardcoded thresholds.
-No rules per resource type. The same brain works across all three clouds.
-
-Prefer conversational exploration? `argus chat` runs the same agent loop interactively —
-ask *"Which RDS instances have been idle for 30+ days?"* and get a live, grounded answer.
+Argus uses a **ReAct agent loop** — the AI decides what to investigate, calls the right tools in the right order, and reasons about idleness qualitatively. No hardcoded thresholds. No rules per resource type. The same brain works across all three clouds.
 
 ---
 
 ## :material-slack: Example Slack report
 
-```text
-Argus — AWS Waste Report (2026-06-24)
-
-💸 $1,432.85/month estimated waste
-📊 6 idle resources across 1 account
-
-Six resources were identified as idle or over-provisioned. The RDS instance
-accounts for 87% of waste and should be right-sized immediately.
-
-─────────────────────────────────────
-Top findings
-🔴 `db-analytics-01`  · RDS      · $1,240.00/mo
-🔴 `cache-prod-001`   · ElastiCache · $142.00/mo
-🔴 `i-0abc123def`     · EC2      ·    $28.40/mo
-🟡 `nat-0def456`      · NAT Gateway · $10.80/mo
-🟡 `vol-orphan`       · EBS      ·     $8.00/mo
-⚪ +1 more finding in the full report
-
-[ 📄 Full report (HTML) ]  [ vamshisiddarth/argus ]
-```
+<div class="slack-mock">
+  <div class="slack-topbar">
+    <span class="s-hash">#</span> cloud-costs
+  </div>
+  <div class="slack-body">
+    <div class="slack-msg">
+      <div class="s-avatar">A</div>
+      <div style="flex:1;min-width:0">
+        <div class="s-meta">
+          <span class="s-name">Argus</span>
+          <span class="s-badge">APP</span>
+          <span class="s-time">Today at 7:00 AM</span>
+        </div>
+        <div class="s-text">☁️ <strong>AWS Waste Report</strong> — weekly scan complete</div>
+        <div class="s-attach">
+          <div class="s-attach-title">💸 $1,432/mo estimated waste · 6 resources</div>
+          <div class="s-attach-sub">Six resources identified as idle or over-provisioned. The RDS instance accounts for 87% of waste and should be right-sized immediately.</div>
+          <div class="s-findings">
+            <div class="s-row"><span class="s-dot s-dot-h"></span><span class="s-res">db-analytics-01</span><span class="s-type">RDS db.r5.4xlarge</span><span class="s-cost">$1,240/mo</span></div>
+            <div class="s-row"><span class="s-dot s-dot-h"></span><span class="s-res">cache-prod-001</span><span class="s-type">ElastiCache r6g.large</span><span class="s-cost">$142/mo</span></div>
+            <div class="s-row"><span class="s-dot s-dot-h"></span><span class="s-res">i-0abc123def</span><span class="s-type">EC2 m5.2xlarge (stopped)</span><span class="s-cost">$28/mo</span></div>
+            <div class="s-row"><span class="s-dot s-dot-m"></span><span class="s-res">nat-0def456</span><span class="s-type">NAT Gateway</span><span class="s-cost">$11/mo</span></div>
+            <div class="s-row"><span class="s-dot s-dot-m"></span><span class="s-res">vol-orphan</span><span class="s-type">EBS Volume (unattached)</span><span class="s-cost">$8/mo</span></div>
+            <div class="s-more">+1 more finding in the full report</div>
+          </div>
+          <div class="s-btns">
+            <span class="s-btn s-btn-p">📄 Full report (HTML)</span>
+            <span class="s-btn">vamshisiddarth/argus</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
 ---
 
@@ -218,8 +192,9 @@ Top findings
     ```bash
     pip install argus-cloud-optimizer
 
-    cp .env.example .env
-    # Set ANTHROPIC_API_KEY and DRY_RUN=true
+    # Configure — set your API key and enable dry-run
+    export ANTHROPIC_API_KEY=sk-ant-...
+    export DRY_RUN=true
 
     argus scan --cloud aws --dry-run   # full weekly scan
     argus chat --cloud aws             # interactive Q&A
@@ -227,7 +202,7 @@ Top findings
 
 === "AWS Lambda"
 
-    ```text
+    ```bash
     aws cloudformation deploy \
       --template-file deploy/aws/single-account/template.yaml \
       --stack-name Argus \
@@ -277,7 +252,14 @@ Top findings
     (direct key) or **~$0.10** via AWS Bedrock. A single right-sizing recommendation
     (e.g. `db.r5.4xlarge → db.r5.xlarge`) typically saves **100–1,000× the scan cost** per month.
 
----
+<div class="cta-strip">
+  <h2>Ready to find what's wasting money?</h2>
+  <p>Clone, configure, deploy. First scan in under 5 minutes. Free and open source.</p>
+  <div class="cta-btns">
+    <a href="getting-started/" class="md-button md-button--primary">Get Started</a>
+    <a href="https://github.com/vamshisiddarth/argus" class="md-button">View on GitHub</a>
+  </div>
+</div>
 
 ## :material-rocket-launch-outline: What's next
 
@@ -310,3 +292,148 @@ Week-over-week comparison of findings — see what's new, what's resolved, and w
 </div>
 
 [See the full roadmap](roadmap.md){ .md-button }
+
+<script>
+/* ── Terminal typewriter ─────────────────────────────────── */
+(function(){
+  /* Rich HTML lines — inline styles beat any MkDocs theme overrides */
+  var C={
+    ps:  'color:#61afef;font-weight:700',
+    arr: 'color:#636d83',                    /* arrows — visible but muted */
+    em:  'color:#e5c07b;font-weight:600',
+    rn:  'color:#61afef;font-weight:600',    /* resource name */
+    rt:  'color:#7a8394',                    /* resource type */
+    dim: 'color:#636d83',                    /* dim scanning text */
+    hdr: 'color:#e5e9f0;font-weight:700',
+    tot: 'color:#e5c07b;font-weight:700',
+    dot_h:'color:#e06c75;font-size:1.1em',
+    dot_m:'color:#e5c07b;font-size:1.1em',
+    res: 'color:#abb2bf;font-weight:600',
+    typ: 'color:#7a8394',
+    c_h: 'color:#e06c75;font-weight:700',
+    c_m: 'color:#e5c07b;font-weight:700',
+    kw:  'color:#56b6c2;font-weight:700',    /* RIGHT-SIZE / DELETE */
+    sav: 'color:#98c379;font-weight:600',
+    mut: 'color:#7a8394',
+    sep: 'color:#4a5263',                    /* separator dots */
+  };
+  function s(style,text){ return '<span style="'+style+'">'+text+'</span>'; }
+
+  var LINES=[
+    /* 0: prompt — typed char by char */
+    {t:'gap'},
+    {t:'html',h: s(C.arr,'◈ ')+'Scanning '+s(C.em,'47')+' resources across '+s(C.em,'4')+' AWS regions'+s(C.dim,'...')},
+    {t:'html',h: s(C.arr,'  →')+' '+s(C.rn,'db-analytics-01')+' '+s(C.sep,'·')+' '+s(C.rt,'RDS db.r5.4xlarge')+' '+s(C.dim,'· checking')},
+    {t:'html',h: s(C.arr,'  →')+' '+s(C.rn,'cache-prod-001')+' '+s(C.sep,'·')+' '+s(C.rt,'ElastiCache r6g.large')+' '+s(C.dim,'· 0 connections')},
+    {t:'html',h: s(C.arr,'  →')+' '+s(C.rn,'nat-0def456')+' '+s(C.sep,'·')+' '+s(C.rt,'NAT Gateway')+' '+s(C.dim,'· 847 bytes/month')},
+    {t:'gap'},
+    {t:'html',h: s(C.dot_h,'◆')+' '+s(C.hdr,'3 high-priority findings')+' '+s(C.sep,'·')+' '+s(C.tot,'$1,410/mo')+' '+s(C.mut,'estimated waste')},
+    {t:'gap'},
+    {t:'html',h: s(C.dot_h,'●')+' '+s(C.res,'db-analytics-01')+' '+s(C.typ,'RDS db.r5.4xlarge')+' '+s(C.c_h,'$1,240/mo')},
+    {t:'html',h: '  '+s(C.kw,'RIGHT-SIZE:')+' '+s(C.typ,'db.r5.4xlarge → db.r5.xlarge')+' '+s(C.sav,'saves $920/mo')},
+    {t:'html',h: s(C.dot_h,'●')+' '+s(C.res,'cache-prod-001')+' '+s(C.typ,'ElastiCache r6g.large')+' '+s(C.c_h,'$142/mo')},
+    {t:'html',h: '  '+s(C.kw,'DELETE:')+' '+s(C.typ,'Zero cache hits in 30 days.')},
+    {t:'html',h: s(C.dot_m,'◉')+' '+s(C.res,'nat-0def456')+' '+s(C.typ,'NAT Gateway')+' '+s(C.c_m,'$28/mo')},
+    {t:'html',h: '  '+s(C.kw,'DELETE:')+' '+s(C.typ,'847 bytes in 90 days. Orphaned.')},
+  ];
+
+  var PROMPT="What's wasting the most money this week?";
+
+  function run(body){
+    if(body._argus_started) return;
+    body._argus_started=true;
+
+    /* prompt line */
+    var pl=document.createElement('div');
+    pl.style.cssText='color:#e5e7eb';
+    var typed=document.createElement('span');
+    var cur=document.createElement('span');
+    cur.className='ht-cursor';
+    pl.innerHTML=s(C.ps,'argus&gt; ');
+    pl.appendChild(typed);
+    pl.appendChild(cur);
+    body.appendChild(pl);
+
+    var ci=0;
+    function typeChar(){
+      typed.textContent=PROMPT.slice(0,++ci);
+      if(ci<PROMPT.length) setTimeout(typeChar,38);
+      else { cur.style.display='none'; setTimeout(function(){showLine(0,0);},380); }
+    }
+
+    function showLine(idx,delay){
+      if(idx>=LINES.length)return;
+      setTimeout(function(){
+        var s2=LINES[idx];
+        if(s2.t==='gap'){
+          var g=document.createElement('div');
+          g.style.height='0.5em';
+          body.appendChild(g);
+          showLine(idx+1,50);
+        } else {
+          var el=document.createElement('div');
+          el.innerHTML=s2.h;
+          body.appendChild(el);
+          var d=110;
+          showLine(idx+1,d);
+        }
+      },delay);
+    }
+
+    setTimeout(typeChar,600);
+  }
+
+  function tryRun(attempts){
+    var body=document.getElementById('ht-body');
+    if(body){ run(body); }
+    else if((attempts||0)<25){ setTimeout(function(){ tryRun((attempts||0)+1); },80); }
+  }
+
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',function(){ tryRun(); });
+  } else {
+    tryRun();
+  }
+  /* MkDocs Material instant navigation */
+  if(typeof document$!=='undefined'){
+    document$.subscribe(function(){ tryRun(); });
+  }
+})();
+
+/* ── Stat counters ───────────────────────────────────────── */
+(function(){
+  function animCount(el){
+    var raw=el.getAttribute('data-count');
+    if(!raw||el._counted)return;
+    el._counted=true;
+    var prefix=el.getAttribute('data-prefix')||'';
+    var suffix=el.getAttribute('data-suffix')||'';
+    var target=parseFloat(raw);
+    var isFloat=raw.indexOf('.')!==-1;
+    var t0=performance.now(), dur=900;
+    function step(now){
+      var p=Math.min((now-t0)/dur,1);
+      var ease=1-Math.pow(1-p,3);
+      var v=target*ease;
+      el.textContent=prefix+(isFloat?v.toFixed(2):Math.round(v))+suffix;
+      if(p<1) requestAnimationFrame(step);
+      else el.textContent=prefix+(isFloat?target.toFixed(2):target)+suffix;
+    }
+    requestAnimationFrame(step);
+  }
+  function initCounters(){
+    var obs=new IntersectionObserver(function(entries){
+      entries.forEach(function(e){ if(e.isIntersecting) animCount(e.target); });
+    },{threshold:0.1});
+    document.querySelectorAll('[data-count]').forEach(function(el){ obs.observe(el); });
+  }
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',initCounters);
+  } else {
+    initCounters();
+  }
+  if(typeof document$!=='undefined'){
+    document$.subscribe(function(){ initCounters(); });
+  }
+})();
+</script>

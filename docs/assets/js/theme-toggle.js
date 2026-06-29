@@ -33,8 +33,17 @@
         '<path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/>' +
       '</svg>';
 
-    /* Insert right after the first original label */
-    origLabels[0].parentNode.insertBefore(pill, origLabels[0].nextSibling);
+    /* Insert the pill immediately before the search bar in the header.
+       This is robust across all MkDocs Material versions regardless of
+       whether the palette labels are inside a <form> or directly in the nav. */
+    var searchEl = document.querySelector('[data-md-component="search"]') ||
+                   document.querySelector('.md-search');
+    if (searchEl && searchEl.parentNode) {
+      searchEl.parentNode.insertBefore(pill, searchEl);
+    } else {
+      /* Last-resort fallback */
+      origLabels[0].parentNode.insertBefore(pill, origLabels[0].nextSibling);
+    }
 
     function isDark() {
       return document.body.getAttribute('data-md-color-scheme') === 'slate';
