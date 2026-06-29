@@ -12,9 +12,11 @@ hide:
 
 <div class="hero-badge" markdown><span class="hero-badge-version">v0.4.1</span> · Open Source · MIT License</div>
 
+<p class="hero-tagline">AI Cloud Detective</p>
+
 <h1 class="hero-h1">Stop Wasting Money<br>on Idle Cloud Resources</h1>
 
-<p class="hero-sub">AI finds what's wasting money across AWS, GCP, and Azure — idle, oversized, orphaned. Ranked findings with exact actions, straight to Slack. Or ask questions live.</p>
+<p class="hero-sub">Argus finds what's wasting money across AWS, GCP, and Azure — idle, oversized, orphaned. Ranked findings with exact actions, straight to Slack. Or ask questions live.</p>
 
 <div class="hero-buttons">
 <a href="getting-started/" class="md-button md-button--primary">Get Started</a>

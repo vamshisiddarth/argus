@@ -73,6 +73,5 @@
   } else {
     init();
   }
-  /* Re-init on MkDocs page switches but never replay the intro */
   document.addEventListener('DOMContentSwitch', init);
 })();

@@ -91,6 +91,17 @@
 [data-md-color-scheme="default"] .hero p,
 [data-md-color-scheme="default"] .hero-sub { color: rgba(0,0,0,0.55); }
 
+.hero-tagline {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  margin: 0 0 0.65rem;
+}
+[data-md-color-scheme="slate"] .hero-tagline { color: #a5b4fc; }
+[data-md-color-scheme="default"] .hero-tagline { color: #4f46e5; }
+
 .hero-h1 {
   font-size: clamp(1.75rem, 3vw, 2.4rem);
   font-weight: 800;
@@ -175,7 +186,8 @@
   justify-content: flex-start;
   flex-wrap: nowrap;
   border-radius: 12px;
-  max-width: 480px;
+  max-width: 100%;
+  width: fit-content;
   overflow: hidden;
 }
 
@@ -745,6 +757,7 @@
   padding: 2.25rem 3rem 2.5rem;
   position: relative;
   z-index: 1;
+  box-sizing: border-box;
 }
 
 .hero-left {
@@ -752,9 +765,16 @@
 }
 
 .hero-right {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  position: relative;
+  /* zero height — terminal is positioned absolutely so it can't push the grid row */
+  height: 0;
+  overflow: visible;
+}
+
+.hero-terminal {
+  position: absolute;
+  top: -160px;
+  left: 1rem;
 }
 
 /* children float above blobs */
@@ -822,8 +842,7 @@
 
 /* ── Hero terminal ───────────────────────────────────────── */
 .hero-terminal {
-  width: 100%;
-  max-width: 560px;
+  width: 620px;
   border-radius: 10px;
   overflow: hidden;
   font-family: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', ui-monospace, monospace;
@@ -865,7 +884,7 @@
 .ht-body {
   background: #0d0f14;
   padding: 14px 16px 22px;
-  min-height: 170px;
+  height: 360px;
   color: #abb2bf;
   overflow: hidden;
   white-space: nowrap;
@@ -959,20 +978,56 @@
 @media (max-width: 860px) {
   .hero-inner {
     grid-template-columns: 1fr;
-    padding: 2.5rem 1.5rem;
-    gap: 2rem;
+    padding: 2rem 1.5rem 2.5rem;
+    gap: 0;
     text-align: center;
+    min-height: unset;
   }
   .hero-left { text-align: center; }
+  .hero-tagline { text-align: center; }
+  .hero-sub { max-width: 100%; margin-left: auto; margin-right: auto; }
   .hero-buttons { justify-content: center; }
   .cloud-badges { justify-content: center; }
-  .hero-stats { margin: 0 auto; }
-  .hero-terminal { max-width: 100%; }
+  .hero-stats { margin: 0 auto; width: fit-content; max-width: 100%; }
+  .hero-right { display: none; }
 }
 
 @media (max-width: 600px) {
+  .hero-inner {
+    padding: 1.75rem 1rem 2rem;
+    gap: 1.5rem;
+  }
+  .hero-h1 { font-size: clamp(1.5rem, 7vw, 2rem); }
+  .hero-sub { font-size: 0.9rem; }
+  /* stats: 2×2 grid on very small screens */
+  .hero-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: 100%;
+    border-radius: 10px;
+  }
+  .hero-stat { border-right: none !important; }
+  [data-md-color-scheme="slate"] .hero-stat:nth-child(1),
+  [data-md-color-scheme="slate"] .hero-stat:nth-child(2) {
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  [data-md-color-scheme="default"] .hero-stat:nth-child(1),
+  [data-md-color-scheme="default"] .hero-stat:nth-child(2) {
+    border-bottom: 1px solid rgba(0,0,0,0.08);
+  }
+  [data-md-color-scheme="slate"] .hero-stat:nth-child(odd) {
+    border-right: 1px solid rgba(255,255,255,0.08) !important;
+  }
+  [data-md-color-scheme="default"] .hero-stat:nth-child(odd) {
+    border-right: 1px solid rgba(0,0,0,0.08) !important;
+  }
+  .hero-buttons { flex-direction: column; align-items: stretch; gap: 0.6rem; }
+  .hero-buttons .md-button { text-align: center; }
+  .cloud-badges { gap: 0.4rem; }
   .how-steps { flex-direction: column; gap: 1rem; }
   .how-connector { padding: 0; justify-content: center; font-size: 1.1rem; }
+  /* hide terminal on very small screens to save space */
+  .hero-right { display: none; }
 }
 
 /* ── Slack mockup ─────────────────────────────────────────── */
