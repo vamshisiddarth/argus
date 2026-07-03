@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 380" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto">
+  <rect width="860" height="380" fill="#06070f"/>
+
+  <text x="430" y="34" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="14" font-weight="600" fill="#8b8fff" text-anchor="middle" letter-spacing="2">COMBINING SIGNALS — NAT GATEWAY nat-0def456</text>
+
+  <!-- Signal rows -->
+  <rect x="30" y="56" width="220" height="46" rx="8" fill="#0f172a" stroke="#1e293b" stroke-width="1"/>
+  <text x="50" y="74" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="10" fill="#64748b">CPU utilization</text>
+  <text x="50" y="91" font-family="ui-monospace,'SF Mono',Menlo,monospace" font-size="12" fill="#e2e8f0">avg 1.2%  max 8.4%</text>
+
+  <rect x="30" y="110" width="220" height="46" rx="8" fill="#0f172a" stroke="#1e293b" stroke-width="1"/>
+  <text x="50" y="128" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="10" fill="#64748b">Network traffic (14 days)</text>
+  <text x="50" y="145" font-family="ui-monospace,'SF Mono',Menlo,monospace" font-size="12" fill="#e2e8f0">847 bytes total</text>
+
+  <rect x="30" y="164" width="220" height="46" rx="8" fill="#0f172a" stroke="#1e293b" stroke-width="1"/>
+  <text x="50" y="182" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="10" fill="#64748b">Last human activity</text>
+  <text x="50" y="199" font-family="ui-monospace,'SF Mono',Menlo,monospace" font-size="12" fill="#e2e8f0">73 days ago</text>
+
+  <rect x="30" y="218" width="220" height="46" rx="8" fill="#0f172a" stroke="#1e293b" stroke-width="1"/>
+  <text x="50" y="236" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="10" fill="#64748b">Monthly cost</text>
+  <text x="50" y="253" font-family="ui-monospace,'SF Mono',Menlo,monospace" font-size="12" fill="#e2e8f0">$94.20 / mo</text>
+
+  <rect x="30" y="272" width="220" height="46" rx="8" fill="#0f172a" stroke="#1e293b" stroke-width="1"/>
+  <text x="50" y="290" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="10" fill="#64748b">Resource tag</text>
+  <text x="50" y="307" font-family="ui-monospace,'SF Mono',Menlo,monospace" font-size="12" fill="#e2e8f0">team=backend</text>
+
+  <!-- connector lines to AI -->
+  <line x1="250" y1="79"  x2="358" y2="192" stroke="#2d3748" stroke-width="1"/>
+  <line x1="250" y1="133" x2="358" y2="197" stroke="#2d3748" stroke-width="1"/>
+  <line x1="250" y1="187" x2="358" y2="200" stroke="#2d3748" stroke-width="1"/>
+  <line x1="250" y1="241" x2="358" y2="205" stroke="#2d3748" stroke-width="1"/>
+  <line x1="250" y1="295" x2="358" y2="210" stroke="#2d3748" stroke-width="1"/>
+
+  <!-- AI box -->
+  <rect x="358" y="152" width="144" height="100" rx="10" fill="#1a1040" stroke="#4f46e5" stroke-width="1.5"/>
+  <circle cx="430" cy="184" r="20" fill="#2a2a3e" stroke="#8b8fff" stroke-width="1.5"/>
+  <circle cx="430" cy="184" r="14" fill="white"/>
+  <circle cx="430" cy="184" r="8" fill="#1a0f0a"/>
+  <circle cx="427" cy="181" r="3.5" fill="white"/>
+  <circle cx="434" cy="188" r="1.5" fill="white" opacity="0.6"/>
+  <text x="430" y="224" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="13" font-weight="700" fill="#a5b4fc" text-anchor="middle">argus</text>
+  <text x="430" y="242" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="10" fill="#6366f1" text-anchor="middle">weighs all signals</text>
+
+  <!-- arrow to output -->
+  <line x1="502" y1="200" x2="590" y2="200" stroke="#4ade80" stroke-width="1.5"/>
+  <polygon points="590,200 580,195 580,205" fill="#4ade80"/>
+
+  <!-- output finding -->
+  <rect x="590" y="100" width="240" height="200" rx="10" fill="#0a1a0a" stroke="#14532d" stroke-width="1.5"/>
+  <text x="610" y="128" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="11" fill="#4ade80" font-weight="600">FINDING — HIGH</text>
+  <line x1="610" y1="136" x2="810" y2="136" stroke="#14532d" stroke-width="0.5"/>
+  <text x="610" y="158" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="11" fill="#86efac">NAT Gateway moved</text>
+  <text x="610" y="176" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="11" fill="#86efac">847 bytes in 14 days.</text>
+  <text x="610" y="194" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="11" fill="#86efac">Last touched 73 days</text>
+  <text x="610" y="212" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="11" fill="#86efac">ago. Team backend</text>
+  <text x="610" y="230" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="11" fill="#86efac">should verify.</text>
+  <line x1="610" y1="242" x2="810" y2="242" stroke="#14532d" stroke-width="0.5"/>
+  <text x="610" y="262" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="11" fill="#4ade80" font-weight="600">Recommendation: delete</text>
+  <text x="610" y="280" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="11" fill="#4ade80" font-weight="600">Saves: $94.20/mo</text>
+</svg>

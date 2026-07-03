@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 460" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto">
+  <rect width="860" height="460" fill="#06070f"/>
+
+  <text x="430" y="36" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="15" font-weight="600" fill="#8b8fff" text-anchor="middle" letter-spacing="3">THE REACT LOOP</text>
+
+  <!-- THINK -->
+  <rect x="40" y="150" width="180" height="80" rx="10" fill="#1a1040" stroke="#4f46e5" stroke-width="1.5"/>
+  <text x="130" y="183" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="15" font-weight="600" fill="#a5b4fc" text-anchor="middle">THINK</text>
+  <text x="130" y="202" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="11" fill="#6366f1" text-anchor="middle">AI reasons about</text>
+  <text x="130" y="218" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="11" fill="#6366f1" text-anchor="middle">what to investigate</text>
+
+  <!-- ACT -->
+  <rect x="340" y="68" width="180" height="80" rx="10" fill="#0f1a0f" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="430" y="101" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="15" font-weight="600" fill="#4ade80" text-anchor="middle">ACT</text>
+  <text x="430" y="120" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="11" fill="#22c55e" text-anchor="middle">call a cloud tool</text>
+  <text x="430" y="136" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="11" fill="#22c55e" text-anchor="middle">(metrics / cost / activity)</text>
+
+  <!-- OBSERVE -->
+  <rect x="640" y="150" width="180" height="80" rx="10" fill="#1a0f0a" stroke="#c2410c" stroke-width="1.5"/>
+  <text x="730" y="183" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="15" font-weight="600" fill="#fb923c" text-anchor="middle">OBSERVE</text>
+  <text x="730" y="202" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="11" fill="#f97316" text-anchor="middle">read the result</text>
+  <text x="730" y="218" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="11" fill="#f97316" text-anchor="middle">add to context</text>
+
+  <!-- THINK -> ACT arrow -->
+  <path d="M220 175 Q310 118 340 108" fill="none" stroke="#4f46e5" stroke-width="1.5"/>
+  <polygon points="340,108 328,100 328,116" fill="#4f46e5"/>
+  <text x="278" y="128" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="11" fill="#6366f1" text-anchor="middle">call tool</text>
+
+  <!-- ACT -> OBSERVE arrow -->
+  <path d="M520 108 Q610 118 640 175" fill="none" stroke="#16a34a" stroke-width="1.5"/>
+  <polygon points="640,175 630,164 644,162" fill="#16a34a"/>
+  <text x="590" y="128" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="11" fill="#22c55e" text-anchor="middle">result</text>
+
+  <!-- OBSERVE -> THINK loop arrow -->
+  <path d="M730 230 Q730 340 430 360 Q180 360 130 230" fill="none" stroke="#c2410c" stroke-width="1.5"/>
+  <polygon points="130,230 118,242 134,244" fill="#c2410c"/>
+  <text x="430" y="380" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="11" fill="#f97316" text-anchor="middle">repeat until confident enough to write findings</text>
+
+  <!-- tools box -->
+  <rect x="296" y="174" width="268" height="116" rx="8" fill="#0c0c14" stroke="#1e1f3a" stroke-width="1"/>
+  <text x="430" y="196" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="10" fill="#475569" text-anchor="middle">available tools</text>
+  <text x="316" y="215" font-family="ui-monospace,'SF Mono',Menlo,monospace" font-size="11" fill="#64748b">list_resources()</text>
+  <text x="316" y="234" font-family="ui-monospace,'SF Mono',Menlo,monospace" font-size="11" fill="#64748b">get_metrics(resource_id)</text>
+  <text x="316" y="253" font-family="ui-monospace,'SF Mono',Menlo,monospace" font-size="11" fill="#64748b">get_cost(resource_ids)</text>
+  <text x="316" y="272" font-family="ui-monospace,'SF Mono',Menlo,monospace" font-size="11" fill="#64748b">get_last_activity(resource_id)</text>
+
+  <!-- exit box -->
+  <rect x="296" y="406" width="268" height="38" rx="8" fill="#0a1a0a" stroke="#14532d" stroke-width="1"/>
+  <text x="430" y="430" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="12" fill="#4ade80" text-anchor="middle">exits when AI writes final findings report</text>
+</svg>

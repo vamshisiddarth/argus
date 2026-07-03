@@ -1,0 +1,103 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto">
+  <defs>
+    <radialGradient id="g1" cx="25%" cy="40%" r="50%">
+      <stop offset="0%" stop-color="#4f46e5" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#4f46e5" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="g2" cx="80%" cy="60%" r="45%">
+      <stop offset="0%" stop-color="#7c3aed" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#7c3aed" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="#06070f"/>
+  <ellipse cx="300" cy="250" rx="500" ry="400" fill="url(#g1)"/>
+  <ellipse cx="960" cy="380" rx="420" ry="360" fill="url(#g2)"/>
+
+  <!-- title -->
+  <text x="600" y="54" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="22" font-weight="700" fill="#f1f5f9" text-anchor="middle">Why rules break — and what we did instead</text>
+
+  <!-- Left: rules column -->
+  <rect x="60" y="80" width="480" height="430" rx="12" fill="#0d0e1a" stroke="#1e1f3a" stroke-width="1"/>
+  <text x="300" y="116" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="14" font-weight="600" fill="#6366f1" text-anchor="middle" letter-spacing="3">RULE-BASED</text>
+
+  <rect x="84" y="132" width="432" height="46" rx="6" fill="#11121f"/>
+  <text x="104" y="151" font-family="ui-monospace,'SF Mono',Menlo,monospace" font-size="11" fill="#94a3b8">EC2</text>
+  <text x="104" y="168" font-family="ui-monospace,'SF Mono',Menlo,monospace" font-size="12" fill="#e2e8f0">CPU &lt; 5% for 7 days  →  idle</text>
+
+  <rect x="84" y="186" width="432" height="46" rx="6" fill="#11121f"/>
+  <text x="104" y="205" font-family="ui-monospace,'SF Mono',Menlo,monospace" font-size="11" fill="#94a3b8">RDS</text>
+  <text x="104" y="222" font-family="ui-monospace,'SF Mono',Menlo,monospace" font-size="12" fill="#e2e8f0">connections = 0  →  idle</text>
+
+  <rect x="84" y="240" width="432" height="46" rx="6" fill="#11121f"/>
+  <text x="104" y="259" font-family="ui-monospace,'SF Mono',Menlo,monospace" font-size="11" fill="#94a3b8">NAT Gateway</text>
+  <text x="104" y="276" font-family="ui-monospace,'SF Mono',Menlo,monospace" font-size="12" fill="#e2e8f0">bytes &lt; 1 MB/day  →  idle</text>
+
+  <rect x="84" y="294" width="432" height="46" rx="6" fill="#11121f"/>
+  <text x="104" y="313" font-family="ui-monospace,'SF Mono',Menlo,monospace" font-size="11" fill="#94a3b8">Lambda</text>
+  <text x="104" y="330" font-family="ui-monospace,'SF Mono',Menlo,monospace" font-size="12" fill="#e2e8f0">invocations &lt; 10/month  →  idle</text>
+
+  <rect x="84" y="348" width="432" height="46" rx="6" fill="#11121f"/>
+  <text x="104" y="367" font-family="ui-monospace,'SF Mono',Menlo,monospace" font-size="11" fill="#94a3b8">EBS Volume</text>
+  <text x="104" y="384" font-family="ui-monospace,'SF Mono',Menlo,monospace" font-size="12" fill="#e2e8f0">read_ops = 0 for 30 days  →  idle</text>
+
+  <rect x="84" y="406" width="432" height="82" rx="6" fill="#1a0808" stroke="#7f1d1d" stroke-width="1"/>
+  <text x="300" y="434" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="13" fill="#f87171" text-anchor="middle">But what about the monthly reporting job?</text>
+  <text x="300" y="455" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="13" fill="#f87171" text-anchor="middle">The VPN tunnel carrying 500 KB? The tag</text>
+  <text x="300" y="476" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="13" fill="#f87171" text-anchor="middle">context that says this is prod infra?</text>
+
+  <!-- divider -->
+  <line x1="608" y1="72" x2="608" y2="550" stroke="#1e1f3a" stroke-width="1" stroke-dasharray="6,4"/>
+  <text x="608" y="65" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="13" fill="#334155" text-anchor="middle">vs</text>
+
+  <!-- Right: AI reasoning column -->
+  <rect x="660" y="80" width="480" height="430" rx="12" fill="#0d0e1a" stroke="#1e1f3a" stroke-width="1"/>
+  <text x="900" y="116" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="14" font-weight="600" fill="#8b8fff" text-anchor="middle" letter-spacing="3">AI REASONING</text>
+
+  <!-- signals -->
+  <rect x="680" y="132" width="196" height="40" rx="6" fill="#0f172a" stroke="#1e293b" stroke-width="1"/>
+  <text x="700" y="148" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="10" fill="#64748b">CPU utilization</text>
+  <text x="700" y="164" font-family="ui-monospace,'SF Mono',Menlo,monospace" font-size="12" fill="#cbd5e1">avg 1.2%  max 8.4%</text>
+
+  <rect x="680" y="180" width="196" height="40" rx="6" fill="#0f172a" stroke="#1e293b" stroke-width="1"/>
+  <text x="700" y="196" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="10" fill="#64748b">Network traffic (14 days)</text>
+  <text x="700" y="212" font-family="ui-monospace,'SF Mono',Menlo,monospace" font-size="12" fill="#cbd5e1">847 bytes total</text>
+
+  <rect x="680" y="228" width="196" height="40" rx="6" fill="#0f172a" stroke="#1e293b" stroke-width="1"/>
+  <text x="700" y="244" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="10" fill="#64748b">Last human activity</text>
+  <text x="700" y="260" font-family="ui-monospace,'SF Mono',Menlo,monospace" font-size="12" fill="#cbd5e1">73 days ago</text>
+
+  <rect x="680" y="276" width="196" height="40" rx="6" fill="#0f172a" stroke="#1e293b" stroke-width="1"/>
+  <text x="700" y="292" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="10" fill="#64748b">Monthly cost</text>
+  <text x="700" y="308" font-family="ui-monospace,'SF Mono',Menlo,monospace" font-size="12" fill="#cbd5e1">$94.20 / mo</text>
+
+  <rect x="680" y="324" width="196" height="40" rx="6" fill="#0f172a" stroke="#1e293b" stroke-width="1"/>
+  <text x="700" y="340" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="10" fill="#64748b">Resource tag</text>
+  <text x="700" y="356" font-family="ui-monospace,'SF Mono',Menlo,monospace" font-size="12" fill="#cbd5e1">team=backend</text>
+
+  <!-- connector lines -->
+  <line x1="876" y1="152" x2="924" y2="248" stroke="#2d3748" stroke-width="1"/>
+  <line x1="876" y1="200" x2="924" y2="255" stroke="#2d3748" stroke-width="1"/>
+  <line x1="876" y1="248" x2="924" y2="262" stroke="#2d3748" stroke-width="1"/>
+  <line x1="876" y1="296" x2="924" y2="268" stroke="#2d3748" stroke-width="1"/>
+  <line x1="876" y1="344" x2="924" y2="275" stroke="#2d3748" stroke-width="1"/>
+
+  <!-- AI box -->
+  <rect x="924" y="220" width="156" height="90" rx="10" fill="#1a1040" stroke="#4f46e5" stroke-width="1.5"/>
+  <circle cx="970" cy="252" r="18" fill="#2a2a3e" stroke="#8b8fff" stroke-width="1.5"/>
+  <circle cx="970" cy="252" r="13" fill="white"/>
+  <circle cx="970" cy="252" r="7" fill="#1a0f0a"/>
+  <circle cx="967" cy="249" r="3" fill="white"/>
+  <text x="997" y="250" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="13" font-weight="700" fill="#a5b4fc">argus</text>
+  <text x="997" y="268" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="10" fill="#6366f1">AI reasoning</text>
+  <text x="1002" y="284" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="10" fill="#6366f1">all signals</text>
+
+  <!-- output finding -->
+  <rect x="680" y="388" width="432" height="100" rx="8" fill="#0a1a0a" stroke="#14532d" stroke-width="1.5"/>
+  <text x="700" y="412" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="11" fill="#4ade80" font-weight="600">FINDING — HIGH PRIORITY</text>
+  <text x="700" y="433" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="12" fill="#86efac">"NAT Gateway nat-0def456 moved 847 bytes in</text>
+  <text x="700" y="452" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="12" fill="#86efac">14 days. Last touched 73 days ago. $94.20/mo.</text>
+  <text x="700" y="471" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="12" fill="#4ade80">Recommendation: delete it."</text>
+
+  <text x="600" y="580" font-family="ui-monospace,'SF Mono',Menlo,monospace" font-size="12" fill="rgba(255,255,255,0.18)" text-anchor="middle">vamshisiddarth.github.io/argus</text>
+</svg>
