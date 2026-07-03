@@ -35,6 +35,9 @@ def build_html_report(report: dict[str, Any]) -> str:
     errors_html = _build_errors_banner(
         scan_errors, len(report.get("accounts_scanned", []))
     )
+    registry_warnings_html = _build_registry_warnings_banner(
+        report.get("registry_warnings") or []
+    )
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -113,7 +116,7 @@ tbody tr:last-child td{{border-bottom:none}}
     </div>
     <p class="summary">{summary}</p>
   </div>
-{errors_html}
+{errors_html}{registry_warnings_html}
   <div class="filters">
     <select id="f-priority" onchange="applyFilters()">
       <option value="">All priorities</option>
@@ -302,6 +305,21 @@ def _build_errors_banner(
         f'    <div class="error-banner-title">'
         f"⚠️ Partial scan — {accounts_succeeded}/{total} "
         f"account{'s' if total != 1 else ''} succeeded"
+        f"</div>\n"
+        f"    <ul>{items}</ul>\n"
+        f"  </div>\n"
+    )
+
+
+def _build_registry_warnings_banner(warnings: list[str]) -> str:
+    if not warnings:
+        return ""
+    items = "".join(f"<li><code>{html.escape(w)}</code></li>" for w in warnings)
+    return (
+        f'  <div class="error-banner">\n'
+        f'    <div class="error-banner-title">'
+        f"⚠️ Registry loaded with {len(warnings)} skipped spec"
+        f"{'s' if len(warnings) != 1 else ''} — some resource types may be missing"
         f"</div>\n"
         f"    <ul>{items}</ul>\n"
         f"  </div>\n"

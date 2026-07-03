@@ -38,6 +38,7 @@ from adapters.gcp.adapter import GCPAdapter
 from core.agent.loop import AgentLoop
 from core.log import configure_logging
 from core.models.finding import ResourceFinding
+from core.registry import get_registry
 from core.reports.comparison import compare_scans
 from core.reports.delivery import (
     notify_all,
@@ -113,6 +114,7 @@ def main() -> None:
         scan_diff=scan_diff,
         scan_errors=scan_errors,
         skipped_resource_types=skipped_types,
+        registry_warnings=get_registry().load_warnings,
     )
     report_url: str | None = None
     if gcs_bucket:

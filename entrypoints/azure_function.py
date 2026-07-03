@@ -37,6 +37,7 @@ import structlog
 from adapters.azure.adapter import AzureAdapter
 from core.agent.loop import AgentLoop
 from core.log import configure_logging
+from core.registry import get_registry
 from core.reports.comparison import compare_scans
 from core.reports.delivery import (
     notify_all,
@@ -111,6 +112,7 @@ def main(mytimer: Any) -> None:
         agent_output_tokens=int(token_summary["total_output_tokens"]),
         scan_diff=scan_diff,
         scan_errors=[],
+        registry_warnings=get_registry().load_warnings,
     )
     report_url: str | None = None
     if storage_account:
