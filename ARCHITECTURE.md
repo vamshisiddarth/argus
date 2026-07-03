@@ -23,35 +23,35 @@
 │                                         ▼                                   │
 │  ┌──────────────────────────────────────────────────────────────────────┐   │
 │  │  ENTRYPOINT (thin runtime wrapper — no business logic)               │   │
-│  │  aws_lambda.py / gcp_cloudrun.py / azure_function.py / cli.py       │   │
+│  │  aws_lambda.py / gcp_cloudrun.py / azure_function.py / cli.py        │   │
 │  └───────────────────────────────┬──────────────────────────────────────┘   │
 │                                  │                                          │
 │                                  ▼                                          │
 │  ┌──────────────────────────────────────────────────────────────────────┐   │
 │  │  CORE — pure Python, zero cloud imports                              │   │
 │  │                                                                      │   │
-│  │  ┌─────────────────────────────────────────────────────────────┐    │   │
-│  │  │  AGENT LOOP  (core/agent/loop.py)                           │    │   │
-│  │  │                                                             │    │   │
-│  │  │  System prompt injected with:                               │    │   │
-│  │  │  - cloud type (aws / gcp / azure)                          │    │   │
-│  │  │  - account list + regions                                  │    │   │
-│  │  │  - available tools                                         │    │   │
-│  │  │                                                             │    │   │
-│  │  │   ┌─────────┐    ┌──────────────┐    ┌──────────────────┐  │    │   │
-│  │  │   │  THINK  │───►│   CALL TOOL  │───►│  OBSERVE RESULT  │  │    │   │
-│  │  │   └────▲────┘    └──────────────┘    └────────┬─────────┘  │    │   │
-│  │  │        │                                       │            │    │   │
-│  │  │        └───────────────────────────────────────┘            │    │   │
-│  │  │                    (repeat until done)                      │    │   │
-│  │  └─────────────────────────────────────────────────────────────┘    │   │
+│  │  ┌─────────────────────────────────────────────────────────────┐     │   │
+│  │  │  AGENT LOOP  (core/agent/loop.py)                           │     │   │
+│  │  │                                                             │     │   │
+│  │  │  System prompt injected with:                               │     │   │
+│  │  │  - cloud type (aws / gcp / azure)                           │     │   │
+│  │  │  - account list + regions                                   │     │   │
+│  │  │  - available tools                                          │     │   │
+│  │  │                                                             │     │   │
+│  │  │   ┌─────────┐    ┌──────────────┐    ┌──────────────────┐   │     │   │
+│  │  │   │  THINK  │───►│   CALL TOOL  │───►│  OBSERVE RESULT  │   │     │   │
+│  │  │   └────▲────┘    └──────────────┘    └────────┬─────────┘   │     │   │
+│  │  │        │                                       │            │     │   │
+│  │  │        └───────────────────────────────────────┘            │     │   │
+│  │  │                    (repeat until done)                      │     │   │
+│  │  └─────────────────────────────────────────────────────────────┘     │   │
 │  │                                                                      │   │
-│  │  ┌──────────────────────┐   ┌───────────────────────────────────┐   │   │
-│  │  │  REPORT GENERATOR    │   │  NOTIFICATIONS                    │   │   │
-│  │  │  core/reports/       │   │  core/reports/delivery.py         │   │   │
-│  │  │  - JSON/HTML/PDF/    │   │  - Slack / Teams / generic webhook│   │   │
-│  │  │    PPTX export       │   │  - ranked by monthly waste ($)    │   │   │
-│  │  └──────────────────────┘   └───────────────────────────────────┘   │   │
+│  │  ┌──────────────────────┐   ┌───────────────────────────────────┐    │   │
+│  │  │  REPORT GENERATOR    │   │  NOTIFICATIONS                    │    │   │
+│  │  │  core/reports/       │   │  core/reports/delivery.py         │    │   │
+│  │  │  - JSON/HTML/PDF/    │   │  - Slack / Teams / generic webhook│    │   │
+│  │  │    PPTX export       │   │  - ranked by monthly waste ($)    │    │   │
+│  │  └──────────────────────┘   └───────────────────────────────────┘    │   │
 │  └──────────────────────────────────────────────────────────────────────┘   │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -66,10 +66,10 @@
   ┌───────────────────────────────────────────────────────────────┐
   │  CloudAdapter (adapters/base.py)                              │
   │                                                               │
-  │  list_resources(regions)     → list[Resource]                │
-  │  get_metrics(resource_id, days) → MetricSummary              │
-  │  get_cost(resource_ids, days)   → dict[str, float]           │
-  │  get_last_activity(resource_id) → datetime | None            │
+  │  list_resources(regions)     → list[Resource]                 │
+  │  get_metrics(resource_id, days) → MetricSummary               │
+  │  get_cost(resource_ids, days)   → dict[str, float]            │
+  │  get_last_activity(resource_id) → datetime | None             │
   └───────────────────────┬───────────────────────────────────────┘
                           │  implemented by
           ┌───────────────┼───────────────┐
@@ -100,18 +100,18 @@
   ┌───────────────────────────────────────────────────────────────┐
   │  AIProvider (ai/base.py)                                      │
   │                                                               │
-  │  chat(messages, tools) → AIResponse                          │
+  │  chat(messages, tools) → AIResponse                           │
   └───────────────────────┬───────────────────────────────────────┘
                           │  implemented by
           ┌───────────────┼───────────────┬───────────────┐
           ▼               ▼               ▼               ▼
   ┌─────────────┐ ┌─────────────┐ ┌────────────┐ ┌────────────────┐
   │  Bedrock    │ │  Vertex AI  │ │Azure OpenAI│ │ Anthropic API  │
-  │  ✅ built   │ │  ✅ built   │ │  ✅ built  │ │ ✅ built       │
+  │  ✅ built   │ │  ✅ built    │ │  ✅ built  │ │ ✅ built       │
   │  (AWS)      │ │  (GCP)      │ │  (Azure)   │ │ (local dev /   │
   │             │ │             │ │            │ │  any cloud)    │
-  │ Claude      │ │ Gemini 1.5  │ │  GPT-4o    │ │ Claude        │
-  │ Sonnet 4.6  │ │ Pro         │ │            │ │ Sonnet 4.6    │
+  │ Claude      │ │ Gemini 1.5  │ │  GPT-4o    │ │ Claude         │
+  │ Sonnet 4.6  │ │ Pro         │ │            │ │ Sonnet 4.6     │
   └─────────────┘ └─────────────┘ └────────────┘ └────────────────┘
 
   AI_PROVIDER env var selects which one loads at runtime.
@@ -129,30 +129,30 @@
   │                    ▼                                             │
   │  SAM (deploy/aws/single-account/template.yaml) creates:          │
   │                                                                  │
-  │  ┌──────────────┐  ┌───────────────┐  ┌────────────────────┐   │
-  │  │  Lambda Fn   │  │  EventBridge  │  │  IAM Role          │   │
-  │  │  (Argus  │◄─│  Rule         │  │  (read-only:       │   │
-  │  │   agent)     │  │  cron:        │  │  Resource Explorer │   │
-  │  │              │  │  0 8 * * 1    │  │  CloudWatch        │   │
-  │  └──────┬───────┘  └───────────────┘  │  Cost Explorer     │   │
-  │         │                             │  CloudTrail        │   │
-  │         │ uses                        │  Bedrock           │   │
-  │         │                             └────────────────────┘   │
-  │         ▼                                                       │
-  │  ┌──────────────────────────────────────┐                       │
-  │  │  AWS APIs (same account)             │                       │
-  │  │  Resource Explorer → all resources   │                       │
-  │  │  CloudWatch        → metrics         │                       │
-  │  │  Cost Explorer     → cost data       │                       │
-  │  │  CloudTrail        → last activity   │                       │
-  │  └──────────────────────────────────────┘                       │
-  │         │                                                       │
-  │         ▼                                                       │
-  │  ┌──────────────┐   ┌────────────────┐                         │
-  │  │  S3 Bucket   │   │  Slack Webhook │                         │
-  │  │  (JSON report│   │  (summary +    │                         │
-  │  │   archive)   │   │   top findings)│                         │
-  │  └──────────────┘   └────────────────┘                         │
+  │  ┌──────────────┐  ┌───────────────┐  ┌────────────────────┐     │
+  │  │  Lambda Fn   │  │  EventBridge  │  │  IAM Role          │     │
+  │  │  (Argus      │◄─│  Rule         │  │  (read-only:       │     │
+  │  │   agent)     │  │  cron:        │  │  Resource Explorer │     │
+  │  │              │  │  0 8 * * 1    │  │  CloudWatch        │     │
+  │  └──────┬───────┘  └───────────────┘  │  Cost Explorer     │     │
+  │         │                             │  CloudTrail        │     │
+  │         │ uses                        │  Bedrock           │     │
+  │         │                             └────────────────────┘     │
+  │         ▼                                                        │
+  │  ┌──────────────────────────────────────┐                        │
+  │  │  AWS APIs (same account)             │                        │
+  │  │  Resource Explorer → all resources   │                        │
+  │  │  CloudWatch        → metrics         │                        │
+  │  │  Cost Explorer     → cost data       │                        │
+  │  │  CloudTrail        → last activity   │                        │
+  │  └──────────────────────────────────────┘                        │
+  │         │                                                        │
+  │         ▼                                                        │
+  │  ┌──────────────┐   ┌────────────────┐                           │
+  │  │  S3 Bucket   │   │  Slack Webhook │                           │
+  │  │  (JSON report│   │  (summary +    │                           │
+  │  │   archive)   │   │   top findings)│                           │
+  │  └──────────────┘   └────────────────┘                           │
   └──────────────────────────────────────────────────────────────────┘
 ```
 
@@ -161,16 +161,16 @@
 ## AWS Deployment — Multi-Account (Hub + Spoke)
 
 ```
-  ┌─────────────────────────────────────────────────────────────────────┐
-  │  HUB ACCOUNT (Argus runs here)                                  │
-  │                                                                     │
-  │  SAM: deploy/aws/multi-account/hub/template.yaml                    │
-  │                                                                     │
-  │  EventBridge ──► Lambda (Argus)                                 │
-  │                     │                                               │
-  │                     │  reads accounts.yaml                          │
-  │                     │  for each account:                            │
-  │                     │                                               │
+  ┌────────────────────────────────────────────────────────────────────┐
+  │  HUB ACCOUNT (Argus runs here)                                     │
+  │                                                                    │
+  │  SAM: deploy/aws/multi-account/hub/template.yaml                   │
+  │                                                                    │
+  │  EventBridge ──► Lambda (Argus)                                    │
+  │                     │                                              │
+  │                     │  reads accounts.yaml                         │
+  │                     │  for each account:                           │
+  │                     │                                              │
   │     ┌───────────────┼───────────────────┐                          │
   │     │               │                   │                          │
   │     ▼               ▼                   ▼                          │
@@ -184,7 +184,7 @@
   │   dev     │   │  staging  │  ... │   prod    │
   │           │   │           │      │           │
   │ IAM Role: │   │ IAM Role: │      │ IAM Role: │
-  │ Argus │   │ Argus │      │ Argus │
+  │ Argus     │   │ Argus     │      │ Argus     │
   │ SpokeRole │   │ SpokeRole │      │ SpokeRole │
   │           │   │           │      │           │
   │ Trust:    │   │ Trust:    │      │ Trust:    │
@@ -209,14 +209,14 @@
   │                                                                  │
   │  deploy/gcp/deploy.sh (gcloud CLI)                               │
   │                                                                  │
-  │  Cloud Scheduler ──► Cloud Run Job (Argus)                  │
+  │  Cloud Scheduler ──► Cloud Run Job (Argus)                       │
   │  (weekly cron)            │                                      │
   │                           │                                      │
-  │                ┌──────────┼──────────┐                          │
-  │                ▼          ▼          ▼                          │
+  │                ┌──────────┼──────────┐                           │
+  │                ▼          ▼          ▼                           │
   │          Asset        Cloud       BigQuery                       │
   │          Inventory    Monitoring  (billing                       │
-  │          (resources)  (metrics)   export)                       │
+  │          (resources)  (metrics)   export)                        │
   │                           │                                      │
   │                    Vertex AI (Gemini) or Anthropic API           │
   │                           │                                      │
@@ -234,14 +234,14 @@
   │                                                                  │
   │  deploy/azure/function-app.bicep                                 │
   │                                                                  │
-  │  Timer Trigger ──► Azure Function (Argus)                   │
+  │  Timer Trigger ──► Azure Function (Argus)                        │
   │  (weekly cron)         │                                         │
   │                        │                                         │
-  │             ┌──────────┼──────────┐                             │
-  │             ▼          ▼          ▼                             │
-  │       Resource      Azure       Cost                            │
-  │       Graph         Monitor     Management                      │
-  │       (resources)   (metrics)   (cost)                          │
+  │             ┌──────────┼──────────┐                              │
+  │             ▼          ▼          ▼                              │
+  │       Resource      Azure       Cost                             │
+  │       Graph         Monitor     Management                       │
+  │       (resources)   (metrics)   (cost)                           │
   │                        │                                         │
   │                 Azure OpenAI (GPT-4o) or Anthropic API           │
   │                        │                                         │
@@ -268,7 +268,7 @@
 │          │                                                      │
 │          ▼                                                      │
 │  AI responds with one of:                                       │
-│    A) tool_call → { name: "list_resources", args: {...} }      │
+│    A) tool_call → { name: "list_resources", args: {...} }       │
 │    B) text      → final analysis (loop ends)                    │
 │          │                                                      │
 │  if A:   │                                                      │
@@ -355,27 +355,27 @@ No per-type configuration needed — it finds everything.
 
 ```
   ┌──────────────────────────────────────────────────────────────┐
-  │  🔍 Argus Weekly Report — AWS Account: prod (444455...)  │
+  │  🔍 Argus Weekly Report — AWS Account: prod (444455...)      │
   │  Scanned 340 resources across 3 regions                      │
   │                                                              │
-  │  💸 Estimated monthly waste: $487.30                        │
+  │  💸 Estimated monthly waste: $487.30                         │
   │  📋 Idle resources found: 9                                  │
   │                                                              │
   │  Top findings:                                               │
   │                                                              │
-  │  1. nat-0def456  NAT Gateway  us-east-1                     │
-  │     Cost: $94.20/mo  |  Priority: HIGH                      │
-  │     847 bytes transferred in 14 days. Last touched 73 days  │
-  │     ago. Team: backend. → Delete or detach.                 │
+  │  1. nat-0def456  NAT Gateway  us-east-1                      │
+  │     Cost: $94.20/mo  |  Priority: HIGH                       │
+  │     847 bytes transferred in 14 days. Last touched 73 days   │
+  │     ago. Team: backend. → Delete or detach.                  │
   │                                                              │
-  │  2. alb-abc123  Load Balancer  us-east-1                    │
-  │     Cost: $47.10/mo  |  Priority: HIGH                      │
-  │     0 requests in 30 days. No targets registered.           │
-  │     → Delete the load balancer.                             │
+  │  2. alb-abc123  Load Balancer  us-east-1                     │
+  │     Cost: $47.10/mo  |  Priority: HIGH                       │
+  │     0 requests in 30 days. No targets registered.            │
+  │     → Delete the load balancer.                              │
   │                                                              │
-  │  ... (up to 10 findings in Slack, full report in S3)        │
+  │  ... (up to 10 findings in Slack, full report in S3)         │
   │                                                              │
-  │  📄 Full report: s3://argus-reports/2026-06-06.json     │
+  │  📄 Full report: s3://argus-reports/2026-06-06.json          │
   └──────────────────────────────────────────────────────────────┘
 ```
 
