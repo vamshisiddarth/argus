@@ -17,6 +17,8 @@ import html
 from datetime import datetime, timezone
 from typing import Any
 
+from core.registry import get_registry
+
 
 def build_html_report(report: dict[str, Any]) -> str:
     cloud = report["cloud"].upper()
@@ -235,12 +237,15 @@ function downloadJson(e) {{
 
 
 def _build_rows(findings: list[dict[str, Any]]) -> str:
+    registry = get_registry()
     parts: list[str] = []
     for f in findings:
         priority = (f.get("priority") or "low").lower()
         resource_id = html.escape(f.get("resource_id") or "")
         name = html.escape(f.get("name") or "")
-        rtype = html.escape(f.get("resource_type") or "")
+        raw_type = f.get("resource_type") or ""
+        rtype = html.escape(raw_type)  # used in data-rtype for JS filtering
+        rtype_label = html.escape(registry.display_name(raw_type))
         region = html.escape(f.get("region") or "")
         cost = f.get("estimated_monthly_cost") or 0.0
         waste_reason = html.escape(f.get("waste_reason") or "")
@@ -266,7 +271,7 @@ def _build_rows(findings: list[dict[str, Any]]) -> str:
   <td><button class="expand-btn" onclick="toggle(this)" aria-label="expand">›</button></td>
   <td><span class="pill {pill_class}">{priority.upper()}</span></td>
   <td><span class="mono">{display_name}</span>{"<br><span class='mono muted'>" + resource_id + "</span>" if name else ""}</td>
-  <td class="muted">{rtype}</td>
+  <td class="muted">{rtype_label}</td>
   <td class="muted">{region}</td>
   <td class="{cost_class}">${cost:,.2f}</td>
   <td class="muted">{last_activity_str}</td>
@@ -304,10 +309,14 @@ def _build_errors_banner(
 
 
 def _build_type_options(findings: list[dict[str, Any]]) -> str:
+    registry = get_registry()
     types = sorted(
         {f.get("resource_type") or "" for f in findings if f.get("resource_type")}
     )
-    return "\n".join(f"<option>{html.escape(t)}</option>" for t in types)
+    return "\n".join(
+        f'<option value="{html.escape(t)}">{html.escape(registry.display_name(t))}</option>'
+        for t in types
+    )
 
 
 def _json_data(report: dict[str, Any]) -> str:

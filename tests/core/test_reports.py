@@ -410,6 +410,21 @@ class TestBuildHtmlReport:
         html_out = build_html_report(self._report())
         assert "Partial scan" not in html_out
 
+    def test_resource_type_column_shows_display_name(self):
+        # The table should show "EC2 Instance", not the raw "AWS::EC2::Instance"
+        html_out = build_html_report(self._report())
+        assert "EC2 Instance" in html_out
+        assert (
+            "AWS::EC2::Instance"
+            not in html_out.split('data-rtype="AWS::EC2::Instance"')[1]
+        )
+
+    def test_type_filter_dropdown_shows_display_name(self):
+        # Option value=raw type_id, text=display name
+        html_out = build_html_report(self._report())
+        assert 'value="AWS::EC2::Instance"' in html_out
+        assert ">EC2 Instance<" in html_out
+
 
 # ---------------------------------------------------------------------------
 # synthesize_executive_summary tests
