@@ -107,7 +107,7 @@ class ChangeProposal:
     finding: ResourceFinding
     policy: Policy
     runbook: str
-    estimated_saving_usd: float
+    estimated_monthly_cost_usd: float
     jira_ticket_url: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
@@ -116,7 +116,7 @@ class ChangeProposal:
             "resource_type": self.finding.resource_type,
             "policy_id": self.policy.policy_id,
             "action": self.policy.action,
-            "estimated_saving_usd": round(self.estimated_saving_usd, 2),
+            "estimated_monthly_cost_usd": round(self.estimated_monthly_cost_usd, 2),
             "runbook": self.runbook,
             "jira_ticket_url": self.jira_ticket_url,
         }

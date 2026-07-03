@@ -266,7 +266,7 @@ class TestProposalContents:
         p = proposals[0]
         assert p.finding.resource_id == "db-001"
         assert p.policy.action == "resize"
-        assert p.estimated_saving_usd == 340.0
+        assert p.estimated_monthly_cost_usd == 340.0
         assert p.jira_ticket_url is None
 
     def test_proposal_to_dict(self):
@@ -275,5 +275,5 @@ class TestProposalContents:
         assert d["resource_id"] == "db-001"
         assert d["policy_id"] == "rds-resize"
         assert d["action"] == "resize"
-        assert "estimated_saving_usd" in d
+        assert "estimated_monthly_cost_usd" in d
         assert "runbook" in d

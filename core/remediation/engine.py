@@ -218,5 +218,5 @@ def _build_proposal(finding: ResourceFinding, policy: Policy) -> ChangeProposal:
         finding=finding,
         policy=policy,
         runbook=runbook_text,
-        estimated_saving_usd=finding.estimated_monthly_cost,
+        estimated_monthly_cost_usd=finding.estimated_monthly_cost,
     )
