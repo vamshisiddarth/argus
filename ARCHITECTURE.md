@@ -417,6 +417,40 @@ The contract is also cheap to implement. The four methods map directly to the fo
 
 ---
 
+## Resource Registry (`core/registry/`)
+
+A single source of truth for all 114 resource type definitions (43 AWS, 31 GCP, 40 Azure).
+Lives in `core/` with zero cloud imports — safe to import anywhere.
+
+```
+core/registry/
+├── models.py      — MetricSpec, ResourceTypeSpec (frozen dataclasses)
+├── registry.py    — ResourceRegistry class (get, display_name, all_for_cloud)
+├── factory.py     — get_registry() singleton (lru_cache, thread-safe)
+├── aws.py         — AWS_RESOURCE_TYPES: 43 entries
+├── gcp.py         — GCP_RESOURCE_TYPES: 31 entries
+└── azure.py       — AZURE_RESOURCE_TYPES: 40 entries
+```
+
+**Why a registry?**
+
+Before this, each adapter carried its own `_METRICS` dict — the same resource type
+appearing in three different formats across three files. Adding a new resource type meant
+touching the adapter, maybe the prompts, and writing per-cloud test assertions.
+
+Now there is one place to define a resource type:
+- Adapters call `get_registry().get(resource_type)` and convert the `MetricSpec` tuples
+  to the SDK-specific format their cloud expects
+- The report generator calls `get_registry().display_name(type_id)` to render
+  human-readable labels in Slack output
+- Data quality is enforced by a single parametrized test suite
+
+**Adding a new resource type** — edit one file (`core/registry/aws.py` etc.),
+append a `ResourceTypeSpec`, and every adapter + report that uses the registry
+picks it up automatically.
+
+---
+
 ## Repository Structure — Contributor View
 
 ```
@@ -426,6 +460,10 @@ The contract is also cheap to implement. The four methods map directly to the fo
   └── Create entrypoints/<cloud>_<runtime>.py
   └── Create deploy/<cloud>/ with IaC template
   └── Zero changes to core/, zero changes to other adapters
+
+  Want to add a new resource type to an existing cloud?
+  └── Append a ResourceTypeSpec to core/registry/aws.py (or gcp.py / azure.py)
+  └── All adapters + reports pick it up automatically via get_registry()
 
   Want to improve the AI analysis?
   └── Edit core/agent/prompts.py — that's it
