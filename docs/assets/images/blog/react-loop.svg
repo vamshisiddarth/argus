@@ -48,20 +48,15 @@
   <rect x="296" y="406" width="268" height="38" rx="8" fill="#0a1a0a" stroke="#14532d" stroke-width="1"/>
   <text x="430" y="430" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="12" fill="#4ade80" text-anchor="middle">exits when AI writes final findings report</text>
 
-  <!-- argus brand badge -->
-  <rect x="614" y="390" width="234" height="58" rx="6" fill="#0d0e1a" stroke="#1e1f3a" stroke-width="1"/>
-  <rect x="614" y="390" width="3" height="58" rx="2" fill="#4f46e5"/>
-  <!-- wordmark row -->
-  <text x="628" y="413" font-family="ui-monospace,'SF Mono',Menlo,monospace" font-size="14" font-weight="600" fill="#6366f1">[</text>
-  <circle cx="645" cy="409" r="8" fill="#2a2a3e" stroke="#8b8fff" stroke-width="1.2"/>
-  <circle cx="645" cy="409" r="5.5" fill="white"/>
-  <circle cx="645" cy="409" r="3.2" fill="#3b2a1a"/>
-  <circle cx="645" cy="409" r="1.8" fill="#1a0f0a"/>
-  <circle cx="643.5" cy="407.5" r="0.9" fill="white"/>
-  <text x="657" y="414" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="14" font-weight="700" fill="#f1f5f9">argus</text>
-  <text x="697" y="413" font-family="ui-monospace,'SF Mono',Menlo,monospace" font-size="14" font-weight="600" fill="#6366f1">]</text>
-  <!-- tagline -->
-  <text x="628" y="429" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="10" fill="#94a3b8">AI Cloud Detective</text>
-  <!-- url -->
-  <text x="628" y="442" font-family="ui-monospace,'SF Mono',Menlo,monospace" font-size="9" fill="#475569">github.com/vamshisiddarth/argus</text>
+  <!-- argus brand footer -->
+  <text x="430" y="454" font-family="ui-monospace,'SF Mono',Menlo,monospace" font-size="12" fill="#6366f1" text-anchor="end">[</text>
+  <circle cx="436" cy="450" r="6" fill="#2a2a3e" stroke="#8b8fff" stroke-width="1"/>
+  <circle cx="436" cy="450" r="4.2" fill="white"/>
+  <circle cx="436" cy="450" r="2.4" fill="#3b2a1a"/>
+  <circle cx="436" cy="450" r="1.4" fill="#1a0f0a"/>
+  <circle cx="435" cy="449" r="0.7" fill="white"/>
+  <text x="445" y="454" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="12" font-weight="700" fill="#e2e8f0">argus</text>
+  <text x="479" y="454" font-family="ui-monospace,'SF Mono',Menlo,monospace" font-size="12" fill="#6366f1">]</text>
+  <text x="492" y="454" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="11" fill="#475569">· AI Cloud Detective ·</text>
+  <text x="614" y="454" font-family="ui-monospace,'SF Mono',Menlo,monospace" font-size="10" fill="#475569">github.com/vamshisiddarth/argus</text>
 </svg>
