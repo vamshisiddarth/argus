@@ -17,6 +17,7 @@ AZURE_RESOURCE_TYPES: list[ResourceTypeSpec] = [
         ),
         actions=("delete", "resize", "stop", "snapshot_delete", "convert_spot"),
         typical_monthly_cost_usd=50.0,
+        docs_url="https://learn.microsoft.com/en-us/azure/virtual-machines/",
     ),
     ResourceTypeSpec(
         type_id="microsoft.compute/virtualmachinescalesets",
@@ -45,6 +46,7 @@ AZURE_RESOURCE_TYPES: list[ResourceTypeSpec] = [
         ),
         actions=("delete", "resize", "reduce_nodes"),
         typical_monthly_cost_usd=150.0,
+        docs_url="https://learn.microsoft.com/en-us/azure/virtual-machine-scale-sets/",
     ),
     ResourceTypeSpec(
         type_id="microsoft.compute/disks",
@@ -67,6 +69,7 @@ AZURE_RESOURCE_TYPES: list[ResourceTypeSpec] = [
         ),
         actions=("delete", "snapshot_delete", "archive"),
         typical_monthly_cost_usd=15.0,
+        docs_url="https://learn.microsoft.com/en-us/azure/virtual-machines/managed-disks-overview",
     ),
     ResourceTypeSpec(
         type_id="microsoft.sql/servers/databases",
@@ -80,6 +83,7 @@ AZURE_RESOURCE_TYPES: list[ResourceTypeSpec] = [
         ),
         actions=("delete", "resize", "snapshot_delete"),
         typical_monthly_cost_usd=150.0,
+        docs_url="https://learn.microsoft.com/en-us/azure/azure-sql/database/",
     ),
     ResourceTypeSpec(
         type_id="microsoft.sql/managedinstances",
@@ -94,6 +98,7 @@ AZURE_RESOURCE_TYPES: list[ResourceTypeSpec] = [
         ),
         actions=("delete", "resize", "snapshot_delete"),
         typical_monthly_cost_usd=500.0,
+        docs_url="https://learn.microsoft.com/en-us/azure/azure-sql/managed-instance/",
     ),
     ResourceTypeSpec(
         type_id="microsoft.web/serverfarms",
@@ -107,6 +112,7 @@ AZURE_RESOURCE_TYPES: list[ResourceTypeSpec] = [
         ),
         actions=("delete", "resize"),
         typical_monthly_cost_usd=75.0,
+        docs_url="https://learn.microsoft.com/en-us/azure/app-service/overview-hosting-plans",
     ),
     ResourceTypeSpec(
         type_id="microsoft.web/sites",
@@ -120,6 +126,7 @@ AZURE_RESOURCE_TYPES: list[ResourceTypeSpec] = [
         ),
         actions=("delete", "stop"),
         typical_monthly_cost_usd=55.0,
+        docs_url="https://learn.microsoft.com/en-us/azure/app-service/",
     ),
     ResourceTypeSpec(
         type_id="microsoft.containerservice/managedclusters",
@@ -148,6 +155,7 @@ AZURE_RESOURCE_TYPES: list[ResourceTypeSpec] = [
         ),
         actions=("delete", "resize", "reduce_nodes"),
         typical_monthly_cost_usd=73.0,
+        docs_url="https://learn.microsoft.com/en-us/azure/aks/",
     ),
     ResourceTypeSpec(
         type_id="microsoft.containerinstance/containergroups",

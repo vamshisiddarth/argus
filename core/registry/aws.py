@@ -31,6 +31,7 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
         ),
         actions=("delete", "resize", "stop", "snapshot_delete"),
         typical_monthly_cost_usd=150.0,
+        docs_url="https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/",
     ),
     ResourceTypeSpec(
         type_id="AWS::RDS::DBCluster",
@@ -44,6 +45,7 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
         ),
         actions=("delete", "resize", "stop", "snapshot_delete", "reduce_replicas"),
         typical_monthly_cost_usd=200.0,
+        docs_url="https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/",
     ),
     ResourceTypeSpec(
         type_id="AWS::EC2::NatGateway",
@@ -57,6 +59,7 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
         ),
         actions=("delete",),
         typical_monthly_cost_usd=32.0,
+        docs_url="https://docs.aws.amazon.com/vpc/latest/userguide/vpc-nat-gateway.html",
     ),
     ResourceTypeSpec(
         type_id="AWS::ElasticLoadBalancingV2::LoadBalancer",
@@ -70,6 +73,7 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
         ),
         actions=("delete",),
         typical_monthly_cost_usd=20.0,
+        docs_url="https://docs.aws.amazon.com/elasticloadbalancing/latest/application/",
     ),
     ResourceTypeSpec(
         type_id="AWS::ElasticLoadBalancing::LoadBalancer",
@@ -95,6 +99,8 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("Errors", "AWS/Lambda", "Sum", "FunctionName"),
         ),
         actions=("delete", "resize"),
+        typical_monthly_cost_usd=2.0,
+        docs_url="https://docs.aws.amazon.com/lambda/latest/dg/",
     ),
     ResourceTypeSpec(
         type_id="AWS::EC2::Volume",
@@ -120,6 +126,8 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("SuccessfulRequestLatency", "AWS/DynamoDB", "Average", "TableName"),
         ),
         actions=("delete", "archive"),
+        typical_monthly_cost_usd=5.0,
+        docs_url="https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/",
     ),
     ResourceTypeSpec(
         type_id="AWS::SQS::Queue",
@@ -132,6 +140,8 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("ApproximateNumberOfMessagesVisible", "AWS/SQS", "Average", "QueueName"),
         ),
         actions=("delete",),
+        typical_monthly_cost_usd=1.0,
+        docs_url="https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/",
     ),
     ResourceTypeSpec(
         type_id="AWS::ElastiCache::CacheCluster",
@@ -145,6 +155,7 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
         ),
         actions=("delete", "resize", "stop"),
         typical_monthly_cost_usd=60.0,
+        docs_url="https://docs.aws.amazon.com/AmazonElastiCache/latest/red-ug/",
     ),
     ResourceTypeSpec(
         type_id="AWS::ElastiCache::ReplicationGroup",
@@ -171,6 +182,7 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
         ),
         actions=("delete", "resize", "reduce_nodes", "snapshot_delete"),
         typical_monthly_cost_usd=300.0,
+        docs_url="https://docs.aws.amazon.com/redshift/latest/mgmt/",
     ),
     ResourceTypeSpec(
         type_id="AWS::OpenSearchService::Domain",
@@ -184,6 +196,7 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
         ),
         actions=("delete", "resize", "reduce_nodes"),
         typical_monthly_cost_usd=180.0,
+        docs_url="https://docs.aws.amazon.com/opensearch-service/latest/developerguide/",
     ),
     ResourceTypeSpec(
         type_id="AWS::ECS::Service",
@@ -195,6 +208,8 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("MemoryUtilization", "AWS/ECS", "Average", "ServiceName"),
         ),
         actions=("delete", "resize"),
+        typical_monthly_cost_usd=10.0,
+        docs_url="https://docs.aws.amazon.com/AmazonECS/latest/developerguide/",
     ),
     ResourceTypeSpec(
         type_id="AWS::EKS::Cluster",
@@ -210,6 +225,7 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
         ),
         actions=("delete", "reduce_nodes"),
         typical_monthly_cost_usd=73.0,
+        docs_url="https://docs.aws.amazon.com/eks/latest/userguide/",
     ),
     ResourceTypeSpec(
         type_id="AWS::Kinesis::Stream",

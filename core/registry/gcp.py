@@ -32,6 +32,7 @@ GCP_RESOURCE_TYPES: list[ResourceTypeSpec] = [
         ),
         actions=("delete", "resize", "stop", "snapshot_delete", "convert_spot"),
         typical_monthly_cost_usd=50.0,
+        docs_url="https://cloud.google.com/compute/docs/instances",
     ),
     ResourceTypeSpec(
         type_id="compute.googleapis.com/Disk",
@@ -54,6 +55,7 @@ GCP_RESOURCE_TYPES: list[ResourceTypeSpec] = [
         ),
         actions=("delete", "snapshot_delete", "archive"),
         typical_monthly_cost_usd=10.0,
+        docs_url="https://cloud.google.com/compute/docs/disks",
     ),
     ResourceTypeSpec(
         type_id="sqladmin.googleapis.com/Instance",
@@ -82,6 +84,7 @@ GCP_RESOURCE_TYPES: list[ResourceTypeSpec] = [
         ),
         actions=("delete", "resize", "stop", "snapshot_delete"),
         typical_monthly_cost_usd=100.0,
+        docs_url="https://cloud.google.com/sql/docs",
     ),
     ResourceTypeSpec(
         type_id="container.googleapis.com/Cluster",
@@ -110,6 +113,7 @@ GCP_RESOURCE_TYPES: list[ResourceTypeSpec] = [
         ),
         actions=("delete", "resize", "reduce_nodes"),
         typical_monthly_cost_usd=73.0,
+        docs_url="https://cloud.google.com/kubernetes-engine/docs",
     ),
     ResourceTypeSpec(
         type_id="run.googleapis.com/Service",
@@ -138,6 +142,7 @@ GCP_RESOURCE_TYPES: list[ResourceTypeSpec] = [
         ),
         actions=("delete",),
         typical_monthly_cost_usd=5.0,
+        docs_url="https://cloud.google.com/run/docs",
     ),
     ResourceTypeSpec(
         type_id="cloudfunctions.googleapis.com/Function",
@@ -160,6 +165,7 @@ GCP_RESOURCE_TYPES: list[ResourceTypeSpec] = [
         ),
         actions=("delete",),
         typical_monthly_cost_usd=2.0,
+        docs_url="https://cloud.google.com/functions/docs",
     ),
     ResourceTypeSpec(
         type_id="storage.googleapis.com/Bucket",
@@ -182,6 +188,7 @@ GCP_RESOURCE_TYPES: list[ResourceTypeSpec] = [
         ),
         actions=("delete", "archive"),
         typical_monthly_cost_usd=2.0,
+        docs_url="https://cloud.google.com/storage/docs",
     ),
     ResourceTypeSpec(
         type_id="bigquery.googleapis.com/Dataset",
@@ -254,6 +261,7 @@ GCP_RESOURCE_TYPES: list[ResourceTypeSpec] = [
         ),
         actions=("delete", "resize"),
         typical_monthly_cost_usd=50.0,
+        docs_url="https://cloud.google.com/memorystore/docs/redis",
     ),
     ResourceTypeSpec(
         type_id="spanner.googleapis.com/Instance",
@@ -276,6 +284,7 @@ GCP_RESOURCE_TYPES: list[ResourceTypeSpec] = [
         ),
         actions=("delete", "resize", "reduce_nodes"),
         typical_monthly_cost_usd=700.0,
+        docs_url="https://cloud.google.com/spanner/docs",
     ),
     ResourceTypeSpec(
         type_id="pubsub.googleapis.com/Topic",

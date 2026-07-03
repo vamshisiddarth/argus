@@ -10,6 +10,7 @@ Thanks for your interest in contributing. This document explains how to set up a
 - [Running tests](#running-tests)
 - [Code style](#code-style)
 - [Adding a new cloud adapter](#adding-a-new-cloud-adapter)
+- [Adding a new resource type to the registry](#adding-a-new-resource-type-to-the-registry)
 - [Adding a new AI provider](#adding-a-new-ai-provider)
 - [Submitting a pull request](#submitting-a-pull-request)
 
@@ -38,12 +39,10 @@ cp .env.example .env
 
 ## Running tests
 
-All 528 unit tests run offline — no real cloud credentials needed:
+All tests run offline — no real cloud credentials needed:
 
 ```bash
-pytest tests/ -v
-make test-integration   # 32 integration tests (adapter contracts, report schema)
-make test-all           # everything (560 tests)
+pytest tests/ -v        # 1458 tests across core, adapters, ai, and entrypoints
 ```
 
 To run a subset:
@@ -173,6 +172,78 @@ Create `tests/adapters/mycloud/` with `unittest.mock` tests. Aim for coverage of
 
 ---
 
+## Adding a new resource type to the registry
+
+The **Resource Registry** (`core/registry/`) is the single source of truth for every resource type Argus knows about. Adding a new type here automatically makes it available in AI prompts, the HTML report filter, the Slack digest, and the chat formatter — no other files need changing.
+
+### Where to add it
+
+| Cloud | File |
+|-------|------|
+| AWS   | `core/registry/aws.py` |
+| GCP   | `core/registry/gcp.py` |
+| Azure | `core/registry/azure.py` |
+
+### Example — adding an AWS transfer family server
+
+```python
+# core/registry/aws.py
+ResourceTypeSpec(
+    type_id="AWS::Transfer::Server",       # must match the Resource Explorer type string
+    cloud="aws",
+    display_name="Transfer Family Server", # shown in Slack, HTML report, and chat
+    service="Storage",                     # groups this type in the REMEDIATION ACTIONS prompt section
+    metrics=(
+        _M("FilesIn",   "AWS/Transfer", "Sum", "ServerId"),
+        _M("FilesOut",  "AWS/Transfer", "Sum", "ServerId"),
+        _M("BytesIn",   "AWS/Transfer", "Sum", "ServerId"),
+    ),
+    actions=("delete", "stop"),            # verbs from _VALID_ACTIONS in registry.py
+    typical_monthly_cost_usd=30.0,        # rough on-demand estimate; used for cost filtering
+    docs_url="https://docs.aws.amazon.com/transfer/latest/userguide/",
+),
+```
+
+### Valid action verbs
+
+Only verbs in `_VALID_ACTIONS` (defined in `core/registry/registry.py`) are accepted:
+
+| Verb | Meaning |
+|------|---------|
+| `delete` | Permanently remove the resource |
+| `stop` | Stop/pause without deleting (still incurs storage cost) |
+| `resize` | Change instance type or tier |
+| `snapshot_delete` | Delete orphaned snapshots/backups |
+| `reduce_replicas` | Lower read-replica count |
+| `reduce_nodes` | Shrink cluster node count |
+| `archive` | Move data to cheaper storage tier |
+| `convert_spot` | Replace on-demand with Spot/Preemptible |
+
+### Adding CLI command templates (optional)
+
+If you also want concrete remediation commands, add an entry to `core/remediation/__init__.py`:
+
+```python
+"AWS::Transfer::Server": {
+    "stop":   "aws transfer stop-server --server-id {resource_id} --region {region}",
+    "delete": "aws transfer delete-server --server-id {resource_id} --region {region}",
+},
+```
+
+Actions listed here must be a subset of the spec's `actions` tuple — the integration tests will catch any mismatch.
+
+### Tests
+
+Run the integration suite to verify your entry passes all data-quality checks:
+
+```bash
+pytest tests/core/test_registry_integration.py -v
+```
+
+The parametrized suite checks every spec for: valid cloud field, non-empty display name, at least one metric, valid action vocab, and a positive `typical_monthly_cost_usd`.
+
+---
+
 ## Adding a new AI provider
 
 All AI providers implement the `AIProvider` abstract class in `ai/base.py`.
@@ -222,7 +293,7 @@ Create `tests/ai/test_myprovider.py`. Mock all HTTP calls — no real API calls 
 1. Fork the repo and create a branch: `git checkout -b feat/my-feature`
 2. Make your changes
 3. Run the full test suite: `pytest tests/ -v` — all tests must pass
-4. Run the linter: `black . && ruff check .`
+4. Run the linter: `ruff format . && ruff check .`
 5. Open a PR against `main`
 
 **PR checklist:**
