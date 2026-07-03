@@ -95,7 +95,7 @@ def synthesize_executive_summary(
                 "account": getattr(f, "account_name", None) or f.cloud,
                 "resource_id": f.resource_id,
                 "name": f.name,
-                "type": f.resource_type,
+                "type": _registry().display_name(f.resource_type),
                 "region": f.region,
                 "cost_usd": round(f.estimated_monthly_cost, 2),
                 "priority": f.priority,
