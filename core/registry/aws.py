@@ -204,7 +204,9 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
         metrics=(
             _M("cluster_node_count", "ContainerInsights", "Average", "ClusterName"),
             _M("node_cpu_utilization", "ContainerInsights", "Average", "ClusterName"),
-            _M("node_memory_utilization", "ContainerInsights", "Average", "ClusterName"),
+            _M(
+                "node_memory_utilization", "ContainerInsights", "Average", "ClusterName"
+            ),
         ),
         actions=("delete", "reduce_nodes"),
         typical_monthly_cost_usd=73.0,
@@ -324,7 +326,12 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
         display_name="EMR Cluster",
         service="Analytics",
         metrics=(
-            _M("YARNMemoryAvailablePercentage", "AWS/ElasticMapReduce", "Average", "JobFlowId"),
+            _M(
+                "YARNMemoryAvailablePercentage",
+                "AWS/ElasticMapReduce",
+                "Average",
+                "JobFlowId",
+            ),
             _M("ContainerPendingRatio", "AWS/ElasticMapReduce", "Average", "JobFlowId"),
             _M("AppsRunning", "AWS/ElasticMapReduce", "Average", "JobFlowId"),
         ),
@@ -339,7 +346,12 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
         metrics=(
             _M("CPUUtilization", "AWS/DMS", "Average", "ReplicationInstanceIdentifier"),
             _M("FreeableMemory", "AWS/DMS", "Average", "ReplicationInstanceIdentifier"),
-            _M("CDCLatencySource", "AWS/DMS", "Average", "ReplicationInstanceIdentifier"),
+            _M(
+                "CDCLatencySource",
+                "AWS/DMS",
+                "Average",
+                "ReplicationInstanceIdentifier",
+            ),
         ),
         actions=("delete", "resize"),
         typical_monthly_cost_usd=80.0,
@@ -425,8 +437,18 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
         display_name="Elastic Beanstalk Environment",
         service="Compute",
         metrics=(
-            _M("EnvironmentHealth", "AWS/ElasticBeanstalk", "Average", "EnvironmentName"),
-            _M("ApplicationRequestsTotal", "AWS/ElasticBeanstalk", "Sum", "EnvironmentName"),
+            _M(
+                "EnvironmentHealth",
+                "AWS/ElasticBeanstalk",
+                "Average",
+                "EnvironmentName",
+            ),
+            _M(
+                "ApplicationRequestsTotal",
+                "AWS/ElasticBeanstalk",
+                "Sum",
+                "EnvironmentName",
+            ),
             _M("CPUUtilization", "AWS/ElasticBeanstalk", "Average", "EnvironmentName"),
         ),
         actions=("delete", "resize"),
@@ -533,9 +555,7 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
         cloud="aws",
         display_name="Route 53 Hosted Zone",
         service="DNS",
-        metrics=(
-            _M("DNSQueries", "AWS/Route53", "Sum", "HostedZoneId"),
-        ),
+        metrics=(_M("DNSQueries", "AWS/Route53", "Sum", "HostedZoneId"),),
         actions=("delete",),
         typical_monthly_cost_usd=0.5,
     ),

@@ -7,6 +7,7 @@ These tests validate:
 - _metrics_for() adapter helpers correctly convert registry specs
 - Report generator uses registry display names
 """
+
 from __future__ import annotations
 
 import pytest
@@ -15,7 +16,7 @@ from core.registry import ResourceRegistry, actions_section, get_registry
 from core.registry.aws import AWS_RESOURCE_TYPES
 from core.registry.azure import AZURE_RESOURCE_TYPES
 from core.registry.gcp import GCP_RESOURCE_TYPES
-from core.registry.models import MetricSpec, ResourceTypeSpec
+from core.registry.models import ResourceTypeSpec
 from core.registry.registry import _VALID_ACTIONS
 
 
@@ -156,7 +157,10 @@ class TestGCPDataQuality:
         assert spec.display_name == "GCE Instance"
 
     def test_cloud_sql_display_name(self):
-        assert get_registry().display_name("sqladmin.googleapis.com/Instance") == "Cloud SQL Instance"
+        assert (
+            get_registry().display_name("sqladmin.googleapis.com/Instance")
+            == "Cloud SQL Instance"
+        )
 
     def test_no_duplicate_type_ids(self):
         ids = [s.type_id for s in GCP_RESOURCE_TYPES]
@@ -225,6 +229,7 @@ class TestAzureDataQuality:
 class TestAWSMetricsFor:
     def test_known_type_returns_tuples(self):
         from adapters.aws.cloudwatch import _metrics_for
+
         result = _metrics_for("AWS::EC2::Instance")
         assert result is not None
         assert len(result) >= 1
@@ -236,10 +241,12 @@ class TestAWSMetricsFor:
 
     def test_unknown_type_returns_none(self):
         from adapters.aws.cloudwatch import _metrics_for
+
         assert _metrics_for("AWS::Unknown::Resource") is None
 
     def test_tuple_length_is_4(self):
         from adapters.aws.cloudwatch import _metrics_for
+
         result = _metrics_for("AWS::Lambda::Function")
         assert result is not None
         for t in result:
@@ -247,6 +254,7 @@ class TestAWSMetricsFor:
 
     def test_rds_has_connections_metric(self):
         from adapters.aws.cloudwatch import _metrics_for
+
         result = _metrics_for("AWS::RDS::DBInstance")
         assert result is not None
         names = [t[0] for t in result]
@@ -256,6 +264,7 @@ class TestAWSMetricsFor:
 class TestGCPMetricsFor:
     def test_known_type_returns_tuples(self):
         from adapters.gcp.cloud_monitoring import _metrics_for
+
         result = _metrics_for("compute.googleapis.com/Instance")
         assert result is not None
         assert len(result) >= 1
@@ -265,10 +274,12 @@ class TestGCPMetricsFor:
 
     def test_unknown_type_returns_none(self):
         from adapters.gcp.cloud_monitoring import _metrics_for
+
         assert _metrics_for("unknown.googleapis.com/Resource") is None
 
     def test_tuple_length_is_2(self):
         from adapters.gcp.cloud_monitoring import _metrics_for
+
         result = _metrics_for("sqladmin.googleapis.com/Instance")
         assert result is not None
         for t in result:
@@ -278,6 +289,7 @@ class TestGCPMetricsFor:
 class TestAzureMetricsFor:
     def test_known_type_returns_tuples(self):
         from adapters.azure.monitor import _metrics_for
+
         result = _metrics_for("microsoft.compute/virtualmachines")
         assert result is not None
         assert len(result) >= 1
@@ -287,16 +299,19 @@ class TestAzureMetricsFor:
 
     def test_case_insensitive_lookup(self):
         from adapters.azure.monitor import _metrics_for
+
         lower = _metrics_for("microsoft.compute/virtualmachines")
         upper = _metrics_for("Microsoft.Compute/VirtualMachines")
         assert lower == upper
 
     def test_unknown_type_returns_none(self):
         from adapters.azure.monitor import _metrics_for
+
         assert _metrics_for("microsoft.unknown/resource") is None
 
     def test_tuple_length_is_2(self):
         from adapters.azure.monitor import _metrics_for
+
         result = _metrics_for("microsoft.cache/redis")
         assert result is not None
         for t in result:
@@ -325,7 +340,6 @@ class TestReportGeneratorDisplayNames:
         }
 
     def test_display_name_used_in_slack_block(self):
-        from unittest.mock import MagicMock, patch
         from core.reports.generator import build_slack_payload
 
         finding = self._make_finding_dict("AWS::EC2::Instance")
@@ -348,6 +362,7 @@ class TestReportGeneratorDisplayNames:
 
     def test_unknown_type_falls_back_to_type_id(self):
         from core.registry import get_registry
+
         result = get_registry().display_name("AWS::Unknown::Type")
         assert result == "AWS::Unknown::Type"
 
@@ -385,8 +400,35 @@ class TestActionsSection:
         section = actions_section("azure")
         assert "Virtual Machine" in section
 
+    def test_filter_actions_resize_only(self):
+        section = actions_section("aws", filter_actions=["resize"])
+        assert "EC2 Instance" in section
+        assert "RDS Instance" in section
+        assert "NAT Gateway" not in section
+
+    def test_filter_actions_convert_spot(self):
+        section = actions_section("aws", filter_actions=["convert_spot"])
+        assert "EC2 Instance" in section
+        assert "Lambda" not in section
+
+    def test_filter_actions_empty_result_returns_empty(self):
+        assert actions_section("aws", filter_actions=["convert_spot", "archive"]) == ""
+
+    def test_min_cost_filters_cheap_types(self):
+        section = actions_section("aws", min_cost_usd=100.0)
+        assert "Redshift Cluster" in section
+
+    def test_min_cost_includes_unknown_cost(self):
+        filtered = actions_section("aws", min_cost_usd=9999.0)
+        assert len(filtered) > 0
+
+    def test_filter_actions_and_min_cost_combined(self):
+        section = actions_section("aws", filter_actions=["resize"], min_cost_usd=50.0)
+        assert isinstance(section, str)
+
     def test_prompt_includes_actions_section(self):
         from core.agent.prompts import build_system_prompt
+
         prompt = build_system_prompt("aws", [], [{"name": "prod", "id": "123"}])
         assert "REMEDIATION ACTIONS" in prompt
         assert "EC2 Instance" in prompt
@@ -394,6 +436,9 @@ class TestActionsSection:
 
     def test_chat_prompt_includes_actions_section(self):
         from core.agent.prompts import build_chat_system_prompt
-        prompt = build_chat_system_prompt("gcp", [], [{"name": "proj", "id": "my-project"}])
+
+        prompt = build_chat_system_prompt(
+            "gcp", [], [{"name": "proj", "id": "my-project"}]
+        )
         assert "REMEDIATION ACTIONS" in prompt
         assert "GCE Instance" in prompt

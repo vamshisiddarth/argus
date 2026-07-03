@@ -3,7 +3,16 @@ from __future__ import annotations
 from core.registry.models import ResourceTypeSpec
 
 _VALID_ACTIONS = frozenset(
-    {"delete", "resize", "stop", "snapshot_delete", "reduce_replicas", "reduce_nodes", "archive", "convert_spot"}
+    {
+        "delete",
+        "resize",
+        "stop",
+        "snapshot_delete",
+        "reduce_replicas",
+        "reduce_nodes",
+        "archive",
+        "convert_spot",
+    }
 )
 
 
@@ -15,10 +24,15 @@ class ResourceRegistry:
         if not spec.type_id:
             raise ValueError("ResourceTypeSpec.type_id must not be empty")
         if not spec.display_name:
-            raise ValueError(f"ResourceTypeSpec.display_name must not be empty for {spec.type_id!r}")
+            raise ValueError(
+                f"ResourceTypeSpec.display_name must not be empty for {spec.type_id!r}"
+            )
         unknown = set(spec.actions) - _VALID_ACTIONS
         if unknown:
-            raise ValueError(f"Unknown actions {unknown!r} for {spec.type_id!r}. Valid: {sorted(_VALID_ACTIONS)}")
+            raise ValueError(
+                f"Unknown actions {unknown!r} for {spec.type_id!r}. "
+                f"Valid: {sorted(_VALID_ACTIONS)}"
+            )
         self._specs[spec.type_id] = spec
 
     def get(self, type_id: str) -> ResourceTypeSpec | None:

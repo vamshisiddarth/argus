@@ -15,6 +15,7 @@ if TYPE_CHECKING:
 def _registry():  # thin wrapper so caller reads cleanly
     return get_registry()
 
+
 # Maximum findings shown as individual rows in the Slack digest
 SLACK_DIGEST_LIMIT = 5
 

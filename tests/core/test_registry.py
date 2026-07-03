@@ -1,7 +1,9 @@
+from dataclasses import FrozenInstanceError
+
 import pytest
 
 from core.registry.models import MetricSpec, ResourceTypeSpec
-from core.registry.registry import ResourceRegistry, _VALID_ACTIONS
+from core.registry.registry import _VALID_ACTIONS, ResourceRegistry
 
 
 @pytest.fixture()
@@ -27,8 +29,12 @@ def registry() -> ResourceRegistry:
             display_name="RDS Instance",
             service="Database",
             metrics=(
-                MetricSpec("CPUUtilization", "AWS/RDS", "Average", "DBInstanceIdentifier"),
-                MetricSpec("DatabaseConnections", "AWS/RDS", "Average", "DBInstanceIdentifier"),
+                MetricSpec(
+                    "CPUUtilization", "AWS/RDS", "Average", "DBInstanceIdentifier"
+                ),
+                MetricSpec(
+                    "DatabaseConnections", "AWS/RDS", "Average", "DBInstanceIdentifier"
+                ),
             ),
         )
     )
@@ -51,7 +57,7 @@ class TestResourceTypeSpec:
             display_name="EC2 Instance",
             service="Compute",
         )
-        with pytest.raises(Exception):
+        with pytest.raises(FrozenInstanceError):
             spec.type_id = "other"  # type: ignore[misc]
 
     def test_metrics_default_empty(self) -> None:
@@ -105,7 +111,7 @@ class TestMetricSpec:
 
     def test_immutable(self) -> None:
         m = MetricSpec("CPU", "ns", "Average", "dim")
-        with pytest.raises(Exception):
+        with pytest.raises(FrozenInstanceError):
             m.name = "other"  # type: ignore[misc]
 
 
@@ -121,7 +127,9 @@ class TestResourceRegistry:
     def test_display_name_known(self, registry: ResourceRegistry) -> None:
         assert registry.display_name("AWS::RDS::DBInstance") == "RDS Instance"
 
-    def test_display_name_unknown_falls_back_to_type_id(self, registry: ResourceRegistry) -> None:
+    def test_display_name_unknown_falls_back_to_type_id(
+        self, registry: ResourceRegistry
+    ) -> None:
         assert registry.display_name("AWS::Unknown::Type") == "AWS::Unknown::Type"
 
     def test_all_for_cloud_aws(self, registry: ResourceRegistry) -> None:
@@ -187,7 +195,9 @@ class TestResourceRegistry:
         assert "AWS::Lambda::Function" in type_ids
         assert "AWS::EC2::Instance" not in type_ids
 
-    def test_all_for_action_unknown_returns_empty(self, registry: ResourceRegistry) -> None:
+    def test_all_for_action_unknown_returns_empty(
+        self, registry: ResourceRegistry
+    ) -> None:
         assert registry.all_for_action("nonexistent_action") == []
 
     def test_actions_for_known_type(self, registry: ResourceRegistry) -> None:
@@ -204,7 +214,9 @@ class TestResourceRegistry:
         assert "delete" in actions
         assert "archive" in actions
 
-    def test_actions_for_unknown_type_returns_empty(self, registry: ResourceRegistry) -> None:
+    def test_actions_for_unknown_type_returns_empty(
+        self, registry: ResourceRegistry
+    ) -> None:
         assert registry.actions_for("AWS::Unknown::Type") == ()
 
     def test_register_rejects_empty_type_id(self) -> None:
@@ -218,7 +230,9 @@ class TestResourceRegistry:
         r = ResourceRegistry()
         with pytest.raises(ValueError, match="display_name"):
             r.register(
-                ResourceTypeSpec(type_id="AWS::X::Y", cloud="aws", display_name="", service="S")
+                ResourceTypeSpec(
+                    type_id="AWS::X::Y", cloud="aws", display_name="", service="S"
+                )
             )
 
     def test_register_rejects_invalid_action(self) -> None:

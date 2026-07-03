@@ -200,9 +200,11 @@ class ChatSession:
                 if self._on_tool_call:
                     resource_id = tc.arguments.get(
                         "resource_id",
-                        tc.arguments.get("resource_ids", [""])[0]
-                        if isinstance(tc.arguments.get("resource_ids"), list)
-                        else "",
+                        (
+                            tc.arguments.get("resource_ids", [""])[0]
+                            if isinstance(tc.arguments.get("resource_ids"), list)
+                            else ""
+                        ),
                     )
                     self._on_tool_call(tc.name, resource_id)
 
