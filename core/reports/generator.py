@@ -7,12 +7,13 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.finding import ResourceFinding
 from core.registry import get_registry
+from core.registry.registry import ResourceRegistry
 
 if TYPE_CHECKING:
     from ai.base import AIProvider
 
 
-def _registry():  # thin wrapper so caller reads cleanly
+def _registry() -> ResourceRegistry:
     return get_registry()
 
 
