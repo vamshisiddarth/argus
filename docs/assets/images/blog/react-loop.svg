@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 490" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto">
-  <rect width="860" height="460" fill="#06070f"/>
+  <rect width="860" height="490" fill="#06070f"/>
 
   <text x="430" y="36" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="15" font-weight="600" fill="#8b8fff" text-anchor="middle" letter-spacing="3">THE REACT LOOP</text>
 
@@ -48,15 +48,16 @@
   <rect x="296" y="406" width="268" height="38" rx="8" fill="#0a1a0a" stroke="#14532d" stroke-width="1"/>
   <text x="430" y="430" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="12" fill="#4ade80" text-anchor="middle">exits when AI writes final findings report</text>
 
-  <!-- argus brand footer -->
-  <text x="430" y="480" font-family="ui-monospace,'SF Mono',Menlo,monospace" font-size="12" fill="#6366f1" text-anchor="end">[</text>
-  <circle cx="436" cy="476" r="6" fill="#2a2a3e" stroke="#8b8fff" stroke-width="1"/>
-  <circle cx="436" cy="476" r="4.2" fill="white"/>
-  <circle cx="436" cy="476" r="2.4" fill="#3b2a1a"/>
-  <circle cx="436" cy="476" r="1.4" fill="#1a0f0a"/>
-  <circle cx="435" cy="475" r="0.7" fill="white"/>
-  <text x="445" y="480" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="12" font-weight="700" fill="#e2e8f0">argus</text>
-  <text x="479" y="480" font-family="ui-monospace,'SF Mono',Menlo,monospace" font-size="12" fill="#6366f1">]</text>
-  <text x="492" y="480" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="11" fill="#475569">· AI Cloud Detective ·</text>
-  <text x="614" y="480" font-family="ui-monospace,'SF Mono',Menlo,monospace" font-size="10" fill="#475569">github.com/vamshisiddarth/argus</text>
+  <!-- argus brand footer — centered at x=430 -->
+  <!-- total width ≈ 290: [ + eye(12) + argus(38) + ] + · AI Cloud Detective · + url = starts at ~285 -->
+  <text x="285" y="474" font-family="ui-monospace,'SF Mono',Menlo,monospace" font-size="12" fill="#6366f1">[</text>
+  <circle cx="298" cy="470" r="6" fill="#2a2a3e" stroke="#8b8fff" stroke-width="1"/>
+  <circle cx="298" cy="470" r="4.2" fill="white"/>
+  <circle cx="298" cy="470" r="2.4" fill="#3b2a1a"/>
+  <circle cx="298" cy="470" r="1.4" fill="#1a0f0a"/>
+  <circle cx="297" cy="469" r="0.7" fill="white"/>
+  <text x="307" y="474" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="12" font-weight="700" fill="#e2e8f0">argus</text>
+  <text x="344" y="474" font-family="ui-monospace,'SF Mono',Menlo,monospace" font-size="12" fill="#6366f1">]</text>
+  <text x="356" y="474" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="11" fill="#475569">· AI Cloud Detective ·</text>
+  <text x="484" y="474" font-family="ui-monospace,'SF Mono',Menlo,monospace" font-size="10" fill="#475569">github.com/vamshisiddarth/argus</text>
 </svg>
