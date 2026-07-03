@@ -6,9 +6,16 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
 from core.models.finding import ResourceFinding
+from core.registry import get_registry
+from core.registry.registry import ResourceRegistry
 
 if TYPE_CHECKING:
     from ai.base import AIProvider
+
+
+def _registry() -> ResourceRegistry:
+    return get_registry()
+
 
 # Maximum findings shown as individual rows in the Slack digest
 SLACK_DIGEST_LIMIT = 5
@@ -24,6 +31,7 @@ def build_report(
     scan_diff: dict[str, Any] | None = None,
     scan_errors: list[dict[str, str]] | None = None,
     skipped_resource_types: list[str] | None = None,
+    registry_warnings: list[str] | None = None,
 ) -> dict[str, Any]:
     """
     Convert a list of ResourceFinding objects into the canonical JSON report.
@@ -31,6 +39,8 @@ def build_report(
 
     scan_errors: list of {"account_id": ..., "account_name": ..., "error": ...}
         for accounts/projects/subscriptions that failed to scan.
+    registry_warnings: list of warning strings from get_registry().load_warnings;
+        non-empty means the registry loaded with invalid specs skipped.
     """
     sorted_findings = sorted(
         findings, key=lambda f: f.estimated_monthly_cost, reverse=True
@@ -55,6 +65,7 @@ def build_report(
         "scan_diff": scan_diff,
         "scan_errors": scan_errors or [],
         "skipped_resource_types": skipped_resource_types or [],
+        "registry_warnings": registry_warnings or [],
     }
 
 
@@ -88,7 +99,7 @@ def synthesize_executive_summary(
                 "account": getattr(f, "account_name", None) or f.cloud,
                 "resource_id": f.resource_id,
                 "name": f.name,
-                "type": f.resource_type,
+                "type": _registry().display_name(f.resource_type),
                 "region": f.region,
                 "cost_usd": round(f.estimated_monthly_cost, 2),
                 "priority": f.priority,
@@ -255,7 +266,7 @@ def build_slack_payload(
             priority = (finding.get("priority") or "low").upper()
             emoji = _PRIORITY_EMOJI.get(priority, ":white_circle:")
             label = finding.get("name") or finding["resource_id"]
-            rtype = finding["resource_type"]
+            rtype = _registry().display_name(finding["resource_type"])
             lines.append(f"{emoji} `{label}` · {rtype} · *${cost:,.2f}/mo*")
 
         remaining = count - SLACK_DIGEST_LIMIT

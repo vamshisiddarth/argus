@@ -31,6 +31,7 @@ from adapters.aws.adapter import AWSAdapter
 from core.agent.loop import AgentLoop
 from core.log import configure_logging
 from core.models.finding import ResourceFinding
+from core.registry import get_registry
 from core.reports.comparison import compare_scans
 from core.reports.delivery import (
     notify_all,
@@ -98,6 +99,7 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         agent_output_tokens=token_summary.get("total_output_tokens", 0),
         scan_diff=scan_diff,
         scan_errors=scan_errors,
+        registry_warnings=get_registry().load_warnings,
     )
     report_url: str | None = None
     if s3_bucket:

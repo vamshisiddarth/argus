@@ -158,6 +158,17 @@ class TestBuildReport:
         dt = datetime.fromisoformat(report["generated_at"])
         assert dt.tzinfo is not None
 
+    def test_registry_warnings_empty_by_default(self):
+        report = build_report([], cloud="aws", executive_summary="x")
+        assert report["registry_warnings"] == []
+
+    def test_registry_warnings_surfaced_in_report(self):
+        warnings = ["aws/AWS::Fake::Type: unknown action 'fly'"]
+        report = build_report(
+            [], cloud="aws", executive_summary="x", registry_warnings=warnings
+        )
+        assert report["registry_warnings"] == warnings
+
 
 # ---------------------------------------------------------------------------
 # build_slack_payload tests
@@ -409,6 +420,34 @@ class TestBuildHtmlReport:
     def test_no_error_banner_when_scan_errors_empty(self):
         html_out = build_html_report(self._report())
         assert "Partial scan" not in html_out
+
+    def test_resource_type_column_shows_display_name(self):
+        # The table should show "EC2 Instance", not the raw "AWS::EC2::Instance"
+        html_out = build_html_report(self._report())
+        assert "EC2 Instance" in html_out
+        assert (
+            "AWS::EC2::Instance"
+            not in html_out.split('data-rtype="AWS::EC2::Instance"')[1]
+        )
+
+    def test_type_filter_dropdown_shows_display_name(self):
+        # Option value=raw type_id, text=display name
+        html_out = build_html_report(self._report())
+        assert 'value="AWS::EC2::Instance"' in html_out
+        assert ">EC2 Instance<" in html_out
+
+    def test_registry_warnings_banner_absent_when_empty(self):
+        report = self._report()
+        report["registry_warnings"] = []
+        html_out = build_html_report(report)
+        assert "skipped spec" not in html_out
+
+    def test_registry_warnings_banner_shown_when_present(self):
+        report = self._report()
+        report["registry_warnings"] = ["aws/AWS::Fake::Type: unknown action 'fly'"]
+        html_out = build_html_report(report)
+        assert "skipped spec" in html_out
+        assert "AWS::Fake::Type" in html_out
 
 
 # ---------------------------------------------------------------------------

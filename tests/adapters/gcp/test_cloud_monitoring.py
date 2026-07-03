@@ -2,7 +2,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from adapters.gcp.cloud_monitoring import _METRICS, _resource_filter, get_metrics
+from adapters.gcp.cloud_monitoring import _resource_filter, get_metrics
+from core.registry import get_registry
 
 
 def _make_time_series(double_values: list[float]) -> list[MagicMock]:
@@ -117,11 +118,12 @@ class TestGetMetrics:
 
 
 # ---------------------------------------------------------------------------
-# _METRICS coverage — verify all 31 resource types are registered
+# Registry coverage — verify all 31 GCP resource types are in the registry
 # ---------------------------------------------------------------------------
 class TestMetricsCoverage:
-    def test_metrics_dict_has_31_types(self):
-        assert len(_METRICS) == 31
+    def test_registry_has_31_gcp_types(self):
+        registry = get_registry()
+        assert len(registry.all_for_cloud("gcp")) == 31
 
     @pytest.mark.parametrize(
         "resource_type",
@@ -144,8 +146,9 @@ class TestMetricsCoverage:
         ],
     )
     def test_new_type_has_metrics(self, resource_type):
-        assert resource_type in _METRICS
-        assert len(_METRICS[resource_type]) >= 1
+        spec = get_registry().get(resource_type)
+        assert spec is not None
+        assert len(spec.metrics) >= 1
 
     @pytest.mark.parametrize(
         "resource_type",

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from core.registry import actions_section
+
 # Shared domain knowledge used by both batch scan and chat prompts.
 _RIGHT_SIZING_RULES = """RIGHT-SIZING RULES
 ──────────────────
@@ -84,6 +86,8 @@ def build_system_prompt(
     """
     context = _build_context_header(cloud, ignore_regions, accounts)
 
+    _actions = actions_section(cloud)
+
     return f"""You are Argus, an AI Cloud Detective.
 
 MISSION
@@ -120,6 +124,8 @@ WHAT TO LOOK FOR
 
 {_PRIORITY_RULES}
 
+{_actions}
+
 EFFICIENCY RULES
 ────────────────
 - Cost data is already in the list_resources result (cost_usd field) — use it directly
@@ -154,6 +160,8 @@ def build_chat_system_prompt(
         "to see the inventory."
     )
 
+    _actions = actions_section(cloud)
+
     return f"""You are Argus, a cloud FinOps assistant in interactive chat mode.
 
 CLOUD: {cloud.upper()}
@@ -181,6 +189,8 @@ Use cached data for follow-up questions. Call a tool only when the answer genuin
 {_RIGHT_SIZING_RULES}
 
 {_PRIORITY_RULES}
+
+{_actions}
 
 SAFETY
 ──────

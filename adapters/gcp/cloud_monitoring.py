@@ -10,8 +10,17 @@ from google.protobuf.timestamp_pb2 import Timestamp
 
 from adapters.base import MetricSummary
 from adapters.gcp.retry import retry_on_transient
+from core.registry import get_registry
 
 logger = structlog.get_logger(__name__)
+
+
+def _metrics_for(resource_type: str) -> list[tuple[str, str]] | None:
+    spec = get_registry().get(resource_type)
+    if spec and spec.metrics:
+        return [(m.name, m.stat) for m in spec.metrics]
+    return None
+
 
 # (MetricType, Stat, label_key_for_resource_filter)
 # Stat: "mean" for utilisation, "sum" for throughput/count.
@@ -254,7 +263,7 @@ def get_metrics(
     Fetch Cloud Monitoring metrics for a GCP resource.
     Falls back to listing available metrics for unknown resource types.
     """
-    metric_defs = _METRICS.get(resource_type)
+    metric_defs = _metrics_for(resource_type)
     if not metric_defs:
         metric_defs = _discover_metrics(project_id, resource_id, resource_type)
     if not metric_defs:
