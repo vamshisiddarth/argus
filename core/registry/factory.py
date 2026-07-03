@@ -36,6 +36,8 @@ def get_registry() -> ResourceRegistry:
                 r.register(spec)
                 registered += 1
             except ValueError as exc:
+                msg = f"{cloud}/{spec.type_id}: {exc}"
+                r.load_warnings.append(msg)
                 logger.warning(
                     "registry_skip_invalid_spec",
                     extra={"cloud": cloud, "type_id": spec.type_id, "error": str(exc)},

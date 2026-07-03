@@ -257,3 +257,18 @@ class TestResourceRegistry:
         assert "reduce_nodes" in _VALID_ACTIONS
         assert "archive" in _VALID_ACTIONS
         assert "convert_spot" in _VALID_ACTIONS
+
+    def test_load_warnings_empty_on_clean_registry(self) -> None:
+        r = ResourceRegistry()
+        assert r.load_warnings == []
+
+    def test_load_warnings_accumulate_on_skip(self) -> None:
+        r = ResourceRegistry()
+        try:
+            r.register(
+                ResourceTypeSpec(type_id="", cloud="aws", display_name="X", service="S")
+            )
+        except ValueError as exc:
+            r.load_warnings.append(f"aws/: {exc}")
+        assert len(r.load_warnings) == 1
+        assert "aws/" in r.load_warnings[0]

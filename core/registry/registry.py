@@ -19,6 +19,7 @@ _VALID_ACTIONS = frozenset(
 class ResourceRegistry:
     def __init__(self) -> None:
         self._specs: dict[str, ResourceTypeSpec] = {}
+        self.load_warnings: list[str] = []  # set by factory; non-empty → partial load
 
     def register(self, spec: ResourceTypeSpec) -> None:
         if not spec.type_id:

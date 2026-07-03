@@ -12,6 +12,7 @@ from adapters.base import CloudAdapter
 from ai.base import AIProvider, Message, Tool, ToolResult
 from core.agent.loop import AgentLoop
 from core.agent.prompts import build_chat_system_prompt, build_chat_tool_schemas
+from core.registry import get_registry
 from core.token_tracker import BudgetExceededError, TokenTracker
 
 logger = structlog.get_logger(__name__)
@@ -407,6 +408,7 @@ def _fmt_list_resources(raw: str) -> str:
     if not resources:
         return "No resources found."
 
+    registry = get_registry()
     type_counts: dict[str, int] = {}
     regions: set[str] = set()
     for r in resources:
@@ -418,7 +420,7 @@ def _fmt_list_resources(raw: str) -> str:
     sorted_types = sorted(type_counts.items(), key=lambda x: x[1], reverse=True)
     top_types = sorted_types[:3]
     other_count = sum(c for _, c in sorted_types[3:])
-    type_parts = [f"{c} {t}" for t, c in top_types]
+    type_parts = [f"{c} {registry.display_name(t)}" for t, c in top_types]
     if other_count:
         type_parts.append(f"{other_count} other")
     region_str = ", ".join(sorted(regions)) if regions else "?"

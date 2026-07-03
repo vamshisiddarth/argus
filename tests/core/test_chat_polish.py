@@ -44,6 +44,14 @@ def test_format_tool_result_list_resources_empty():
     assert "No resources found" in result
 
 
+def test_format_tool_result_list_resources_uses_display_name():
+    raw = _make_resources(5)
+    result = ChatSession.format_tool_result("list_resources", raw)
+    # Should show "EC2 Instance", not raw "AWS::EC2::Instance"
+    assert "EC2 Instance" in result
+    assert "AWS::EC2::Instance" not in result
+
+
 # ---------------------------------------------------------------------------
 # format_tool_result — get_metrics
 # ---------------------------------------------------------------------------
