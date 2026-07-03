@@ -288,7 +288,7 @@ AZURE_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("FunctionExecutionCount", "microsoft.web/sites/functions", "Total", ""),
             _M("FunctionExecutionUnits", "microsoft.web/sites/functions", "Total", ""),
         ),
-        actions=("delete",),
+        actions=("delete", "stop"),
         typical_monthly_cost_usd=5.0,
     ),
     ResourceTypeSpec(
@@ -499,7 +499,7 @@ AZURE_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("FirewallHealth", "microsoft.network/azurefirewalls", "Average", ""),
             _M("Throughput", "microsoft.network/azurefirewalls", "Average", ""),
         ),
-        actions=("delete",),
+        actions=("delete", "stop"),
         typical_monthly_cost_usd=900.0,
     ),
     ResourceTypeSpec(
@@ -662,7 +662,7 @@ AZURE_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("CoreCount", "microsoft.batch/batchaccounts", "Average", ""),
             _M("IdleNodeCount", "microsoft.batch/batchaccounts", "Average", ""),
         ),
-        actions=("delete",),
+        actions=("delete", "reduce_nodes"),
         typical_monthly_cost_usd=50.0,
     ),
     ResourceTypeSpec(

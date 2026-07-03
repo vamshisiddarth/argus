@@ -140,7 +140,7 @@ GCP_RESOURCE_TYPES: list[ResourceTypeSpec] = [
                 "service_name",
             ),
         ),
-        actions=("delete",),
+        actions=("delete", "resize"),
         typical_monthly_cost_usd=5.0,
         docs_url="https://cloud.google.com/run/docs",
     ),
@@ -731,7 +731,7 @@ GCP_RESOURCE_TYPES: list[ResourceTypeSpec] = [
                 "module_id",
             ),
         ),
-        actions=("delete",),
+        actions=("delete", "stop"),
         typical_monthly_cost_usd=30.0,
     ),
     ResourceTypeSpec(

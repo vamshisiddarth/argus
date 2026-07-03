@@ -65,10 +65,10 @@ pytest tests/ --cov=. --cov-report=term-missing
 
 ## Code style
 
-We use **Black** (formatter) and **Ruff** (linter):
+We use **Ruff** for both formatting and linting:
 
 ```bash
-black .
+ruff format .
 ruff check . --fix
 ```
 
@@ -198,7 +198,10 @@ ResourceTypeSpec(
         _M("FilesOut",  "AWS/Transfer", "Sum", "ServerId"),
         _M("BytesIn",   "AWS/Transfer", "Sum", "ServerId"),
     ),
-    actions=("delete", "stop"),            # verbs from _VALID_ACTIONS in registry.py
+    actions=("delete", "stop", "resize"),  # verbs from _VALID_ACTIONS in registry.py
+    # delete — wipe the server entirely
+    # stop   — stop the server; storage still billed, useful for dev servers
+    # resize — downgrade to a smaller instance type
     typical_monthly_cost_usd=30.0,        # rough on-demand estimate; used for cost filtering
     docs_url="https://docs.aws.amazon.com/transfer/latest/userguide/",
 ),
