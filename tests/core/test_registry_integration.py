@@ -11,11 +11,12 @@ from __future__ import annotations
 
 import pytest
 
-from core.registry import ResourceRegistry, get_registry
+from core.registry import ResourceRegistry, actions_section, get_registry
 from core.registry.aws import AWS_RESOURCE_TYPES
 from core.registry.azure import AZURE_RESOURCE_TYPES
 from core.registry.gcp import GCP_RESOURCE_TYPES
 from core.registry.models import MetricSpec, ResourceTypeSpec
+from core.registry.registry import _VALID_ACTIONS
 
 
 # ---------------------------------------------------------------------------
@@ -99,6 +100,33 @@ class TestAWSDataQuality:
         ids = [s.type_id for s in AWS_RESOURCE_TYPES]
         assert len(ids) == len(set(ids))
 
+    @pytest.mark.parametrize("spec", AWS_RESOURCE_TYPES)
+    def test_actions_are_valid_vocab(self, spec: ResourceTypeSpec):
+        invalid = set(spec.actions) - _VALID_ACTIONS
+        assert not invalid, f"{spec.type_id}: unknown actions {invalid}"
+
+    @pytest.mark.parametrize("spec", AWS_RESOURCE_TYPES)
+    def test_has_at_least_one_action(self, spec: ResourceTypeSpec):
+        assert len(spec.actions) >= 1, f"{spec.type_id} has no actions"
+
+    def test_ec2_has_resize_and_stop(self):
+        spec = get_registry().get("AWS::EC2::Instance")
+        assert spec is not None
+        assert "resize" in spec.actions
+        assert "stop" in spec.actions
+        assert "convert_spot" in spec.actions
+
+    def test_all_for_action_resize_includes_ec2_and_rds(self):
+        resizable = get_registry().all_for_action("resize")
+        type_ids = [s.type_id for s in resizable]
+        assert "AWS::EC2::Instance" in type_ids
+        assert "AWS::RDS::DBInstance" in type_ids
+
+    def test_all_for_action_delete_includes_all_clouds(self):
+        deletable = get_registry().all_for_action("delete")
+        clouds = {s.cloud for s in deletable}
+        assert clouds == {"aws", "gcp", "azure"}
+
 
 # ---------------------------------------------------------------------------
 # GCP data quality
@@ -134,6 +162,21 @@ class TestGCPDataQuality:
         ids = [s.type_id for s in GCP_RESOURCE_TYPES]
         assert len(ids) == len(set(ids))
 
+    @pytest.mark.parametrize("spec", GCP_RESOURCE_TYPES)
+    def test_actions_are_valid_vocab(self, spec: ResourceTypeSpec):
+        invalid = set(spec.actions) - _VALID_ACTIONS
+        assert not invalid, f"{spec.type_id}: unknown actions {invalid}"
+
+    @pytest.mark.parametrize("spec", GCP_RESOURCE_TYPES)
+    def test_has_at_least_one_action(self, spec: ResourceTypeSpec):
+        assert len(spec.actions) >= 1, f"{spec.type_id} has no actions"
+
+    def test_gce_has_stop_and_convert_spot(self):
+        spec = get_registry().get("compute.googleapis.com/Instance")
+        assert spec is not None
+        assert "stop" in spec.actions
+        assert "convert_spot" in spec.actions
+
 
 # ---------------------------------------------------------------------------
 # Azure data quality
@@ -160,6 +203,20 @@ class TestAzureDataQuality:
     def test_no_duplicate_type_ids(self):
         ids = [s.type_id for s in AZURE_RESOURCE_TYPES]
         assert len(ids) == len(set(ids))
+
+    @pytest.mark.parametrize("spec", AZURE_RESOURCE_TYPES)
+    def test_actions_are_valid_vocab(self, spec: ResourceTypeSpec):
+        invalid = set(spec.actions) - _VALID_ACTIONS
+        assert not invalid, f"{spec.type_id}: unknown actions {invalid}"
+
+    @pytest.mark.parametrize("spec", AZURE_RESOURCE_TYPES)
+    def test_has_at_least_one_action(self, spec: ResourceTypeSpec):
+        assert len(spec.actions) >= 1, f"{spec.type_id} has no actions"
+
+    def test_azure_vm_has_convert_spot(self):
+        spec = get_registry().get("microsoft.compute/virtualmachines")
+        assert spec is not None
+        assert "convert_spot" in spec.actions
 
 
 # ---------------------------------------------------------------------------
@@ -293,3 +350,50 @@ class TestReportGeneratorDisplayNames:
         from core.registry import get_registry
         result = get_registry().display_name("AWS::Unknown::Type")
         assert result == "AWS::Unknown::Type"
+
+
+# ---------------------------------------------------------------------------
+# actions_section() and prompt integration
+# ---------------------------------------------------------------------------
+class TestActionsSection:
+    def test_returns_string_for_aws(self):
+        section = actions_section("aws")
+        assert isinstance(section, str)
+        assert len(section) > 0
+
+    def test_contains_delete_action(self):
+        section = actions_section("aws")
+        assert "delete" in section
+
+    def test_contains_resize_action(self):
+        section = actions_section("aws")
+        assert "resize" in section
+
+    def test_groups_by_service(self):
+        section = actions_section("aws")
+        assert "Compute" in section
+        assert "Database" in section
+
+    def test_empty_for_unknown_cloud(self):
+        assert actions_section("unknown_cloud") == ""
+
+    def test_gcp_section_contains_gce(self):
+        section = actions_section("gcp")
+        assert "GCE Instance" in section
+
+    def test_azure_section_contains_vm(self):
+        section = actions_section("azure")
+        assert "Virtual Machine" in section
+
+    def test_prompt_includes_actions_section(self):
+        from core.agent.prompts import build_system_prompt
+        prompt = build_system_prompt("aws", [], [{"name": "prod", "id": "123"}])
+        assert "REMEDIATION ACTIONS" in prompt
+        assert "EC2 Instance" in prompt
+        assert "delete" in prompt
+
+    def test_chat_prompt_includes_actions_section(self):
+        from core.agent.prompts import build_chat_system_prompt
+        prompt = build_chat_system_prompt("gcp", [], [{"name": "proj", "id": "my-project"}])
+        assert "REMEDIATION ACTIONS" in prompt
+        assert "GCE Instance" in prompt

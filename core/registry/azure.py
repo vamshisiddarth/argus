@@ -15,6 +15,7 @@ AZURE_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("Network In Total", "microsoft.compute/virtualmachines", "Total", ""),
             _M("Network Out Total", "microsoft.compute/virtualmachines", "Total", ""),
         ),
+        actions=("delete", "resize", "stop", "snapshot_delete", "convert_spot"),
         typical_monthly_cost_usd=50.0,
     ),
     ResourceTypeSpec(
@@ -27,6 +28,7 @@ AZURE_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("Network In Total", "microsoft.compute/virtualmachinescalesets", "Total", ""),
             _M("Network Out Total", "microsoft.compute/virtualmachinescalesets", "Total", ""),
         ),
+        actions=("delete", "resize", "reduce_nodes"),
     ),
     ResourceTypeSpec(
         type_id="microsoft.compute/disks",
@@ -37,6 +39,7 @@ AZURE_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("Composite Disk Read Operations/sec", "microsoft.compute/disks", "Average", ""),
             _M("Composite Disk Write Operations/sec", "microsoft.compute/disks", "Average", ""),
         ),
+        actions=("delete", "snapshot_delete", "archive"),
     ),
     ResourceTypeSpec(
         type_id="microsoft.sql/servers/databases",
@@ -48,6 +51,7 @@ AZURE_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("connection_successful", "microsoft.sql/servers/databases", "Total", ""),
             _M("storage_percent", "microsoft.sql/servers/databases", "Average", ""),
         ),
+        actions=("delete", "resize", "snapshot_delete"),
         typical_monthly_cost_usd=150.0,
     ),
     ResourceTypeSpec(
@@ -59,6 +63,7 @@ AZURE_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("avg_cpu_percent", "microsoft.sql/managedinstances", "Average", ""),
             _M("storage_space_used_mb", "microsoft.sql/managedinstances", "Average", ""),
         ),
+        actions=("delete", "resize", "snapshot_delete"),
         typical_monthly_cost_usd=500.0,
     ),
     ResourceTypeSpec(
@@ -71,6 +76,7 @@ AZURE_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("MemoryPercentage", "microsoft.web/serverfarms", "Average", ""),
             _M("HttpQueueLength", "microsoft.web/serverfarms", "Average", ""),
         ),
+        actions=("delete", "resize"),
         typical_monthly_cost_usd=75.0,
     ),
     ResourceTypeSpec(
@@ -83,6 +89,7 @@ AZURE_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("Requests", "microsoft.web/sites", "Total", ""),
             _M("BytesReceived", "microsoft.web/sites", "Total", ""),
         ),
+        actions=("delete", "stop"),
     ),
     ResourceTypeSpec(
         type_id="microsoft.containerservice/managedclusters",
@@ -94,6 +101,7 @@ AZURE_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("node_memory_rss_percentage", "microsoft.containerservice/managedclusters", "Average", ""),
             _M("kube_node_status_allocatable_cpu_cores", "microsoft.containerservice/managedclusters", "Average", ""),
         ),
+        actions=("delete", "resize", "reduce_nodes"),
         typical_monthly_cost_usd=73.0,
     ),
     ResourceTypeSpec(
@@ -106,6 +114,7 @@ AZURE_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("MemoryUsage", "microsoft.containerinstance/containergroups", "Average", ""),
             _M("NetworkBytesReceivedPerSecond", "microsoft.containerinstance/containergroups", "Average", ""),
         ),
+        actions=("delete", "stop"),
     ),
     ResourceTypeSpec(
         type_id="microsoft.cache/redis",
@@ -117,6 +126,7 @@ AZURE_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("cachehits", "microsoft.cache/redis", "Total", ""),
             _M("cachemisses", "microsoft.cache/redis", "Total", ""),
         ),
+        actions=("delete", "resize"),
         typical_monthly_cost_usd=60.0,
     ),
     ResourceTypeSpec(
@@ -129,6 +139,7 @@ AZURE_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("NormalizedRUConsumption", "microsoft.documentdb/databaseaccounts", "Average", ""),
             _M("ServerSideLatency", "microsoft.documentdb/databaseaccounts", "Average", ""),
         ),
+        actions=("delete", "resize", "reduce_replicas"),
         typical_monthly_cost_usd=200.0,
     ),
     ResourceTypeSpec(
@@ -141,6 +152,7 @@ AZURE_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("Ingress", "microsoft.storage/storageaccounts", "Total", ""),
             _M("Egress", "microsoft.storage/storageaccounts", "Total", ""),
         ),
+        actions=("delete", "archive"),
     ),
     ResourceTypeSpec(
         type_id="microsoft.containerservice/managedclusters/agentpools",
@@ -151,6 +163,7 @@ AZURE_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("node_cpu_usage_percentage", "microsoft.containerservice/managedclusters/agentpools", "Average", ""),
             _M("node_memory_rss_percentage", "microsoft.containerservice/managedclusters/agentpools", "Average", ""),
         ),
+        actions=("delete", "resize", "reduce_nodes"),
     ),
     ResourceTypeSpec(
         type_id="microsoft.eventhub/namespaces",
@@ -162,6 +175,7 @@ AZURE_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("OutgoingMessages", "microsoft.eventhub/namespaces", "Total", ""),
             _M("ActiveConnections", "microsoft.eventhub/namespaces", "Average", ""),
         ),
+        actions=("delete", "resize"),
     ),
     ResourceTypeSpec(
         type_id="microsoft.servicebus/namespaces",
@@ -173,6 +187,7 @@ AZURE_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("OutgoingMessages", "microsoft.servicebus/namespaces", "Total", ""),
             _M("ActiveConnections", "microsoft.servicebus/namespaces", "Average", ""),
         ),
+        actions=("delete", "resize"),
     ),
     ResourceTypeSpec(
         type_id="microsoft.web/sites/functions",
@@ -183,6 +198,7 @@ AZURE_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("FunctionExecutionCount", "microsoft.web/sites/functions", "Total", ""),
             _M("FunctionExecutionUnits", "microsoft.web/sites/functions", "Total", ""),
         ),
+        actions=("delete",),
     ),
     ResourceTypeSpec(
         type_id="microsoft.apimanagement/service",
@@ -194,6 +210,7 @@ AZURE_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("SuccessfulRequests", "microsoft.apimanagement/service", "Total", ""),
             _M("Capacity", "microsoft.apimanagement/service", "Average", ""),
         ),
+        actions=("delete", "resize"),
         typical_monthly_cost_usd=200.0,
     ),
     ResourceTypeSpec(
@@ -206,6 +223,7 @@ AZURE_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("CurrentConnections", "microsoft.network/applicationgateways", "Average", ""),
             _M("Throughput", "microsoft.network/applicationgateways", "Average", ""),
         ),
+        actions=("delete", "resize"),
         typical_monthly_cost_usd=120.0,
     ),
     ResourceTypeSpec(
@@ -218,6 +236,7 @@ AZURE_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("ByteCount", "microsoft.network/loadbalancers", "Total", ""),
             _M("AllocatedSnatPorts", "microsoft.network/loadbalancers", "Average", ""),
         ),
+        actions=("delete",),
     ),
     ResourceTypeSpec(
         type_id="microsoft.databricks/workspaces",
@@ -228,6 +247,7 @@ AZURE_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("autoOptimizeClusterUtilization", "microsoft.databricks/workspaces", "Average", ""),
             _M("numActiveClusters", "microsoft.databricks/workspaces", "Average", ""),
         ),
+        actions=("delete", "resize"),
         typical_monthly_cost_usd=400.0,
     ),
     ResourceTypeSpec(
@@ -239,6 +259,7 @@ AZURE_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("GatewayRequests", "microsoft.hdinsight/clusters", "Total", ""),
             _M("CategorizedGatewayRequests", "microsoft.hdinsight/clusters", "Total", ""),
         ),
+        actions=("delete", "resize", "reduce_nodes"),
         typical_monthly_cost_usd=300.0,
     ),
     ResourceTypeSpec(
@@ -251,6 +272,7 @@ AZURE_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("RunsCompleted", "microsoft.logic/workflows", "Total", ""),
             _M("RunsFailed", "microsoft.logic/workflows", "Total", ""),
         ),
+        actions=("delete", "stop"),
     ),
     ResourceTypeSpec(
         type_id="microsoft.cognitiveservices/accounts",
@@ -262,6 +284,7 @@ AZURE_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("TotalErrors", "microsoft.cognitiveservices/accounts", "Total", ""),
             _M("Latency", "microsoft.cognitiveservices/accounts", "Average", ""),
         ),
+        actions=("delete", "resize"),
     ),
     ResourceTypeSpec(
         type_id="microsoft.search/searchservices",
@@ -272,6 +295,7 @@ AZURE_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("SearchQueriesPerSecond", "microsoft.search/searchservices", "Average", ""),
             _M("ThrottledSearchQueriesPercentage", "microsoft.search/searchservices", "Average", ""),
         ),
+        actions=("delete", "resize"),
         typical_monthly_cost_usd=250.0,
     ),
     ResourceTypeSpec(
@@ -284,6 +308,7 @@ AZURE_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("OutputEvents", "microsoft.streamanalytics/streamingjobs", "Total", ""),
             _M("ResourceUtilization", "microsoft.streamanalytics/streamingjobs", "Average", ""),
         ),
+        actions=("delete", "stop"),
     ),
     ResourceTypeSpec(
         type_id="microsoft.datafactory/factories",
@@ -295,6 +320,7 @@ AZURE_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("ActivityRunsStarted", "microsoft.datafactory/factories", "Total", ""),
             _M("TriggerRunsStarted", "microsoft.datafactory/factories", "Total", ""),
         ),
+        actions=("delete",),
     ),
     ResourceTypeSpec(
         type_id="microsoft.network/natgateways",
@@ -306,6 +332,7 @@ AZURE_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("PacketCount", "microsoft.network/natgateways", "Total", ""),
             _M("SNATConnectionCount", "microsoft.network/natgateways", "Total", ""),
         ),
+        actions=("delete",),
         typical_monthly_cost_usd=32.0,
     ),
     ResourceTypeSpec(
@@ -318,6 +345,7 @@ AZURE_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("TunnelEgressBytes", "microsoft.network/virtualnetworkgateways", "Total", ""),
             _M("P2SConnectionCount", "microsoft.network/virtualnetworkgateways", "Average", ""),
         ),
+        actions=("delete", "resize"),
         typical_monthly_cost_usd=140.0,
     ),
     ResourceTypeSpec(
@@ -330,6 +358,7 @@ AZURE_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("FirewallHealth", "microsoft.network/azurefirewalls", "Average", ""),
             _M("Throughput", "microsoft.network/azurefirewalls", "Average", ""),
         ),
+        actions=("delete",),
         typical_monthly_cost_usd=900.0,
     ),
     ResourceTypeSpec(
@@ -342,6 +371,7 @@ AZURE_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("TotalLatency", "microsoft.network/frontdoors", "Average", ""),
             _M("RequestSize", "microsoft.network/frontdoors", "Total", ""),
         ),
+        actions=("delete",),
     ),
     ResourceTypeSpec(
         type_id="microsoft.network/expressroutecircuits",
@@ -352,6 +382,7 @@ AZURE_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("BitsInPerSecond", "microsoft.network/expressroutecircuits", "Average", ""),
             _M("BitsOutPerSecond", "microsoft.network/expressroutecircuits", "Average", ""),
         ),
+        actions=("delete",),
         typical_monthly_cost_usd=500.0,
     ),
     ResourceTypeSpec(
@@ -363,6 +394,7 @@ AZURE_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("ByteCount", "microsoft.network/publicipaddresses", "Total", ""),
             _M("PacketCount", "microsoft.network/publicipaddresses", "Total", ""),
         ),
+        actions=("delete",),
     ),
     ResourceTypeSpec(
         type_id="microsoft.dbformysql/flexibleservers",
@@ -374,6 +406,7 @@ AZURE_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("active_connections", "microsoft.dbformysql/flexibleservers", "Average", ""),
             _M("storage_percent", "microsoft.dbformysql/flexibleservers", "Average", ""),
         ),
+        actions=("delete", "resize", "stop", "snapshot_delete"),
         typical_monthly_cost_usd=100.0,
     ),
     ResourceTypeSpec(
@@ -386,6 +419,7 @@ AZURE_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("active_connections", "microsoft.dbforpostgresql/flexibleservers", "Average", ""),
             _M("storage_percent", "microsoft.dbforpostgresql/flexibleservers", "Average", ""),
         ),
+        actions=("delete", "resize", "stop", "snapshot_delete"),
         typical_monthly_cost_usd=100.0,
     ),
     ResourceTypeSpec(
@@ -398,6 +432,7 @@ AZURE_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("active_connections", "microsoft.dbformariadb/servers", "Average", ""),
             _M("storage_percent", "microsoft.dbformariadb/servers", "Average", ""),
         ),
+        actions=("delete", "resize", "stop", "snapshot_delete"),
         typical_monthly_cost_usd=80.0,
     ),
     ResourceTypeSpec(
@@ -410,6 +445,7 @@ AZURE_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("ActiveQueries", "microsoft.synapse/workspaces/sqlpools", "Total", ""),
             _M("ConnectionsBlockedByFirewall", "microsoft.synapse/workspaces/sqlpools", "Total", ""),
         ),
+        actions=("delete", "resize", "snapshot_delete"),
         typical_monthly_cost_usd=600.0,
     ),
     ResourceTypeSpec(
@@ -421,6 +457,7 @@ AZURE_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("RequestsPerMinute", "microsoft.machinelearningservices/workspaces/onlineendpoints", "Average", ""),
             _M("RequestLatency", "microsoft.machinelearningservices/workspaces/onlineendpoints", "Average", ""),
         ),
+        actions=("delete", "resize"),
     ),
     ResourceTypeSpec(
         type_id="microsoft.batch/batchaccounts",
@@ -432,6 +469,7 @@ AZURE_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("CoreCount", "microsoft.batch/batchaccounts", "Average", ""),
             _M("IdleNodeCount", "microsoft.batch/batchaccounts", "Average", ""),
         ),
+        actions=("delete",),
     ),
     ResourceTypeSpec(
         type_id="microsoft.devices/iothubs",
@@ -443,6 +481,7 @@ AZURE_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("connectedDeviceCount", "microsoft.devices/iothubs", "Average", ""),
             _M("totalDeviceCount", "microsoft.devices/iothubs", "Average", ""),
         ),
+        actions=("delete", "resize"),
     ),
     ResourceTypeSpec(
         type_id="microsoft.signalrservice/signalr",
@@ -454,5 +493,6 @@ AZURE_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("MessageCount", "microsoft.signalrservice/signalr", "Total", ""),
             _M("InboundTraffic", "microsoft.signalrservice/signalr", "Total", ""),
         ),
+        actions=("delete", "resize"),
     ),
 ]

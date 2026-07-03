@@ -1,7 +1,7 @@
 import pytest
 
 from core.registry.models import MetricSpec, ResourceTypeSpec
-from core.registry.registry import ResourceRegistry
+from core.registry.registry import ResourceRegistry, _VALID_ACTIONS
 
 
 @pytest.fixture()
@@ -62,6 +62,27 @@ class TestResourceTypeSpec:
             service="Compute",
         )
         assert spec.metrics == ()
+
+    def test_actions_default_empty(self) -> None:
+        spec = ResourceTypeSpec(
+            type_id="AWS::EC2::Instance",
+            cloud="aws",
+            display_name="EC2 Instance",
+            service="Compute",
+        )
+        assert spec.actions == ()
+
+    def test_actions_stored(self) -> None:
+        spec = ResourceTypeSpec(
+            type_id="AWS::EC2::Instance",
+            cloud="aws",
+            display_name="EC2 Instance",
+            service="Compute",
+            actions=("delete", "resize", "stop"),
+        )
+        assert "delete" in spec.actions
+        assert "resize" in spec.actions
+        assert "stop" in spec.actions
 
     def test_optional_fields_default_none(self) -> None:
         spec = ResourceTypeSpec(
@@ -149,3 +170,76 @@ class TestResourceRegistry:
         assert r.get("anything") is None
         assert r.all_for_cloud("aws") == []
         assert r.all_type_ids() == []
+
+    def test_all_for_action(self, registry: ResourceRegistry) -> None:
+        registry.register(
+            ResourceTypeSpec(
+                type_id="AWS::Lambda::Function",
+                cloud="aws",
+                display_name="Lambda",
+                service="Compute",
+                actions=("delete", "resize"),
+            )
+        )
+        resizable = registry.all_for_action("resize")
+        type_ids = [s.type_id for s in resizable]
+        # EC2 fixture has no actions — Lambda above has resize
+        assert "AWS::Lambda::Function" in type_ids
+        assert "AWS::EC2::Instance" not in type_ids
+
+    def test_all_for_action_unknown_returns_empty(self, registry: ResourceRegistry) -> None:
+        assert registry.all_for_action("nonexistent_action") == []
+
+    def test_actions_for_known_type(self, registry: ResourceRegistry) -> None:
+        registry.register(
+            ResourceTypeSpec(
+                type_id="AWS::S3::Bucket",
+                cloud="aws",
+                display_name="S3 Bucket",
+                service="Storage",
+                actions=("delete", "archive"),
+            )
+        )
+        actions = registry.actions_for("AWS::S3::Bucket")
+        assert "delete" in actions
+        assert "archive" in actions
+
+    def test_actions_for_unknown_type_returns_empty(self, registry: ResourceRegistry) -> None:
+        assert registry.actions_for("AWS::Unknown::Type") == ()
+
+    def test_register_rejects_empty_type_id(self) -> None:
+        r = ResourceRegistry()
+        with pytest.raises(ValueError, match="type_id"):
+            r.register(
+                ResourceTypeSpec(type_id="", cloud="aws", display_name="X", service="S")
+            )
+
+    def test_register_rejects_empty_display_name(self) -> None:
+        r = ResourceRegistry()
+        with pytest.raises(ValueError, match="display_name"):
+            r.register(
+                ResourceTypeSpec(type_id="AWS::X::Y", cloud="aws", display_name="", service="S")
+            )
+
+    def test_register_rejects_invalid_action(self) -> None:
+        r = ResourceRegistry()
+        with pytest.raises(ValueError, match="Unknown actions"):
+            r.register(
+                ResourceTypeSpec(
+                    type_id="AWS::EC2::Instance",
+                    cloud="aws",
+                    display_name="EC2",
+                    service="Compute",
+                    actions=("delete", "nuke_everything"),
+                )
+            )
+
+    def test_valid_actions_set(self) -> None:
+        assert "delete" in _VALID_ACTIONS
+        assert "resize" in _VALID_ACTIONS
+        assert "stop" in _VALID_ACTIONS
+        assert "snapshot_delete" in _VALID_ACTIONS
+        assert "reduce_replicas" in _VALID_ACTIONS
+        assert "reduce_nodes" in _VALID_ACTIONS
+        assert "archive" in _VALID_ACTIONS
+        assert "convert_spot" in _VALID_ACTIONS

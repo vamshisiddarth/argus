@@ -15,6 +15,7 @@ GCP_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("compute.googleapis.com/instance/network/sent_bytes_count", "compute.googleapis.com", "sum", "instance_id"),
             _M("compute.googleapis.com/instance/network/received_bytes_count", "compute.googleapis.com", "sum", "instance_id"),
         ),
+        actions=("delete", "resize", "stop", "snapshot_delete", "convert_spot"),
         typical_monthly_cost_usd=50.0,
     ),
     ResourceTypeSpec(
@@ -26,6 +27,7 @@ GCP_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("compute.googleapis.com/instance/disk/read_ops_count", "compute.googleapis.com", "sum", "device_name"),
             _M("compute.googleapis.com/instance/disk/write_ops_count", "compute.googleapis.com", "sum", "device_name"),
         ),
+        actions=("delete", "snapshot_delete", "archive"),
     ),
     ResourceTypeSpec(
         type_id="sqladmin.googleapis.com/Instance",
@@ -37,6 +39,7 @@ GCP_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("cloudsql.googleapis.com/database/network/connections", "cloudsql.googleapis.com", "mean", "database_id"),
             _M("cloudsql.googleapis.com/database/network/received_bytes_count", "cloudsql.googleapis.com", "sum", "database_id"),
         ),
+        actions=("delete", "resize", "stop", "snapshot_delete"),
         typical_monthly_cost_usd=100.0,
     ),
     ResourceTypeSpec(
@@ -49,6 +52,7 @@ GCP_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("kubernetes.io/container/memory/request_utilization", "kubernetes.io", "mean", "cluster_name"),
             _M("kubernetes.io/node/cpu/allocatable_utilization", "kubernetes.io", "mean", "cluster_name"),
         ),
+        actions=("delete", "resize", "reduce_nodes"),
         typical_monthly_cost_usd=73.0,
     ),
     ResourceTypeSpec(
@@ -61,6 +65,7 @@ GCP_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("run.googleapis.com/request_latencies", "run.googleapis.com", "mean", "service_name"),
             _M("run.googleapis.com/container/cpu/utilizations", "run.googleapis.com", "mean", "service_name"),
         ),
+        actions=("delete",),
     ),
     ResourceTypeSpec(
         type_id="cloudfunctions.googleapis.com/Function",
@@ -71,6 +76,7 @@ GCP_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("cloudfunctions.googleapis.com/function/execution_count", "cloudfunctions.googleapis.com", "sum", "function_name"),
             _M("cloudfunctions.googleapis.com/function/execution_times", "cloudfunctions.googleapis.com", "mean", "function_name"),
         ),
+        actions=("delete",),
     ),
     ResourceTypeSpec(
         type_id="storage.googleapis.com/Bucket",
@@ -81,6 +87,7 @@ GCP_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("storage.googleapis.com/api/request_count", "storage.googleapis.com", "sum", "bucket_name"),
             _M("storage.googleapis.com/network/sent_bytes_count", "storage.googleapis.com", "sum", "bucket_name"),
         ),
+        actions=("delete", "archive"),
     ),
     ResourceTypeSpec(
         type_id="bigquery.googleapis.com/Dataset",
@@ -91,6 +98,7 @@ GCP_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("bigquery.googleapis.com/storage/table_count", "bigquery.googleapis.com", "mean", "dataset_id"),
             _M("bigquery.googleapis.com/storage/stored_bytes", "bigquery.googleapis.com", "mean", "dataset_id"),
         ),
+        actions=("delete", "archive"),
     ),
     ResourceTypeSpec(
         type_id="bigquery.googleapis.com/Table",
@@ -101,6 +109,7 @@ GCP_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("bigquery.googleapis.com/storage/stored_bytes", "bigquery.googleapis.com", "mean", "table_id"),
             _M("bigquery.googleapis.com/storage/row_count", "bigquery.googleapis.com", "mean", "table_id"),
         ),
+        actions=("delete", "archive"),
     ),
     ResourceTypeSpec(
         type_id="redis.googleapis.com/Instance",
@@ -112,6 +121,7 @@ GCP_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("redis.googleapis.com/stats/cache_hit_ratio", "redis.googleapis.com", "mean", "instance_id"),
             _M("redis.googleapis.com/stats/memory/usage_ratio", "redis.googleapis.com", "mean", "instance_id"),
         ),
+        actions=("delete", "resize"),
         typical_monthly_cost_usd=50.0,
     ),
     ResourceTypeSpec(
@@ -123,6 +133,7 @@ GCP_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("spanner.googleapis.com/instance/cpu/utilization", "spanner.googleapis.com", "mean", "instance_id"),
             _M("spanner.googleapis.com/instance/session_count", "spanner.googleapis.com", "mean", "instance_id"),
         ),
+        actions=("delete", "resize", "reduce_nodes"),
         typical_monthly_cost_usd=700.0,
     ),
     ResourceTypeSpec(
@@ -134,6 +145,7 @@ GCP_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("pubsub.googleapis.com/topic/send_message_operation_count", "pubsub.googleapis.com", "sum", "topic_id"),
             _M("pubsub.googleapis.com/topic/byte_cost", "pubsub.googleapis.com", "sum", "topic_id"),
         ),
+        actions=("delete",),
     ),
     ResourceTypeSpec(
         type_id="pubsub.googleapis.com/Subscription",
@@ -144,6 +156,7 @@ GCP_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("pubsub.googleapis.com/subscription/pull_message_operation_count", "pubsub.googleapis.com", "sum", "subscription_id"),
             _M("pubsub.googleapis.com/subscription/num_undelivered_messages", "pubsub.googleapis.com", "mean", "subscription_id"),
         ),
+        actions=("delete",),
     ),
     ResourceTypeSpec(
         type_id="dataflow.googleapis.com/Job",
@@ -155,6 +168,7 @@ GCP_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("dataflow.googleapis.com/job/elapsed_time", "dataflow.googleapis.com", "mean", "job_id"),
             _M("dataflow.googleapis.com/job/element_count", "dataflow.googleapis.com", "sum", "job_id"),
         ),
+        actions=("delete", "stop"),
     ),
     ResourceTypeSpec(
         type_id="dataproc.googleapis.com/Cluster",
@@ -165,6 +179,7 @@ GCP_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("dataproc.googleapis.com/cluster/yarn/allocated_memory_percentage", "dataproc.googleapis.com", "mean", "cluster_name"),
             _M("dataproc.googleapis.com/cluster/hdfs/storage_utilization", "dataproc.googleapis.com", "mean", "cluster_name"),
         ),
+        actions=("delete", "stop", "reduce_nodes"),
         typical_monthly_cost_usd=400.0,
     ),
     ResourceTypeSpec(
@@ -176,6 +191,7 @@ GCP_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("aiplatform.googleapis.com/prediction/online/request_count", "aiplatform.googleapis.com", "sum", "endpoint_id"),
             _M("aiplatform.googleapis.com/prediction/online/latencies", "aiplatform.googleapis.com", "mean", "endpoint_id"),
         ),
+        actions=("delete", "resize"),
         typical_monthly_cost_usd=200.0,
     ),
     ResourceTypeSpec(
@@ -188,6 +204,7 @@ GCP_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("router.googleapis.com/nat/received_bytes_count", "router.googleapis.com", "sum", "router_id"),
             _M("router.googleapis.com/nat/port_usage", "router.googleapis.com", "mean", "router_id"),
         ),
+        actions=("delete",),
     ),
     ResourceTypeSpec(
         type_id="compute.googleapis.com/ForwardingRule",
@@ -198,6 +215,7 @@ GCP_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("loadbalancing.googleapis.com/https/request_count", "loadbalancing.googleapis.com", "sum", "forwarding_rule_name"),
             _M("loadbalancing.googleapis.com/https/total_latencies", "loadbalancing.googleapis.com", "mean", "forwarding_rule_name"),
         ),
+        actions=("delete",),
     ),
     ResourceTypeSpec(
         type_id="compute.googleapis.com/BackendService",
@@ -208,6 +226,7 @@ GCP_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("loadbalancing.googleapis.com/https/request_count", "loadbalancing.googleapis.com", "sum", "backend_target_name"),
             _M("loadbalancing.googleapis.com/https/backend_request_bytes_count", "loadbalancing.googleapis.com", "sum", "backend_target_name"),
         ),
+        actions=("delete",),
     ),
     ResourceTypeSpec(
         type_id="compute.googleapis.com/VpnTunnel",
@@ -218,6 +237,7 @@ GCP_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("compute.googleapis.com/vpn/sent_bytes_count", "compute.googleapis.com", "sum", "tunnel_id"),
             _M("compute.googleapis.com/vpn/received_bytes_count", "compute.googleapis.com", "sum", "tunnel_id"),
         ),
+        actions=("delete",),
     ),
     ResourceTypeSpec(
         type_id="compute.googleapis.com/Address",
@@ -227,6 +247,7 @@ GCP_RESOURCE_TYPES: list[ResourceTypeSpec] = [
         metrics=(
             _M("compute.googleapis.com/instance/network/sent_bytes_count", "compute.googleapis.com", "sum", "address"),
         ),
+        actions=("delete",),
     ),
     ResourceTypeSpec(
         type_id="vpcaccess.googleapis.com/Connector",
@@ -237,6 +258,7 @@ GCP_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("vpcaccess.googleapis.com/connector/sent_bytes_count", "vpcaccess.googleapis.com", "sum", "connector_name"),
             _M("vpcaccess.googleapis.com/connector/received_bytes_count", "vpcaccess.googleapis.com", "sum", "connector_name"),
         ),
+        actions=("delete",),
     ),
     ResourceTypeSpec(
         type_id="bigtable.googleapis.com/Instance",
@@ -248,6 +270,7 @@ GCP_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("bigtable.googleapis.com/cluster/cpu_load", "bigtable.googleapis.com", "mean", "instance"),
             _M("bigtable.googleapis.com/cluster/storage_utilization", "bigtable.googleapis.com", "mean", "instance"),
         ),
+        actions=("delete", "resize", "reduce_nodes"),
         typical_monthly_cost_usd=500.0,
     ),
     ResourceTypeSpec(
@@ -259,6 +282,7 @@ GCP_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("alloydb.googleapis.com/database/cpu/utilization", "alloydb.googleapis.com", "mean", "cluster_id"),
             _M("alloydb.googleapis.com/database/postgresql/num_backends", "alloydb.googleapis.com", "mean", "cluster_id"),
         ),
+        actions=("delete", "resize", "snapshot_delete"),
         typical_monthly_cost_usd=250.0,
     ),
     ResourceTypeSpec(
@@ -271,6 +295,7 @@ GCP_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("file.googleapis.com/nfs/server/read_ops_count", "file.googleapis.com", "sum", "instance_name"),
             _M("file.googleapis.com/nfs/server/write_ops_count", "file.googleapis.com", "sum", "instance_name"),
         ),
+        actions=("delete", "snapshot_delete"),
     ),
     ResourceTypeSpec(
         type_id="memcache.googleapis.com/Instance",
@@ -282,6 +307,7 @@ GCP_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("memcache.googleapis.com/node/cmd_get_count", "memcache.googleapis.com", "sum", "instance_id"),
             _M("memcache.googleapis.com/node/cmd_set_count", "memcache.googleapis.com", "sum", "instance_id"),
         ),
+        actions=("delete", "resize"),
     ),
     ResourceTypeSpec(
         type_id="firestore.googleapis.com/Database",
@@ -292,6 +318,7 @@ GCP_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("firestore.googleapis.com/document/read_count", "firestore.googleapis.com", "sum", "database_id"),
             _M("firestore.googleapis.com/document/write_count", "firestore.googleapis.com", "sum", "database_id"),
         ),
+        actions=("delete", "archive"),
     ),
     ResourceTypeSpec(
         type_id="composer.googleapis.com/Environment",
@@ -303,6 +330,7 @@ GCP_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("composer.googleapis.com/environment/num_celery_workers", "composer.googleapis.com", "mean", "environment_name"),
             _M("composer.googleapis.com/environment/worker/pod_eviction_count", "composer.googleapis.com", "sum", "environment_name"),
         ),
+        actions=("delete", "resize", "reduce_nodes"),
         typical_monthly_cost_usd=300.0,
     ),
     ResourceTypeSpec(
@@ -314,6 +342,7 @@ GCP_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("compute.googleapis.com/instance/cpu/utilization", "compute.googleapis.com", "mean", "instance_id"),
             _M("compute.googleapis.com/instance/network/sent_bytes_count", "compute.googleapis.com", "sum", "instance_id"),
         ),
+        actions=("delete", "stop"),
         typical_monthly_cost_usd=100.0,
     ),
     ResourceTypeSpec(
@@ -325,6 +354,7 @@ GCP_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("appengine.googleapis.com/http/server/response_count", "appengine.googleapis.com", "sum", "module_id"),
             _M("appengine.googleapis.com/system/cpu/usage", "appengine.googleapis.com", "mean", "module_id"),
         ),
+        actions=("delete",),
     ),
     ResourceTypeSpec(
         type_id="cloudtasks.googleapis.com/Queue",
@@ -335,5 +365,6 @@ GCP_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("cloudtasks.googleapis.com/queue/depth", "cloudtasks.googleapis.com", "mean", "queue_name"),
             _M("cloudtasks.googleapis.com/api/request_count", "cloudtasks.googleapis.com", "sum", "queue_name"),
         ),
+        actions=("delete",),
     ),
 ]

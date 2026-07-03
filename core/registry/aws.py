@@ -15,6 +15,7 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("NetworkOut", "AWS/EC2", "Sum", "InstanceId"),
             _M("NetworkIn", "AWS/EC2", "Sum", "InstanceId"),
         ),
+        actions=("delete", "resize", "stop", "snapshot_delete", "convert_spot"),
         typical_monthly_cost_usd=50.0,
         docs_url="https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/",
     ),
@@ -28,6 +29,7 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("DatabaseConnections", "AWS/RDS", "Average", "DBInstanceIdentifier"),
             _M("NetworkReceiveThroughput", "AWS/RDS", "Sum", "DBInstanceIdentifier"),
         ),
+        actions=("delete", "resize", "stop", "snapshot_delete"),
         typical_monthly_cost_usd=150.0,
     ),
     ResourceTypeSpec(
@@ -40,6 +42,7 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("DatabaseConnections", "AWS/RDS", "Average", "DBClusterIdentifier"),
             _M("AuroraReplicaLag", "AWS/RDS", "Average", "DBClusterIdentifier"),
         ),
+        actions=("delete", "resize", "stop", "snapshot_delete", "reduce_replicas"),
         typical_monthly_cost_usd=200.0,
     ),
     ResourceTypeSpec(
@@ -52,6 +55,7 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("BytesInFromDestination", "AWS/NatGateway", "Sum", "NatGatewayId"),
             _M("PacketsOutToDestination", "AWS/NatGateway", "Sum", "NatGatewayId"),
         ),
+        actions=("delete",),
         typical_monthly_cost_usd=32.0,
     ),
     ResourceTypeSpec(
@@ -64,6 +68,7 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("ActiveConnectionCount", "AWS/ApplicationELB", "Sum", "LoadBalancer"),
             _M("TargetResponseTime", "AWS/ApplicationELB", "Average", "LoadBalancer"),
         ),
+        actions=("delete",),
         typical_monthly_cost_usd=20.0,
     ),
     ResourceTypeSpec(
@@ -76,6 +81,7 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("HealthyHostCount", "AWS/ELB", "Average", "LoadBalancerName"),
             _M("UnHealthyHostCount", "AWS/ELB", "Average", "LoadBalancerName"),
         ),
+        actions=("delete",),
         typical_monthly_cost_usd=18.0,
     ),
     ResourceTypeSpec(
@@ -88,6 +94,7 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("Duration", "AWS/Lambda", "Average", "FunctionName"),
             _M("Errors", "AWS/Lambda", "Sum", "FunctionName"),
         ),
+        actions=("delete", "resize"),
     ),
     ResourceTypeSpec(
         type_id="AWS::EC2::Volume",
@@ -99,6 +106,7 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("VolumeWriteOps", "AWS/EBS", "Sum", "VolumeId"),
             _M("VolumeReadBytes", "AWS/EBS", "Sum", "VolumeId"),
         ),
+        actions=("delete", "snapshot_delete", "archive"),
         typical_monthly_cost_usd=10.0,
     ),
     ResourceTypeSpec(
@@ -111,6 +119,7 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("ConsumedWriteCapacityUnits", "AWS/DynamoDB", "Sum", "TableName"),
             _M("SuccessfulRequestLatency", "AWS/DynamoDB", "Average", "TableName"),
         ),
+        actions=("delete", "archive"),
     ),
     ResourceTypeSpec(
         type_id="AWS::SQS::Queue",
@@ -122,6 +131,7 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("NumberOfMessagesReceived", "AWS/SQS", "Sum", "QueueName"),
             _M("ApproximateNumberOfMessagesVisible", "AWS/SQS", "Average", "QueueName"),
         ),
+        actions=("delete",),
     ),
     ResourceTypeSpec(
         type_id="AWS::ElastiCache::CacheCluster",
@@ -133,6 +143,7 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("CurrConnections", "AWS/ElastiCache", "Average", "CacheClusterId"),
             _M("CacheHits", "AWS/ElastiCache", "Sum", "CacheClusterId"),
         ),
+        actions=("delete", "resize", "stop"),
         typical_monthly_cost_usd=60.0,
     ),
     ResourceTypeSpec(
@@ -145,6 +156,7 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("CacheHitRate", "AWS/ElastiCache", "Average", "ReplicationGroupId"),
             _M("ReplicationLag", "AWS/ElastiCache", "Average", "ReplicationGroupId"),
         ),
+        actions=("delete", "resize", "reduce_replicas"),
         typical_monthly_cost_usd=120.0,
     ),
     ResourceTypeSpec(
@@ -157,6 +169,7 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("DatabaseConnections", "AWS/Redshift", "Average", "ClusterIdentifier"),
             _M("ReadIOPS", "AWS/Redshift", "Average", "ClusterIdentifier"),
         ),
+        actions=("delete", "resize", "reduce_nodes", "snapshot_delete"),
         typical_monthly_cost_usd=300.0,
     ),
     ResourceTypeSpec(
@@ -169,6 +182,7 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("SearchableDocuments", "AWS/ES", "Average", "DomainName"),
             _M("IndexingRate", "AWS/ES", "Average", "DomainName"),
         ),
+        actions=("delete", "resize", "reduce_nodes"),
         typical_monthly_cost_usd=180.0,
     ),
     ResourceTypeSpec(
@@ -180,6 +194,7 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("CPUUtilization", "AWS/ECS", "Average", "ServiceName"),
             _M("MemoryUtilization", "AWS/ECS", "Average", "ServiceName"),
         ),
+        actions=("delete", "resize"),
     ),
     ResourceTypeSpec(
         type_id="AWS::EKS::Cluster",
@@ -191,6 +206,7 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("node_cpu_utilization", "ContainerInsights", "Average", "ClusterName"),
             _M("node_memory_utilization", "ContainerInsights", "Average", "ClusterName"),
         ),
+        actions=("delete", "reduce_nodes"),
         typical_monthly_cost_usd=73.0,
     ),
     ResourceTypeSpec(
@@ -203,6 +219,7 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("IncomingRecords", "AWS/Kinesis", "Sum", "StreamName"),
             _M("PutRecord.Success", "AWS/Kinesis", "Sum", "StreamName"),
         ),
+        actions=("delete",),
     ),
     ResourceTypeSpec(
         type_id="AWS::SNS::Topic",
@@ -214,6 +231,7 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("NumberOfMessagesPublished", "AWS/SNS", "Sum", "TopicName"),
             _M("NumberOfNotificationsFailed", "AWS/SNS", "Sum", "TopicName"),
         ),
+        actions=("delete",),
     ),
     ResourceTypeSpec(
         type_id="AWS::ApiGateway::RestApi",
@@ -225,6 +243,7 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("4XXError", "AWS/ApiGateway", "Sum", "ApiName"),
             _M("5XXError", "AWS/ApiGateway", "Sum", "ApiName"),
         ),
+        actions=("delete",),
     ),
     ResourceTypeSpec(
         type_id="AWS::ApiGateway::Stage",
@@ -236,6 +255,7 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("4XXError", "AWS/ApiGateway", "Sum", "Stage"),
             _M("Latency", "AWS/ApiGateway", "Average", "Stage"),
         ),
+        actions=("delete",),
     ),
     ResourceTypeSpec(
         type_id="AWS::CloudFront::Distribution",
@@ -247,6 +267,7 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("BytesDownloaded", "AWS/CloudFront", "Sum", "DistributionId"),
             _M("4xxErrorRate", "AWS/CloudFront", "Average", "DistributionId"),
         ),
+        actions=("delete",),
     ),
     ResourceTypeSpec(
         type_id="AWS::StepFunctions::StateMachine",
@@ -258,6 +279,7 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("ExecutionsSucceeded", "AWS/States", "Sum", "StateMachineArn"),
             _M("ExecutionsFailed", "AWS/States", "Sum", "StateMachineArn"),
         ),
+        actions=("delete",),
     ),
     ResourceTypeSpec(
         type_id="AWS::Glue::Job",
@@ -268,6 +290,7 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("glue.driver.aggregate.bytesRead", "Glue", "Sum", "JobName"),
             _M("glue.driver.aggregate.elapsedTime", "Glue", "Average", "JobName"),
         ),
+        actions=("delete",),
     ),
     ResourceTypeSpec(
         type_id="AWS::MSK::Cluster",
@@ -279,6 +302,7 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("BytesOutPerSec", "AWS/Kafka", "Sum", "Cluster Name"),
             _M("KafkaDataLogsDiskUsed", "AWS/Kafka", "Average", "Cluster Name"),
         ),
+        actions=("delete", "reduce_nodes"),
         typical_monthly_cost_usd=400.0,
     ),
     ResourceTypeSpec(
@@ -291,6 +315,7 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("ModelLatency", "AWS/SageMaker", "Average", "EndpointName"),
             _M("CPUUtilization", "AWS/SageMaker", "Average", "EndpointName"),
         ),
+        actions=("delete", "resize", "stop"),
         typical_monthly_cost_usd=250.0,
     ),
     ResourceTypeSpec(
@@ -303,6 +328,7 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("ContainerPendingRatio", "AWS/ElasticMapReduce", "Average", "JobFlowId"),
             _M("AppsRunning", "AWS/ElasticMapReduce", "Average", "JobFlowId"),
         ),
+        actions=("delete", "reduce_nodes"),
         typical_monthly_cost_usd=500.0,
     ),
     ResourceTypeSpec(
@@ -315,6 +341,7 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("FreeableMemory", "AWS/DMS", "Average", "ReplicationInstanceIdentifier"),
             _M("CDCLatencySource", "AWS/DMS", "Average", "ReplicationInstanceIdentifier"),
         ),
+        actions=("delete", "resize"),
         typical_monthly_cost_usd=80.0,
     ),
     ResourceTypeSpec(
@@ -327,6 +354,7 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("DatabaseConnections", "AWS/Neptune", "Average", "DBClusterIdentifier"),
             _M("BufferCacheHitRatio", "AWS/Neptune", "Average", "DBClusterIdentifier"),
         ),
+        actions=("delete", "resize", "reduce_nodes", "snapshot_delete"),
         typical_monthly_cost_usd=200.0,
     ),
     ResourceTypeSpec(
@@ -339,6 +367,7 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("DatabaseConnections", "AWS/DocDB", "Average", "DBClusterIdentifier"),
             _M("BufferCacheHitRatio", "AWS/DocDB", "Average", "DBClusterIdentifier"),
         ),
+        actions=("delete", "resize", "reduce_nodes", "snapshot_delete"),
         typical_monthly_cost_usd=180.0,
     ),
     ResourceTypeSpec(
@@ -351,6 +380,7 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("InSessionLatency", "AWS/WorkSpaces", "Average", "WorkspaceId"),
             _M("SessionLaunchTime", "AWS/WorkSpaces", "Average", "WorkspaceId"),
         ),
+        actions=("delete", "stop"),
         typical_monthly_cost_usd=35.0,
     ),
     ResourceTypeSpec(
@@ -363,6 +393,7 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("IncomingRecords", "AWS/Firehose", "Sum", "DeliveryStreamName"),
             _M("DeliveryToS3.Success", "AWS/Firehose", "Sum", "DeliveryStreamName"),
         ),
+        actions=("delete",),
     ),
     ResourceTypeSpec(
         type_id="AWS::AppSync::GraphQLApi",
@@ -374,6 +405,7 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("5XXError", "AWS/AppSync", "Sum", "GraphQLAPIId"),
             _M("Latency", "AWS/AppSync", "Average", "GraphQLAPIId"),
         ),
+        actions=("delete",),
     ),
     ResourceTypeSpec(
         type_id="AWS::Events::Rule",
@@ -385,6 +417,7 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("Invocations", "AWS/Events", "Sum", "RuleName"),
             _M("FailedInvocations", "AWS/Events", "Sum", "RuleName"),
         ),
+        actions=("delete",),
     ),
     ResourceTypeSpec(
         type_id="AWS::ElasticBeanstalk::Environment",
@@ -396,6 +429,7 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("ApplicationRequestsTotal", "AWS/ElasticBeanstalk", "Sum", "EnvironmentName"),
             _M("CPUUtilization", "AWS/ElasticBeanstalk", "Average", "EnvironmentName"),
         ),
+        actions=("delete", "resize"),
     ),
     ResourceTypeSpec(
         type_id="AWS::CodeBuild::Project",
@@ -407,6 +441,7 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("SucceededBuilds", "AWS/CodeBuild", "Sum", "ProjectName"),
             _M("Duration", "AWS/CodeBuild", "Average", "ProjectName"),
         ),
+        actions=("delete",),
     ),
     ResourceTypeSpec(
         type_id="AWS::Transfer::Server",
@@ -418,6 +453,7 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("FilesOut", "AWS/Transfer", "Sum", "ServerId"),
             _M("BytesIn", "AWS/Transfer", "Sum", "ServerId"),
         ),
+        actions=("delete", "stop"),
     ),
     ResourceTypeSpec(
         type_id="AWS::WAFv2::WebACL",
@@ -429,6 +465,7 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("BlockedRequests", "AWS/WAFV2", "Sum", "WebACL"),
             _M("CountedRequests", "AWS/WAFV2", "Sum", "WebACL"),
         ),
+        actions=("delete",),
     ),
     ResourceTypeSpec(
         type_id="AWS::S3::Bucket",
@@ -440,6 +477,7 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("BucketSizeBytes", "AWS/S3", "Average", "BucketName"),
             _M("AllRequests", "AWS/S3", "Sum", "BucketName"),
         ),
+        actions=("delete", "archive"),
     ),
     ResourceTypeSpec(
         type_id="AWS::Cognito::UserPool",
@@ -451,6 +489,7 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("TokenRefreshSuccesses", "AWS/Cognito", "Sum", "UserPool"),
             _M("SignUpSuccesses", "AWS/Cognito", "Sum", "UserPool"),
         ),
+        actions=("delete",),
     ),
     ResourceTypeSpec(
         type_id="AWS::IoT::Thing",
@@ -462,6 +501,7 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("PublishOut.Success", "AWS/IoT", "Sum", "Protocol"),
             _M("Connect.Success", "AWS/IoT", "Sum", "Protocol"),
         ),
+        actions=("delete",),
     ),
     ResourceTypeSpec(
         type_id="AWS::MediaLive::Channel",
@@ -473,6 +513,7 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("DroppedFrames", "AWS/MediaLive", "Sum", "ChannelId"),
             _M("NetworkIn", "AWS/MediaLive", "Sum", "ChannelId"),
         ),
+        actions=("delete", "stop"),
         typical_monthly_cost_usd=600.0,
     ),
     ResourceTypeSpec(
@@ -485,6 +526,7 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
             _M("RunnableJobCount", "AWS/Batch", "Average", "JobQueueName"),
             _M("RunningJobCount", "AWS/Batch", "Average", "JobQueueName"),
         ),
+        actions=("delete",),
     ),
     ResourceTypeSpec(
         type_id="AWS::Route53::HostedZone",
@@ -494,6 +536,7 @@ AWS_RESOURCE_TYPES: list[ResourceTypeSpec] = [
         metrics=(
             _M("DNSQueries", "AWS/Route53", "Sum", "HostedZoneId"),
         ),
+        actions=("delete",),
         typical_monthly_cost_usd=0.5,
     ),
 ]
