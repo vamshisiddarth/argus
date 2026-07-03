@@ -47,4 +47,11 @@
   <!-- exit box -->
   <rect x="296" y="406" width="268" height="38" rx="8" fill="#0a1a0a" stroke="#14532d" stroke-width="1"/>
   <text x="430" y="430" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="12" fill="#4ade80" text-anchor="middle">exits when AI writes final findings report</text>
+
+  <!-- argus brand watermark -->
+  <circle cx="810" cy="428" r="12" fill="#2a2a3e" stroke="#4f46e5" stroke-width="1" opacity="0.7"/>
+  <circle cx="810" cy="428" r="8" fill="white" opacity="0.7"/>
+  <circle cx="810" cy="428" r="4.5" fill="#1a0f0a" opacity="0.7"/>
+  <circle cx="808" cy="426" r="2" fill="white" opacity="0.7"/>
+  <text x="827" y="432" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="11" font-weight="600" fill="#6366f1" opacity="0.6">argus</text>
 </svg>

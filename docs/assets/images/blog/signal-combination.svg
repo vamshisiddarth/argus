@@ -57,4 +57,11 @@
   <line x1="610" y1="242" x2="810" y2="242" stroke="#14532d" stroke-width="0.5"/>
   <text x="610" y="262" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="11" fill="#4ade80" font-weight="600">Recommendation: delete</text>
   <text x="610" y="280" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="11" fill="#4ade80" font-weight="600">Saves: $94.20/mo</text>
+
+  <!-- argus brand watermark -->
+  <circle cx="808" cy="352" r="11" fill="#2a2a3e" stroke="#4f46e5" stroke-width="1" opacity="0.6"/>
+  <circle cx="808" cy="352" r="7.5" fill="white" opacity="0.6"/>
+  <circle cx="808" cy="352" r="4" fill="#1a0f0a" opacity="0.6"/>
+  <circle cx="806" cy="350" r="1.8" fill="white" opacity="0.6"/>
+  <text x="824" y="356" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="11" font-weight="600" fill="#6366f1" opacity="0.5">argus</text>
 </svg>
