@@ -61,6 +61,10 @@ theme:
 # ---------------------------------------------------------------------------
 plugins:
   - search
+  - blog:
+      blog_dir: blog
+      post_url_format: "{slug}"
+      authors_file: blog/.authors.yml
   - minify:
       minify_html: true
 
@@ -121,6 +125,7 @@ nav:
     - Resource Types: reference/resource-types.md
     - Security Model: reference/security.md
     - Troubleshooting: reference/troubleshooting.md
+  - Blog: blog/index.md
   - Roadmap: roadmap.md
   - Contributing:
     - contributing/index.md
