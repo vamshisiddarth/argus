@@ -381,6 +381,42 @@ No per-type configuration needed — it finds everything.
 
 ---
 
+## Why No Hardcoded Thresholds
+
+Most cloud cost tools work like this: if CPU < 5% for 7 days, flag as idle. If network bytes < X, flag as idle. These rules are written by humans, per resource type, in advance.
+
+The problem is that "idle" is context-dependent in ways a static rule cannot capture:
+
+- A NAT Gateway moving 2 MB/day might be critical infrastructure for a VPN tunnel, or it might be orphaned. The bytes alone don't tell you.
+- An RDS instance with 0 connections might be a reporting replica that runs once a month, or it might be forgotten from a migration two years ago. The connection count alone doesn't tell you.
+- A Lambda function invoked 3 times in 30 days might be a monthly billing job, or it might be dead code. The invocation count alone doesn't tell you.
+
+Tags, last activity, cost trend, resource name, account context, and the combination of signals together are what actually determine whether something is waste. Writing a rule that accounts for all of that, for every resource type, is the full-time job of a FinOps team.
+
+Argus takes a different approach: give the AI the raw signals (metrics, cost, last activity, tags) and let it reason about idleness the same way a senior engineer would. The AI can weigh signals against each other, apply domain knowledge about what each resource type typically does, and explain its reasoning in plain language. No rules to write, no thresholds to tune per account.
+
+The tradeoff is that the AI is not deterministic. Two scans of the same account might produce slightly different findings if resource states are borderline. We mitigate this by setting `temperature=0` and by prompting the AI to cite specific metrics in every finding, which makes its reasoning auditable.
+
+---
+
+## Why the 4-Method Adapter Contract
+
+The adapter contract is deliberately minimal: `list_resources`, `get_metrics`, `get_cost`, `get_last_activity`. Four methods, that's it.
+
+Several alternatives were considered and rejected:
+
+**One method per resource type** (e.g., `list_ec2_instances`, `list_rds_instances`): the agent loop would need to know which methods to call for which cloud, defeating the point of abstraction. Adding a new resource type would require changes in core.
+
+**Raw SDK access from core**: passing boto3/google.cloud/azure clients into the agent loop would make core/ untestable without real cloud credentials and would couple the reasoning logic to specific SDK versions.
+
+**Richer contracts** (e.g., `get_idle_score`, `get_rightsizing_recommendation`): these push analysis logic into the adapter, which means duplicating it across three cloud implementations and hardcoding what "idle" means at the adapter layer. The whole point is that the AI does the analysis.
+
+The 4-method contract keeps the boundary clean: adapters are responsible for fetching data, the agent loop is responsible for reasoning about it. A new cloud adapter needs no knowledge of how findings are structured or how the AI prompt is built. A change to the AI analysis needs no changes to any adapter.
+
+The contract is also cheap to implement. The four methods map directly to the four cloud API categories every major cloud exposes: resource inventory, metrics, billing, and audit logs. Any cloud that exposes these four things can run Argus.
+
+---
+
 ## Repository Structure — Contributor View
 
 ```
