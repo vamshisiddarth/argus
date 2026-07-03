@@ -21,20 +21,20 @@
   <text x="730" y="202" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="11" fill="#f97316" text-anchor="middle">read the result</text>
   <text x="730" y="218" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="11" fill="#f97316" text-anchor="middle">add to context</text>
 
-  <!-- THINK -> ACT arrow -->
-  <path d="M220 175 Q310 118 340 108" fill="none" stroke="#4f46e5" stroke-width="1.5"/>
-  <polygon points="340,108 328,100 328,116" fill="#4f46e5"/>
-  <text x="278" y="128" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="11" fill="#6366f1" text-anchor="middle">call tool</text>
+  <!-- THINK -> ACT arrow: right then up -->
+  <polyline points="220,190 280,190 280,108 338,108" fill="none" stroke="#4f46e5" stroke-width="1.5" stroke-linejoin="miter"/>
+  <polygon points="338,108 326,102 326,114" fill="#4f46e5"/>
+  <text x="255" y="182" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="11" fill="#6366f1" text-anchor="middle">call tool</text>
 
-  <!-- ACT -> OBSERVE arrow -->
-  <path d="M520 108 Q610 118 640 175" fill="none" stroke="#16a34a" stroke-width="1.5"/>
-  <polygon points="640,175 630,164 644,162" fill="#16a34a"/>
-  <text x="590" y="128" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="11" fill="#22c55e" text-anchor="middle">result</text>
+  <!-- ACT -> OBSERVE arrow: right then down -->
+  <polyline points="520,108 580,108 580,190 638,190" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-linejoin="miter"/>
+  <polygon points="638,190 626,184 626,196" fill="#16a34a"/>
+  <text x="605" y="182" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="11" fill="#22c55e" text-anchor="middle">result</text>
 
-  <!-- OBSERVE -> THINK loop arrow -->
-  <path d="M730 230 Q730 340 430 360 Q180 360 130 230" fill="none" stroke="#c2410c" stroke-width="1.5"/>
-  <polygon points="130,230 118,242 134,244" fill="#c2410c"/>
-  <text x="430" y="380" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="11" fill="#f97316" text-anchor="middle">repeat until confident enough to write findings</text>
+  <!-- OBSERVE -> THINK loop arrow: down then left then up -->
+  <polyline points="730,230 730,355 130,355 130,232" fill="none" stroke="#c2410c" stroke-width="1.5" stroke-linejoin="miter"/>
+  <polygon points="130,232 124,244 136,244" fill="#c2410c"/>
+  <text x="430" y="374" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="11" fill="#f97316" text-anchor="middle">repeat until confident enough to write findings</text>
 
   <!-- tools box -->
   <rect x="296" y="174" width="268" height="116" rx="8" fill="#0c0c14" stroke="#1e1f3a" stroke-width="1"/>
