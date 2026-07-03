@@ -6,9 +6,14 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
 from core.models.finding import ResourceFinding
+from core.registry import get_registry
 
 if TYPE_CHECKING:
     from ai.base import AIProvider
+
+
+def _registry():  # thin wrapper so caller reads cleanly
+    return get_registry()
 
 # Maximum findings shown as individual rows in the Slack digest
 SLACK_DIGEST_LIMIT = 5
@@ -255,7 +260,7 @@ def build_slack_payload(
             priority = (finding.get("priority") or "low").upper()
             emoji = _PRIORITY_EMOJI.get(priority, ":white_circle:")
             label = finding.get("name") or finding["resource_id"]
-            rtype = finding["resource_type"]
+            rtype = _registry().display_name(finding["resource_type"])
             lines.append(f"{emoji} `{label}` · {rtype} · *${cost:,.2f}/mo*")
 
         remaining = count - SLACK_DIGEST_LIMIT

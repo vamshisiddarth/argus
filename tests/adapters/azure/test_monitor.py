@@ -2,7 +2,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from adapters.azure.monitor import _METRICS, get_metrics
+from adapters.azure.monitor import get_metrics
+from core.registry import get_registry
 
 SAMPLE_ID = "/subscriptions/sub1/resourceGroups/rg1/providers/Microsoft.Compute/virtualMachines/vm1"
 SAMPLE_TYPE = "microsoft.compute/virtualmachines"
@@ -96,11 +97,12 @@ class TestGetMetrics:
 
 
 # ---------------------------------------------------------------------------
-# _METRICS coverage — verify all 40 resource types are registered
+# Registry coverage — verify all 40 Azure resource types are in the registry
 # ---------------------------------------------------------------------------
 class TestMetricsCoverage:
-    def test_metrics_dict_has_40_types(self):
-        assert len(_METRICS) == 40
+    def test_registry_has_40_azure_types(self):
+        registry = get_registry()
+        assert len(registry.all_for_cloud("azure")) == 40
 
     @pytest.mark.parametrize(
         "resource_type",
@@ -122,5 +124,6 @@ class TestMetricsCoverage:
         ],
     )
     def test_new_type_has_metrics(self, resource_type):
-        assert resource_type in _METRICS
-        assert len(_METRICS[resource_type]) >= 2
+        spec = get_registry().get(resource_type)
+        assert spec is not None
+        assert len(spec.metrics) >= 2

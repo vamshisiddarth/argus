@@ -1,0 +1,339 @@
+from __future__ import annotations
+
+from core.registry.models import MetricSpec, ResourceTypeSpec
+
+_M = MetricSpec
+
+GCP_RESOURCE_TYPES: list[ResourceTypeSpec] = [
+    ResourceTypeSpec(
+        type_id="compute.googleapis.com/Instance",
+        cloud="gcp",
+        display_name="GCE Instance",
+        service="Compute",
+        metrics=(
+            _M("compute.googleapis.com/instance/cpu/utilization", "compute.googleapis.com", "mean", "instance_id"),
+            _M("compute.googleapis.com/instance/network/sent_bytes_count", "compute.googleapis.com", "sum", "instance_id"),
+            _M("compute.googleapis.com/instance/network/received_bytes_count", "compute.googleapis.com", "sum", "instance_id"),
+        ),
+        typical_monthly_cost_usd=50.0,
+    ),
+    ResourceTypeSpec(
+        type_id="compute.googleapis.com/Disk",
+        cloud="gcp",
+        display_name="Persistent Disk",
+        service="Storage",
+        metrics=(
+            _M("compute.googleapis.com/instance/disk/read_ops_count", "compute.googleapis.com", "sum", "device_name"),
+            _M("compute.googleapis.com/instance/disk/write_ops_count", "compute.googleapis.com", "sum", "device_name"),
+        ),
+    ),
+    ResourceTypeSpec(
+        type_id="sqladmin.googleapis.com/Instance",
+        cloud="gcp",
+        display_name="Cloud SQL Instance",
+        service="Database",
+        metrics=(
+            _M("cloudsql.googleapis.com/database/cpu/utilization", "cloudsql.googleapis.com", "mean", "database_id"),
+            _M("cloudsql.googleapis.com/database/network/connections", "cloudsql.googleapis.com", "mean", "database_id"),
+            _M("cloudsql.googleapis.com/database/network/received_bytes_count", "cloudsql.googleapis.com", "sum", "database_id"),
+        ),
+        typical_monthly_cost_usd=100.0,
+    ),
+    ResourceTypeSpec(
+        type_id="container.googleapis.com/Cluster",
+        cloud="gcp",
+        display_name="GKE Cluster",
+        service="Compute",
+        metrics=(
+            _M("kubernetes.io/container/cpu/request_utilization", "kubernetes.io", "mean", "cluster_name"),
+            _M("kubernetes.io/container/memory/request_utilization", "kubernetes.io", "mean", "cluster_name"),
+            _M("kubernetes.io/node/cpu/allocatable_utilization", "kubernetes.io", "mean", "cluster_name"),
+        ),
+        typical_monthly_cost_usd=73.0,
+    ),
+    ResourceTypeSpec(
+        type_id="run.googleapis.com/Service",
+        cloud="gcp",
+        display_name="Cloud Run Service",
+        service="Compute",
+        metrics=(
+            _M("run.googleapis.com/request_count", "run.googleapis.com", "sum", "service_name"),
+            _M("run.googleapis.com/request_latencies", "run.googleapis.com", "mean", "service_name"),
+            _M("run.googleapis.com/container/cpu/utilizations", "run.googleapis.com", "mean", "service_name"),
+        ),
+    ),
+    ResourceTypeSpec(
+        type_id="cloudfunctions.googleapis.com/Function",
+        cloud="gcp",
+        display_name="Cloud Function",
+        service="Compute",
+        metrics=(
+            _M("cloudfunctions.googleapis.com/function/execution_count", "cloudfunctions.googleapis.com", "sum", "function_name"),
+            _M("cloudfunctions.googleapis.com/function/execution_times", "cloudfunctions.googleapis.com", "mean", "function_name"),
+        ),
+    ),
+    ResourceTypeSpec(
+        type_id="storage.googleapis.com/Bucket",
+        cloud="gcp",
+        display_name="Cloud Storage Bucket",
+        service="Storage",
+        metrics=(
+            _M("storage.googleapis.com/api/request_count", "storage.googleapis.com", "sum", "bucket_name"),
+            _M("storage.googleapis.com/network/sent_bytes_count", "storage.googleapis.com", "sum", "bucket_name"),
+        ),
+    ),
+    ResourceTypeSpec(
+        type_id="bigquery.googleapis.com/Dataset",
+        cloud="gcp",
+        display_name="BigQuery Dataset",
+        service="Analytics",
+        metrics=(
+            _M("bigquery.googleapis.com/storage/table_count", "bigquery.googleapis.com", "mean", "dataset_id"),
+            _M("bigquery.googleapis.com/storage/stored_bytes", "bigquery.googleapis.com", "mean", "dataset_id"),
+        ),
+    ),
+    ResourceTypeSpec(
+        type_id="bigquery.googleapis.com/Table",
+        cloud="gcp",
+        display_name="BigQuery Table",
+        service="Analytics",
+        metrics=(
+            _M("bigquery.googleapis.com/storage/stored_bytes", "bigquery.googleapis.com", "mean", "table_id"),
+            _M("bigquery.googleapis.com/storage/row_count", "bigquery.googleapis.com", "mean", "table_id"),
+        ),
+    ),
+    ResourceTypeSpec(
+        type_id="redis.googleapis.com/Instance",
+        cloud="gcp",
+        display_name="Cloud Memorystore (Redis)",
+        service="Cache",
+        metrics=(
+            _M("redis.googleapis.com/clients/connected", "redis.googleapis.com", "mean", "instance_id"),
+            _M("redis.googleapis.com/stats/cache_hit_ratio", "redis.googleapis.com", "mean", "instance_id"),
+            _M("redis.googleapis.com/stats/memory/usage_ratio", "redis.googleapis.com", "mean", "instance_id"),
+        ),
+        typical_monthly_cost_usd=50.0,
+    ),
+    ResourceTypeSpec(
+        type_id="spanner.googleapis.com/Instance",
+        cloud="gcp",
+        display_name="Cloud Spanner Instance",
+        service="Database",
+        metrics=(
+            _M("spanner.googleapis.com/instance/cpu/utilization", "spanner.googleapis.com", "mean", "instance_id"),
+            _M("spanner.googleapis.com/instance/session_count", "spanner.googleapis.com", "mean", "instance_id"),
+        ),
+        typical_monthly_cost_usd=700.0,
+    ),
+    ResourceTypeSpec(
+        type_id="pubsub.googleapis.com/Topic",
+        cloud="gcp",
+        display_name="Pub/Sub Topic",
+        service="Messaging",
+        metrics=(
+            _M("pubsub.googleapis.com/topic/send_message_operation_count", "pubsub.googleapis.com", "sum", "topic_id"),
+            _M("pubsub.googleapis.com/topic/byte_cost", "pubsub.googleapis.com", "sum", "topic_id"),
+        ),
+    ),
+    ResourceTypeSpec(
+        type_id="pubsub.googleapis.com/Subscription",
+        cloud="gcp",
+        display_name="Pub/Sub Subscription",
+        service="Messaging",
+        metrics=(
+            _M("pubsub.googleapis.com/subscription/pull_message_operation_count", "pubsub.googleapis.com", "sum", "subscription_id"),
+            _M("pubsub.googleapis.com/subscription/num_undelivered_messages", "pubsub.googleapis.com", "mean", "subscription_id"),
+        ),
+    ),
+    ResourceTypeSpec(
+        type_id="dataflow.googleapis.com/Job",
+        cloud="gcp",
+        display_name="Dataflow Job",
+        service="Analytics",
+        metrics=(
+            _M("dataflow.googleapis.com/job/data_watermark_age", "dataflow.googleapis.com", "mean", "job_id"),
+            _M("dataflow.googleapis.com/job/elapsed_time", "dataflow.googleapis.com", "mean", "job_id"),
+            _M("dataflow.googleapis.com/job/element_count", "dataflow.googleapis.com", "sum", "job_id"),
+        ),
+    ),
+    ResourceTypeSpec(
+        type_id="dataproc.googleapis.com/Cluster",
+        cloud="gcp",
+        display_name="Dataproc Cluster",
+        service="Analytics",
+        metrics=(
+            _M("dataproc.googleapis.com/cluster/yarn/allocated_memory_percentage", "dataproc.googleapis.com", "mean", "cluster_name"),
+            _M("dataproc.googleapis.com/cluster/hdfs/storage_utilization", "dataproc.googleapis.com", "mean", "cluster_name"),
+        ),
+        typical_monthly_cost_usd=400.0,
+    ),
+    ResourceTypeSpec(
+        type_id="aiplatform.googleapis.com/Endpoint",
+        cloud="gcp",
+        display_name="Vertex AI Endpoint",
+        service="ML",
+        metrics=(
+            _M("aiplatform.googleapis.com/prediction/online/request_count", "aiplatform.googleapis.com", "sum", "endpoint_id"),
+            _M("aiplatform.googleapis.com/prediction/online/latencies", "aiplatform.googleapis.com", "mean", "endpoint_id"),
+        ),
+        typical_monthly_cost_usd=200.0,
+    ),
+    ResourceTypeSpec(
+        type_id="compute.googleapis.com/Router",
+        cloud="gcp",
+        display_name="Cloud Router",
+        service="Networking",
+        metrics=(
+            _M("router.googleapis.com/nat/sent_bytes_count", "router.googleapis.com", "sum", "router_id"),
+            _M("router.googleapis.com/nat/received_bytes_count", "router.googleapis.com", "sum", "router_id"),
+            _M("router.googleapis.com/nat/port_usage", "router.googleapis.com", "mean", "router_id"),
+        ),
+    ),
+    ResourceTypeSpec(
+        type_id="compute.googleapis.com/ForwardingRule",
+        cloud="gcp",
+        display_name="Cloud Load Balancer (Forwarding Rule)",
+        service="Networking",
+        metrics=(
+            _M("loadbalancing.googleapis.com/https/request_count", "loadbalancing.googleapis.com", "sum", "forwarding_rule_name"),
+            _M("loadbalancing.googleapis.com/https/total_latencies", "loadbalancing.googleapis.com", "mean", "forwarding_rule_name"),
+        ),
+    ),
+    ResourceTypeSpec(
+        type_id="compute.googleapis.com/BackendService",
+        cloud="gcp",
+        display_name="Cloud Load Balancer Backend Service",
+        service="Networking",
+        metrics=(
+            _M("loadbalancing.googleapis.com/https/request_count", "loadbalancing.googleapis.com", "sum", "backend_target_name"),
+            _M("loadbalancing.googleapis.com/https/backend_request_bytes_count", "loadbalancing.googleapis.com", "sum", "backend_target_name"),
+        ),
+    ),
+    ResourceTypeSpec(
+        type_id="compute.googleapis.com/VpnTunnel",
+        cloud="gcp",
+        display_name="Cloud VPN Tunnel",
+        service="Networking",
+        metrics=(
+            _M("compute.googleapis.com/vpn/sent_bytes_count", "compute.googleapis.com", "sum", "tunnel_id"),
+            _M("compute.googleapis.com/vpn/received_bytes_count", "compute.googleapis.com", "sum", "tunnel_id"),
+        ),
+    ),
+    ResourceTypeSpec(
+        type_id="compute.googleapis.com/Address",
+        cloud="gcp",
+        display_name="Static IP Address",
+        service="Networking",
+        metrics=(
+            _M("compute.googleapis.com/instance/network/sent_bytes_count", "compute.googleapis.com", "sum", "address"),
+        ),
+    ),
+    ResourceTypeSpec(
+        type_id="vpcaccess.googleapis.com/Connector",
+        cloud="gcp",
+        display_name="VPC Access Connector",
+        service="Networking",
+        metrics=(
+            _M("vpcaccess.googleapis.com/connector/sent_bytes_count", "vpcaccess.googleapis.com", "sum", "connector_name"),
+            _M("vpcaccess.googleapis.com/connector/received_bytes_count", "vpcaccess.googleapis.com", "sum", "connector_name"),
+        ),
+    ),
+    ResourceTypeSpec(
+        type_id="bigtable.googleapis.com/Instance",
+        cloud="gcp",
+        display_name="Cloud Bigtable Instance",
+        service="Database",
+        metrics=(
+            _M("bigtable.googleapis.com/server/request_count", "bigtable.googleapis.com", "sum", "instance"),
+            _M("bigtable.googleapis.com/cluster/cpu_load", "bigtable.googleapis.com", "mean", "instance"),
+            _M("bigtable.googleapis.com/cluster/storage_utilization", "bigtable.googleapis.com", "mean", "instance"),
+        ),
+        typical_monthly_cost_usd=500.0,
+    ),
+    ResourceTypeSpec(
+        type_id="alloydb.googleapis.com/Cluster",
+        cloud="gcp",
+        display_name="AlloyDB Cluster",
+        service="Database",
+        metrics=(
+            _M("alloydb.googleapis.com/database/cpu/utilization", "alloydb.googleapis.com", "mean", "cluster_id"),
+            _M("alloydb.googleapis.com/database/postgresql/num_backends", "alloydb.googleapis.com", "mean", "cluster_id"),
+        ),
+        typical_monthly_cost_usd=250.0,
+    ),
+    ResourceTypeSpec(
+        type_id="file.googleapis.com/Instance",
+        cloud="gcp",
+        display_name="Filestore Instance",
+        service="Storage",
+        metrics=(
+            _M("file.googleapis.com/nfs/server/used_bytes_percent", "file.googleapis.com", "mean", "instance_name"),
+            _M("file.googleapis.com/nfs/server/read_ops_count", "file.googleapis.com", "sum", "instance_name"),
+            _M("file.googleapis.com/nfs/server/write_ops_count", "file.googleapis.com", "sum", "instance_name"),
+        ),
+    ),
+    ResourceTypeSpec(
+        type_id="memcache.googleapis.com/Instance",
+        cloud="gcp",
+        display_name="Cloud Memorystore (Memcached)",
+        service="Cache",
+        metrics=(
+            _M("memcache.googleapis.com/node/curr_connections", "memcache.googleapis.com", "mean", "instance_id"),
+            _M("memcache.googleapis.com/node/cmd_get_count", "memcache.googleapis.com", "sum", "instance_id"),
+            _M("memcache.googleapis.com/node/cmd_set_count", "memcache.googleapis.com", "sum", "instance_id"),
+        ),
+    ),
+    ResourceTypeSpec(
+        type_id="firestore.googleapis.com/Database",
+        cloud="gcp",
+        display_name="Firestore Database",
+        service="Database",
+        metrics=(
+            _M("firestore.googleapis.com/document/read_count", "firestore.googleapis.com", "sum", "database_id"),
+            _M("firestore.googleapis.com/document/write_count", "firestore.googleapis.com", "sum", "database_id"),
+        ),
+    ),
+    ResourceTypeSpec(
+        type_id="composer.googleapis.com/Environment",
+        cloud="gcp",
+        display_name="Cloud Composer Environment",
+        service="Orchestration",
+        metrics=(
+            _M("composer.googleapis.com/environment/dagbag_size", "composer.googleapis.com", "mean", "environment_name"),
+            _M("composer.googleapis.com/environment/num_celery_workers", "composer.googleapis.com", "mean", "environment_name"),
+            _M("composer.googleapis.com/environment/worker/pod_eviction_count", "composer.googleapis.com", "sum", "environment_name"),
+        ),
+        typical_monthly_cost_usd=300.0,
+    ),
+    ResourceTypeSpec(
+        type_id="notebooks.googleapis.com/Instance",
+        cloud="gcp",
+        display_name="Vertex AI Workbench (Notebook)",
+        service="ML",
+        metrics=(
+            _M("compute.googleapis.com/instance/cpu/utilization", "compute.googleapis.com", "mean", "instance_id"),
+            _M("compute.googleapis.com/instance/network/sent_bytes_count", "compute.googleapis.com", "sum", "instance_id"),
+        ),
+        typical_monthly_cost_usd=100.0,
+    ),
+    ResourceTypeSpec(
+        type_id="appengine.googleapis.com/Application",
+        cloud="gcp",
+        display_name="App Engine Application",
+        service="Compute",
+        metrics=(
+            _M("appengine.googleapis.com/http/server/response_count", "appengine.googleapis.com", "sum", "module_id"),
+            _M("appengine.googleapis.com/system/cpu/usage", "appengine.googleapis.com", "mean", "module_id"),
+        ),
+    ),
+    ResourceTypeSpec(
+        type_id="cloudtasks.googleapis.com/Queue",
+        cloud="gcp",
+        display_name="Cloud Tasks Queue",
+        service="Orchestration",
+        metrics=(
+            _M("cloudtasks.googleapis.com/queue/depth", "cloudtasks.googleapis.com", "mean", "queue_name"),
+            _M("cloudtasks.googleapis.com/api/request_count", "cloudtasks.googleapis.com", "sum", "queue_name"),
+        ),
+    ),
+]

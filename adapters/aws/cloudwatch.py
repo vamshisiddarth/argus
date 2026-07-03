@@ -11,11 +11,18 @@ from botocore.exceptions import ClientError
 from adapters.aws.config import BOTO_TIMEOUT_CONFIG
 from adapters.aws.retry import retry_on_transient
 from adapters.base import MetricSummary
+from core.registry import get_registry
 
 logger = structlog.get_logger(__name__)
 
-# (MetricName, Namespace, Stat, CloudWatch Dimension Key)
-# Stat is "Average" for utilisation metrics, "Sum" for throughput/count metrics.
+
+def _metrics_for(resource_type: str) -> list[tuple[str, str, str, str]] | None:
+    spec = get_registry().get(resource_type)
+    if spec and spec.metrics:
+        return [(m.name, m.namespace, m.stat, m.dimension_key) for m in spec.metrics]
+    return None
+
+
 _METRICS: dict[str, list[tuple[str, str, str, str]]] = {
     "AWS::EC2::Instance": [
         ("CPUUtilization", "AWS/EC2", "Average", "InstanceId"),
@@ -282,7 +289,7 @@ def get_metrics(
     gives the AI the current instance size so it can recommend a specific
     smaller tier rather than a generic "consider downsizing".
     """
-    metric_defs = _METRICS.get(resource_type)
+    metric_defs = _metrics_for(resource_type)
     if not metric_defs:
         metric_defs = _discover_metrics(session, resource_id, resource_type)
     if not metric_defs:

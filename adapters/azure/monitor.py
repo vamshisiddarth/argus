@@ -10,8 +10,17 @@ from azure.monitor.query import MetricAggregationType, MetricsQueryClient
 
 from adapters.azure.retry import retry_on_transient
 from adapters.base import MetricSummary
+from core.registry import get_registry
 
 logger = structlog.get_logger(__name__)
+
+
+def _metrics_for(resource_type: str) -> list[tuple[str, str]] | None:
+    spec = get_registry().get(resource_type.lower())
+    if spec and spec.metrics:
+        return [(m.name, m.stat) for m in spec.metrics]
+    return None
+
 
 # (MetricName, AggregationType)
 _METRICS: dict[str, list[tuple[str, str]]] = {
@@ -271,7 +280,7 @@ def get_metrics(
     Fetch Azure Monitor metrics for a resource.
     Falls back to querying available metric definitions for unknown resource types.
     """
-    metric_defs = _METRICS.get(resource_type.lower())
+    metric_defs = _metrics_for(resource_type)
     if not metric_defs:
         metric_defs = _discover_metrics(resource_id, resource_type, credential)
     if not metric_defs:
