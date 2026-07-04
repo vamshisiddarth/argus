@@ -221,7 +221,8 @@ class TestExistingTicketChanged:
         assert client.add_comment.call_count == 1
         key_arg, comment_arg = client.add_comment.call_args[0]
         assert key_arg == "INFRA-7"
-        assert isinstance(comment_arg, str) and len(comment_arg) > 0
+        # comment is now an ADF dict
+        assert isinstance(comment_arg, dict) and comment_arg.get("type") == "paragraph"
 
     def test_returns_existing_url(self):
         client = _mock_client()
@@ -304,3 +305,68 @@ class TestFromEnv:
         # Missing project should raise even with missing config file
         with pytest.raises(TrackerError, match="missing 'jira.project'"):
             JiraTracker.from_env()
+
+    def test_bad_yaml_in_config_falls_back_to_defaults(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("JIRA_BASE_URL", "https://jira.example.com")
+        monkeypatch.setenv("JIRA_USER_EMAIL", "bot@example.com")
+        monkeypatch.setenv("JIRA_API_TOKEN", "tok")
+        cfg = tmp_path / "integrations.yaml"
+        cfg.write_text("key: [unclosed")
+        monkeypatch.setenv("ARGUS_INTEGRATIONS_CONFIG", str(cfg))
+        # Bad YAML → config load fails → no project → raises TrackerError
+        with pytest.raises(TrackerError):
+            JiraTracker.from_env()
+
+
+class TestClose:
+    def test_close_logs_and_does_not_raise(self, caplog):
+        import logging
+        client = _mock_client()
+        tracker = _make_tracker(client)
+        with caplog.at_level(logging.INFO):
+            tracker.close("https://jira.example.com/browse/INFRA-5", "resource deleted")
+        assert "INFRA-5" in caplog.text
+
+
+class TestExtractDescriptionText:
+    def test_adf_dict_extracts_text(self):
+        from integrations.jira.tracker import _extract_description_text
+        issue = {
+            "fields": {
+                "description": {
+                    "version": 1,
+                    "type": "doc",
+                    "content": [
+                        {
+                            "type": "paragraph",
+                            "content": [{"type": "text", "text": "Hello world"}],
+                        }
+                    ],
+                }
+            }
+        }
+        result = _extract_description_text(issue)
+        assert "Hello world" in result
+
+    def test_string_description_returned_as_is(self):
+        from integrations.jira.tracker import _extract_description_text
+        issue = {"fields": {"description": "plain text"}}
+        assert _extract_description_text(issue) == "plain text"
+
+    def test_missing_description_returns_empty(self):
+        from integrations.jira.tracker import _extract_description_text
+        assert _extract_description_text({"fields": {}}) == ""
+
+
+class TestCommentFailureSilent:
+    def test_comment_failure_logged_not_raised(self):
+        import logging
+        client = _mock_client()
+        client.search.return_value = [
+            {"key": "INFRA-7", "fields": {"description": "", "status": {"name": "Open"}}}
+        ]
+        client.add_comment.side_effect = Exception("network error")
+        tracker = _make_tracker(client)
+        # Should not raise — failure is logged as warning
+        url = tracker.create(_proposal())
+        assert "INFRA-7" in url

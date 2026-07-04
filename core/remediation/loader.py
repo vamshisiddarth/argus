@@ -120,16 +120,23 @@ def _parse_policy(raw: dict, source_file: str) -> Policy:
             f"Must be one of: {sorted(_VALID_ACTIONS)}"
         )
 
-    # Warn (don't error) if resource_type not in registry — Tier 2 unavailable
+    # Validate action against registry for known resource types
     registry = get_registry()
-    if resource_type != "*" and registry.get(resource_type) is None:
-        logger.warning(
-            "policy_unknown_resource_type policy_id=%s resource_type=%s file=%s "
-            "— Tier 2 metric conditions unavailable for unknown resource types",
-            policy_id,
-            resource_type,
-            source_file,
-        )
+    if resource_type != "*":
+        spec = registry.get(resource_type)
+        if spec is None:
+            logger.warning(
+                "policy_unknown_resource_type policy_id=%s resource_type=%s file=%s "
+                "— Tier 2 metric conditions unavailable for unknown resource types",
+                policy_id,
+                resource_type,
+                source_file,
+            )
+        elif action not in spec.actions:
+            raise PolicyLoadError(
+                f"{fname}: action '{action}' is not valid for resource type "
+                f"'{resource_type}'. Valid actions: {sorted(spec.actions)}"
+            )
 
     weight_raw = raw.get("weight", 0)
     try:

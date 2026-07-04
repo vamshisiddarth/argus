@@ -4,6 +4,8 @@
 *.key
 credentials.json
 service-account*.json
+config/integrations.yaml
+accounts.yaml
 
 # Python
 __pycache__/

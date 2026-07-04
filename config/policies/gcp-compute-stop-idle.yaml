@@ -1,0 +1,27 @@
+# Stop idle GCP Compute Engine instances.
+#
+# Fires when ALL conditions are true:
+#   - AI classified the resource as high priority
+#   - No activity recorded for at least 7 days
+#   - CPU utilisation averaged below 3% over the scan window
+
+version: "1"
+
+policy_id: gcp-compute-stop-idle-7d
+name: Stop GCP Compute instances idle for 7+ days
+resource_type: compute.googleapis.com/Instance
+action: stop
+weight: 10
+
+conditions:
+  ai_priority: [high]
+  idle_days_min: 7
+  metrics:
+    - metric: compute.googleapis.com/instance/cpu/utilization
+      operator: lt
+      threshold: 0.03  # 3%
+
+exclude:
+  tags:
+    - environment: [prod, production]
+    - argus-exempt: ["true"]

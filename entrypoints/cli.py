@@ -142,7 +142,7 @@ def main(argv: list[str] | None = None) -> None:
             "Subcommands:\n"
             "  validate   Check policy files for schema errors and conflicts\n"
             "  plan       Preview which findings would trigger Jira tickets\n"
-            "  apply      Same as plan — add --confirm to create tickets (Phase 3)\n"
+            "  apply      Same as plan — add --confirm to create Jira tickets\n"
             "  docs       Show registry metadata: conditions and actions per type\n\n"
             "Example workflow:\n"
             "  argus policies validate --dir ./config/policies\n"
@@ -749,7 +749,42 @@ def _run_policies_plan(args: argparse.Namespace, *, confirm: bool) -> int:
     proposals = evaluate(findings, policies)
 
     _print_plan(findings, policies, proposals, source_label, confirm=confirm)
+
+    if confirm and proposals:
+        return _create_jira_tickets(proposals)
+
     return 0
+
+
+def _create_jira_tickets(proposals: list) -> int:
+    """Create Jira tickets for all proposals. Returns 0 on success, 1 on failure."""
+    from integrations.base import TrackerError
+    from integrations.jira.tracker import JiraTracker
+
+    try:
+        tracker = JiraTracker.from_env()
+    except TrackerError as exc:
+        print(f"\n{_err('✗')} Jira not configured: {exc}\n")
+        print(
+            "  Set JIRA_BASE_URL, JIRA_USER_EMAIL, JIRA_API_TOKEN and\n"
+            "  create config/integrations.yaml with jira.project.\n"
+        )
+        return 1
+
+    created = 0
+    failed = 0
+    for proposal in proposals:
+        try:
+            url = tracker.create(proposal)
+            proposal.jira_ticket_url = url
+            print(f"  {_ok('✓')} {proposal.finding.resource_id}  →  {url}")
+            created += 1
+        except TrackerError as exc:
+            print(f"  {_err('✗')} {proposal.finding.resource_id}: {exc}")
+            failed += 1
+
+    print(f"\n  {created} ticket(s) created/updated, {failed} failed.\n")
+    return 1 if failed else 0
 
 
 def _run_live_scan_for_plan(args: argparse.Namespace) -> list:
@@ -817,37 +852,64 @@ def _print_plan(
         print(_warn("\n  No findings matched any policy.\n"))
         return
 
+    col_w = (width - 6) // 3
+    print(f"\n  {'POLICY':<{col_w}}  {'RESOURCE':<{col_w}}  {'COST/MO':>8}  ACTION")
+    print(f"  {'─'*col_w}  {'─'*col_w}  {'─'*8}  {'─'*14}")
+
+    total_savings = 0.0
     for proposal in proposals:
         f = proposal.finding
         p = proposal.policy
-        print(f"\n  {_ok('MATCH')}  {_bold(p.policy_id)} (weight: {p.weight})")
-        resource_label = f"{f.name or f.resource_id} · {f.resource_type}"
-        print(f"    Resource : {resource_label} · {f.region}")
-        print(f"    Cost     : ${f.estimated_monthly_cost:.2f}/mo")
-        print(f"    AI says  : \"{f.waste_reason[:80]}\"")
-        print(f"    Action   : {_bold(p.action)}")
+        resource_label = (f.name or f.resource_id)[:col_w]
+        policy_label = p.policy_id[:col_w]
+        cost_str = f"${proposal.estimated_monthly_cost_usd:.0f}"
+        priority_marker = {"high": _err("●"), "medium": _warn("●"), "low": "●"}.get(
+            f.priority, "●"
+        )
+        print(
+            f"  {priority_marker} {policy_label:<{col_w - 2}}  "
+            f"{resource_label:<{col_w}}  {cost_str:>8}  {p.action}"
+        )
+        total_savings += proposal.estimated_monthly_cost_usd
 
     unmatched = [p for p in policies if not any(
         prop.policy.policy_id == p.policy_id for prop in proposals
     )]
-    for p in unmatched:
-        print(f"\n  {_warn('NO MATCH')}  {p.policy_id} (weight: {p.weight})")
-        print("    Reason   : no findings matched conditions/scope")
+    if unmatched:
+        print()
+        for p in unmatched:
+            print(f"  {_warn('–')} {p.policy_id:<{col_w}}  (no findings matched)")
 
     print()
     print("─" * (width + 2))
+    print(
+        f"  {len(proposals)} match(es)  ·  "
+        f"Potential savings: {_ok(f'${total_savings:.0f}/mo')}"
+    )
+    print()
+
     if confirm:
-        print(f"  {_bold('Creating')} {len(proposals)} Jira ticket(s).")
-        print(_warn("\n  Tickets would be created here in Phase 3.\n"))
+        print(f"  {_bold('Creating')} {len(proposals)} Jira ticket(s)...")
     else:
-        print(
-            f"  {_bold('Would create')} {len(proposals)} Jira ticket(s).  "
-            "No changes made."
-        )
-        print(
-            f"\n  {_warn('Next step:')} Run with --confirm to create "
-            "Jira tickets (Phase 3)\n"
-        )
+        # Jira preview: show what summary each ticket would have
+        print(f"  {'─' * (width - 2)}")
+        print(f"  Jira ticket preview ({len(proposals)} ticket(s) would be created):")
+        for proposal in proposals:
+            f = proposal.finding
+            p = proposal.policy
+            action_verb = {
+                "delete": "Delete", "resize": "Resize", "stop": "Stop",
+                "snapshot_delete": "Snapshot & delete", "archive": "Archive",
+                "convert_spot": "Convert to Spot", "reduce_replicas": "Reduce replicas for",
+                "reduce_nodes": "Reduce nodes for",
+            }.get(p.action, p.action.capitalize())
+            ticket_summary = (
+                f"[Argus] {action_verb} {f.name or f.resource_id} "
+                f"(${proposal.estimated_monthly_cost_usd:.0f}/mo · {f.priority} priority)"
+            )
+            print(f"  · {ticket_summary[:width - 4]}")
+        print()
+        print(f"  {_warn('Next step:')} Run with --confirm to create Jira tickets.\n")
 
 
 # ---------------------------------------------------------------------------

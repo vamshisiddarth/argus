@@ -77,9 +77,13 @@ class JiraTracker(ChangeTracker):
             key = issue["key"]
             url = self._client.issue_url(key)
             self._maybe_update(issue, proposal)
+            _audit(proposal, key, url)
             return url
 
-        return self._create_new(proposal, label)
+        url = self._create_new(proposal, label)
+        key = url.rsplit("/", 1)[-1]
+        _audit(proposal, key, url)
+        return url
 
     def close(self, url: str, reason: str) -> None:
         # Transition to Done not implemented in v1 — log only
@@ -211,6 +215,14 @@ def _dedup_label(proposal: ChangeProposal) -> str:
     rid = proposal.finding.resource_id.replace('"', "").replace(" ", "_")
     pid = proposal.policy.policy_id.replace('"', "").replace(" ", "_")
     return f"argus:{rid}:{pid}"
+
+
+def _audit(proposal: ChangeProposal, jira_key: str, jira_url: str) -> None:
+    try:
+        from core.remediation.audit import log_proposal
+        log_proposal(proposal, jira_key=jira_key, jira_url=jira_url)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("audit_failed proposal_id=%s error=%s", proposal.proposal_id, exc)
 
 
 def _extract_description_text(issue: dict[str, Any]) -> str:

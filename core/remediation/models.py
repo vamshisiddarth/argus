@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import uuid
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
@@ -107,10 +108,12 @@ class ChangeProposal:
     policy: Policy
     runbook: str
     estimated_monthly_cost_usd: float
+    proposal_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     jira_ticket_url: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
+            "proposal_id": self.proposal_id,
             "resource_id": self.finding.resource_id,
             "resource_type": self.finding.resource_type,
             "policy_id": self.policy.policy_id,

@@ -1,0 +1,34 @@
+# Stop idle Azure Virtual Machines.
+#
+# Fires when ALL conditions are true:
+#   - AI classified the resource as high or medium priority
+#   - No activity recorded for at least 14 days
+#   - Average CPU below 3% over the scan window
+#   - Network out below 10 MB over the scan window
+#
+# 'stop' deallocates the VM (stops billing for compute).
+# Use 'delete' to permanently remove it (add 'snapshot_delete' first).
+
+version: "1"
+
+policy_id: azure-vm-stop-idle-14d
+name: Stop Azure VMs idle for 14+ days
+resource_type: microsoft.compute/virtualmachines
+action: stop
+weight: 10
+
+conditions:
+  ai_priority: [high, medium]
+  idle_days_min: 14
+  metrics:
+    - metric: Percentage CPU
+      operator: lt
+      threshold: 3.0
+    - metric: Network Out Total
+      operator: lt
+      threshold: 10485760  # 10 MB in bytes
+
+exclude:
+  tags:
+    - environment: [prod, production]
+    - argus-exempt: ["true"]

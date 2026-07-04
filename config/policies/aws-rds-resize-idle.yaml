@@ -1,0 +1,35 @@
+# Resize idle RDS instances that are costing more than $100/month.
+#
+# Fires when ALL conditions are true:
+#   - AI classified the resource as high or medium priority
+#   - Estimated monthly cost is at or above $100
+#   - CPU utilisation averaged below 5% over the scan window
+#   - Database connections averaged below 10 over the scan window
+#
+# Use 'argus policies docs AWS::RDS::DBInstance' to see all valid metrics
+# and actions for this resource type.
+
+version: "1"
+
+policy_id: aws-rds-resize-high-cost-idle
+name: Resize idle high-cost RDS instances
+resource_type: AWS::RDS::DBInstance
+action: resize
+weight: 20
+
+conditions:
+  ai_priority: [high, medium]
+  min_estimated_monthly_cost_usd: 100
+  metrics:
+    - metric: CPUUtilization
+      operator: lt
+      threshold: 5.0
+    - metric: DatabaseConnections
+      operator: lt
+      threshold: 10.0
+
+# Only act on non-production databases.
+# Remove or adjust this block to broaden scope.
+exclude:
+  tags:
+    - environment: [prod, production]

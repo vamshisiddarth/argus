@@ -29,11 +29,19 @@ def evaluate(
 
     sorted_policies = sorted(policies, key=lambda p: p.weight, reverse=True)
     proposals: list[ChangeProposal] = []
+    seen_resource_ids: set[str] = set()
 
     for finding in findings:
+        if finding.resource_id in seen_resource_ids:
+            logger.debug(
+                "proposal_dedup_skipped resource_id=%s (already matched by earlier finding)",
+                finding.resource_id,
+            )
+            continue
         proposal = _match_finding(finding, sorted_policies)
         if proposal:
             proposals.append(proposal)
+            seen_resource_ids.add(finding.resource_id)
 
     logger.info(
         "policy_evaluation_complete findings=%d matched=%d",
@@ -167,7 +175,7 @@ def _tier2_matches(finding: ResourceFinding, policy: Policy) -> bool:
     for mc in policy.conditions.metrics:
         value = metrics_summary.get(mc.metric)
         if value is None:
-            # Metric not present in this finding — skip condition
+            # Metric not present — skip this condition (metric may not be collected).
             logger.debug(
                 "tier2_metric_not_found metric=%s resource_id=%s policy_id=%s",
                 mc.metric,
@@ -179,13 +187,17 @@ def _tier2_matches(finding: ResourceFinding, policy: Policy) -> bool:
             if not mc.evaluate(float(value)):
                 return False
         except (TypeError, ValueError):
+            # Metric exists but value is not numeric — fail the condition.
+            # This is a data quality issue and should not be silently ignored.
             logger.warning(
-                "tier2_metric_not_numeric metric=%s value=%r resource_id=%s",
+                "tier2_metric_not_numeric metric=%s value=%r resource_id=%s "
+                "policy_id=%s — condition failed",
                 mc.metric,
                 value,
                 finding.resource_id,
+                policy.policy_id,
             )
-            continue
+            return False
 
     return True
 

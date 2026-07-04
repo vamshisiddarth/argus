@@ -287,4 +287,95 @@ class TestScopeFilterParsing:
         with pytest.raises(PolicyLoadError, match="single-key"):
             load_policies(tmp_path)
 
+    def test_scope_field_not_list_raises(self, tmp_path):
+        _write(
+            tmp_path,
+            "p.yaml",
+            _minimal(extra="include:\n  regions: us-east-1\n"),
+        )
+        with pytest.raises(PolicyLoadError, match="regions.*list"):
+            load_policies(tmp_path)
+
+    def test_tag_values_not_list_raises(self, tmp_path):
+        _write(
+            tmp_path,
+            "p.yaml",
+            _minimal(extra="include:\n  tags:\n    - environment: prod\n"),
+        )
+        with pytest.raises(PolicyLoadError, match="list of values"):
+            load_policies(tmp_path)
+
+    def test_tags_not_list_raises(self, tmp_path):
+        _write(
+            tmp_path,
+            "p.yaml",
+            _minimal(extra="include:\n  tags: environment\n"),
+        )
+        with pytest.raises(PolicyLoadError, match="list of single-key"):
+            load_policies(tmp_path)
+
+
+class TestConditionEdgeCases:
+    def test_non_numeric_cost_raises(self, tmp_path):
+        _write(
+            tmp_path,
+            "p.yaml",
+            _minimal(extra="conditions:\n  min_estimated_monthly_cost_usd: abc\n"),
+        )
+        with pytest.raises(PolicyLoadError, match="must be a number"):
+            load_policies(tmp_path)
+
+    def test_non_integer_idle_days_raises(self, tmp_path):
+        _write(
+            tmp_path,
+            "p.yaml",
+            _minimal(extra="conditions:\n  idle_days_min: three\n"),
+        )
+        with pytest.raises(PolicyLoadError, match="must be an integer"):
+            load_policies(tmp_path)
+
+    def test_ai_priority_not_list_raises(self, tmp_path):
+        _write(
+            tmp_path,
+            "p.yaml",
+            _minimal(extra="conditions:\n  ai_priority: high\n"),
+        )
+        with pytest.raises(PolicyLoadError, match="must be a list"):
+            load_policies(tmp_path)
+
+    def test_metrics_not_list_raises(self, tmp_path):
+        _write(
+            tmp_path,
+            "p.yaml",
+            _minimal(extra="conditions:\n  metrics: CPUUtilization\n"),
+        )
+        with pytest.raises(PolicyLoadError, match="must be a list"):
+            load_policies(tmp_path)
+
+    def test_metric_item_not_dict_raises(self, tmp_path):
+        _write(
+            tmp_path,
+            "p.yaml",
+            _minimal(extra="conditions:\n  metrics:\n    - CPUUtilization\n"),
+        )
+        with pytest.raises(PolicyLoadError, match="must be a mapping"):
+            load_policies(tmp_path)
+
+    def test_empty_string_policy_id_raises(self, tmp_path):
+        _write(tmp_path, "p.yaml", _minimal(policy_id='""'))
+        with pytest.raises(PolicyLoadError, match="policy_id"):
+            load_policies(tmp_path)
+
+    def test_empty_string_name_raises(self, tmp_path):
+        content = _minimal().replace("Resize underutilized RDS", "")
+        _write(tmp_path, "p.yaml", content)
+        with pytest.raises(PolicyLoadError, match="name"):
+            load_policies(tmp_path)
+
+    def test_registry_action_invalid_for_type_raises(self, tmp_path):
+        # convert_spot is not valid for RDS — registry cross-check must catch it
+        _write(tmp_path, "p.yaml", _minimal(action="convert_spot"))
+        with pytest.raises(PolicyLoadError, match="not valid for resource type"):
+            load_policies(tmp_path)
+
 

@@ -12,6 +12,7 @@ Thanks for your interest in contributing. This document explains how to set up a
 - [Adding a new cloud adapter](#adding-a-new-cloud-adapter)
 - [Adding a new resource type to the registry](#adding-a-new-resource-type-to-the-registry)
 - [Adding a new AI provider](#adding-a-new-ai-provider)
+- [Adding a remediation policy](#adding-a-remediation-policy)
 - [Submitting a pull request](#submitting-a-pull-request)
 
 ---
@@ -288,6 +289,74 @@ Add the new provider to the `AI_PROVIDER` env var handling in `entrypoints/cli.p
 ### 4. Write tests
 
 Create `tests/ai/test_myprovider.py`. Mock all HTTP calls — no real API calls in tests. See `tests/ai/test_anthropic.py` for a reference.
+
+---
+
+## Adding a remediation policy
+
+Policies live in `config/policies/`. Each file is a single YAML document that
+tells the engine which findings to act on and what action to propose.
+
+### Minimal example
+
+```yaml
+version: "1"
+
+policy_id: my-new-policy          # must be unique across all files
+name: Human-readable name
+resource_type: AWS::RDS::DBInstance  # or "*" for all types
+action: resize                    # must be valid for this resource type
+weight: 10                        # higher = evaluated first (first match wins)
+
+conditions:                       # ALL conditions must be true
+  ai_priority: [high, medium]     # Tier 1 — universal
+  min_estimated_monthly_cost_usd: 50
+  idle_days_min: 14
+  metrics:                        # Tier 2 — registry-known types only
+    - metric: CPUUtilization
+      operator: lt
+      threshold: 5.0
+
+exclude:
+  tags:
+    - environment: [prod, production]   # never touch production
+    - argus-exempt: ["true"]            # opt-out tag
+```
+
+### Step-by-step
+
+1. **Pick a resource type.** Run `argus policies docs` to see all types, their
+   valid metrics, and valid actions. Using an action that isn't registered for
+   the type will fail at load time.
+
+2. **Write the policy file** in `config/policies/`. File name should match
+   `policy_id` (kebab-case + `.yaml`).
+
+3. **Validate it:**
+   ```
+   argus policies validate --dir config/policies
+   ```
+   Fix any errors before proceeding. Common mistakes: wrong action for type,
+   duplicate policy_id, conflicting weights with overlapping scope.
+
+4. **Dry-run against a real scan report:**
+   ```
+   argus policies plan --dir config/policies --report local_reports/latest.json
+   ```
+   Confirm the right findings match and no unintended resources are included.
+
+5. **Add a test** in `tests/core/remediation/test_loader.py` or
+   `test_validator.py` if your policy exercises a new condition combination.
+
+### Rules
+
+- **Never remove the `exclude: tags: argus-exempt: ["true"]` guard.** It lets
+  teams opt individual resources out without changing the policy.
+- **Always exclude production** unless the policy has human-review gating
+  (i.e., an apply workflow that requires Jira ticket approval).
+- **Weight reflects confidence, not priority.** A weight-20 policy fires
+  instead of weight-10 for the same resource — use higher weights for
+  narrower, more specific policies.
 
 ---
 

@@ -472,6 +472,82 @@ picks it up automatically.
 
 ---
 
+## Remediation Flow — Policy Engine
+
+Argus never executes changes. Instead it generates a prioritised work-order
+(Jira ticket) for a human to review and action. The flow is:
+
+```
+  Scan report (JSON)
+        │
+        ▼
+  load_policies()        ← config/policies/*.yaml
+  validate_policies()    ← conflict detection, duplicate IDs
+        │
+        ▼
+  engine.evaluate()      ← match findings → policies (weight-sorted, first-win)
+        │
+        ▼
+  ChangeProposal[]       ← finding + matching policy + CLI runbook
+        │
+        ▼  (only with --confirm)
+  JiraTracker.create()   ← dedup via label, diff-comment on re-scan
+        │
+        ▼
+  Jira ticket            ← summary, AI reasoning, runbook, snapshot fingerprint
+        │
+        ▼  (human reviews ticket)
+  Human executes runbook ← Argus stays read-only; it never calls the runbook
+```
+
+### Safety layers
+
+| Layer          | Mechanism                                                      |
+|----------------|----------------------------------------------------------------|
+| IAM            | Read-only roles — write APIs unavailable even with creds       |
+| Code           | No cloud SDK write calls anywhere in codebase                  |
+| CLI gate       | `apply` is dry-run by default; `--confirm` is required         |
+| Jira dedup     | Deterministic label `argus:<resource_id>:<policy_id>` — one ticket per resource per policy |
+| Human gate     | Runbook printed in ticket; human executes it manually          |
+| Webhook (v2)   | `integrations/jira/webhook.py` placeholder — auto-remediation path not implemented |
+
+### Policy YAML structure
+
+```yaml
+version: "1"
+
+policy_id: aws-rds-resize-high-cost-idle   # unique across all files
+name: Resize idle high-cost RDS instances
+resource_type: AWS::RDS::DBInstance        # or "*" for all types
+action: resize                             # must be in registry spec.actions
+weight: 20                                 # higher = evaluated first
+
+conditions:                                # ALL must be true
+  ai_priority: [high, medium]              # Tier 1 — universal
+  min_estimated_monthly_cost_usd: 100      # Tier 1 — universal
+  idle_days_min: 14                        # Tier 1 — universal
+  metrics:                                 # Tier 2 — registry-known types only
+    - metric: CPUUtilization
+      operator: lt
+      threshold: 5.0
+
+include:                                   # scope filter (omit = all)
+  cloud_platforms: [aws]
+  regions: [us-east-1, us-west-2]
+  tags:
+    - team: [platform, infra]
+
+exclude:                                   # exclusion filter (omit = none)
+  tags:
+    - environment: [prod, production]
+    - argus-exempt: ["true"]
+```
+
+Sample policies live in `config/policies/`. Run `argus policies docs` to see
+all valid metric names and actions per resource type.
+
+---
+
 ## Repository Structure — Contributor View
 
 ```

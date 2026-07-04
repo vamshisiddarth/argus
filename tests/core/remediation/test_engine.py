@@ -257,6 +257,116 @@ class TestTier2Conditions:
         # Unknown type → Tier 2 skipped → policy still matches via Tier 1
         assert len(proposals) == 1
 
+    def test_non_numeric_metric_fails_condition(self):
+        # A metric that exists but is not castable to float must fail, not skip.
+        mc = MetricCondition(metric="CPUUtilization_avg", operator="lt", threshold=30.0)
+        cond = Condition(metrics=(mc,))
+        proposals = evaluate(
+            [_finding(metrics_summary={"CPUUtilization_avg": "N/A"})],
+            [_policy(conditions=cond)],
+        )
+        assert proposals == []
+
+    def test_all_metric_conditions_must_pass(self):
+        # Both conditions must be satisfied — failing one blocks the match.
+        cpu_ok = MetricCondition(metric="CPUUtilization_avg", operator="lt", threshold=30.0)
+        conn_fail = MetricCondition(metric="DatabaseConnections", operator="lt", threshold=5.0)
+        cond = Condition(metrics=(cpu_ok, conn_fail))
+        proposals = evaluate(
+            [_finding(metrics_summary={"CPUUtilization_avg": 10.0, "DatabaseConnections": 50.0})],
+            [_policy(conditions=cond)],
+        )
+        assert proposals == []
+
+    def test_all_metric_conditions_pass(self):
+        cpu_ok = MetricCondition(metric="CPUUtilization_avg", operator="lt", threshold=30.0)
+        conn_ok = MetricCondition(metric="DatabaseConnections", operator="lt", threshold=5.0)
+        cond = Condition(metrics=(cpu_ok, conn_ok))
+        proposals = evaluate(
+            [_finding(metrics_summary={"CPUUtilization_avg": 10.0, "DatabaseConnections": 2.0})],
+            [_policy(conditions=cond)],
+        )
+        assert len(proposals) == 1
+
+
+class TestDedup:
+    def test_duplicate_resource_id_produces_single_proposal(self):
+        # Same resource appearing twice in findings → one proposal, not two.
+        f1 = _finding("db-001", cost=200.0)
+        f2 = _finding("db-001", cost=200.0)
+        proposals = evaluate([f1, f2], [_policy()])
+        assert len(proposals) == 1
+        assert proposals[0].finding.resource_id == "db-001"
+
+    def test_duplicate_dedup_first_finding_wins(self):
+        # The first finding in the list is matched; the second is skipped.
+        f1 = _finding("db-001", cost=300.0)
+        f2 = _finding("db-001", cost=100.0)
+        proposals = evaluate([f1, f2], [_policy()])
+        assert proposals[0].estimated_monthly_cost_usd == 300.0
+
+    def test_distinct_resource_ids_all_matched(self):
+        f1 = _finding("db-001")
+        f2 = _finding("db-002")
+        proposals = evaluate([f1, f2], [_policy()])
+        assert len(proposals) == 2
+
+
+class TestScopeEdgeCases:
+    def test_include_account_matches(self):
+        include = ScopeFilter(accounts=("123456",))
+        proposals = evaluate(
+            [_finding(account_id="123456")],
+            [_policy(include=include)],
+        )
+        assert len(proposals) == 1
+
+    def test_include_account_no_match(self):
+        include = ScopeFilter(accounts=("999999",))
+        proposals = evaluate(
+            [_finding(account_id="123456")],
+            [_policy(include=include)],
+        )
+        assert proposals == []
+
+    def test_exclude_account_skips_finding(self):
+        exclude = ScopeFilter(accounts=("123456",))
+        proposals = evaluate(
+            [_finding(account_id="123456")],
+            [_policy(exclude=exclude)],
+        )
+        assert proposals == []
+
+    def test_wildcard_type_with_cloud_scope(self):
+        # Wildcard resource_type should still respect cloud_platforms filter.
+        include = ScopeFilter(cloud_platforms=("gcp",))
+        proposals = evaluate(
+            [_finding(cloud="aws")],
+            [_policy(resource_type="*", include=include)],
+        )
+        assert proposals == []
+
+    def test_wildcard_type_cloud_scope_matches(self):
+        include = ScopeFilter(cloud_platforms=("aws",))
+        proposals = evaluate(
+            [_finding(cloud="aws")],
+            [_policy(resource_type="*", include=include)],
+        )
+        assert len(proposals) == 1
+
+    def test_lower_weight_policy_fires_when_higher_does_not_match(self):
+        # Higher-weight policy has a non-matching condition; lower-weight fires.
+        high = _policy(
+            "high-cost-only",
+            weight=20,
+            action="resize",
+            conditions=Condition(min_estimated_monthly_cost_usd=500.0),
+        )
+        low = _policy("catch-all", weight=5, action="stop")
+        proposals = evaluate([_finding(cost=100.0)], [high, low])
+        assert len(proposals) == 1
+        assert proposals[0].policy.policy_id == "catch-all"
+
 
 class TestProposalContents:
     def test_proposal_has_correct_fields(self):

@@ -3,6 +3,36 @@
 All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## v0.5.0 (2026-07-05)
+
+### Added
+
+- **Remediation engine** (`core/remediation/`) — policy-driven proposal system that matches AI findings against YAML policies and generates prioritised change proposals.
+  - Two-tier condition matching: Tier 1 (cost, AI priority, idle days — universal), Tier 2 (metric conditions — registry-known types only).
+  - Weight-ordered evaluation: highest-weight policy wins per resource; lower-weight policies act as catch-alls.
+  - Deduplication: one proposal per `resource_id` per scan, regardless of how many findings reference the same resource.
+  - Proposal UUID (`proposal_id`) for end-to-end traceability.
+- **Policy loader & validator** — YAML-driven policy files with deep validation: registry action cross-check (invalid action for resource type fails at load time), duplicate ID detection, weight-conflict detection, shadowed-policy warnings.
+- **Jira integration** (`integrations/jira/`) — full ticket lifecycle: create (idempotent via label dedup), diff-comment on re-scan, ADF-structured description with metrics table, runbook code block, and snapshot fingerprint.
+- **JSONL audit log** (`core/remediation/audit.py`) — every `apply --confirm` writes a line to `local_reports/audit.jsonl` mapping `proposal_id → jira_key → jira_url`. Path overrideable via `ARGUS_AUDIT_LOG` env var.
+- **CLI** — `argus policies validate / plan / apply / docs` fully implemented.
+  - `plan` output: sorted table with cost-per-resource, total savings estimate, and Jira ticket preview.
+  - `apply --confirm` creates/updates tickets and prints per-ticket status.
+- **5 sample policies** in `config/policies/` with inline comments (AWS EC2, RDS, EBS; GCP Compute Engine; Azure VM).
+- **CONTRIBUTING.md** — new "Adding a remediation policy" section with step-by-step guide, policy YAML reference, and safety rules.
+- **ARCHITECTURE.md** — remediation flow diagram, safety layers table, and annotated policy YAML reference.
+- 57 new unit tests (engine dedup, scope edge cases, ADF formatter, tracker lifecycle, audit log, webhook, loader edge cases, validator overlap descriptions). Total: 1712 tests.
+
+### Changed
+
+- `config/integrations.yaml` and `accounts.yaml` added to `.gitignore` (contain credentials/role ARNs).
+- `_tier2_matches` — non-numeric metric values now fail the policy condition instead of silently skipping.
+- Jira ticket summary now includes priority indicator: `[Argus] Stop idle-vm ($120/mo · high priority)`.
+- Jira description uses proper ADF sections (headings, metrics table, code block) instead of a single text blob.
+- `apply --confirm` description text updated (removed stale "Phase 3" reference).
+
+---
+
 ## v0.4.1 (2026-06-28)
 
 ### Fixed
