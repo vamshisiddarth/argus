@@ -16,6 +16,15 @@ from core.token_tracker import BudgetExceededError, TokenTracker
 
 logger = structlog.get_logger(__name__)
 
+ARGUS_READ_ONLY: bool = True
+"""
+Hard architectural gate. Argus is strictly read-only. Any code path that
+would mutate cloud resources MUST check this constant and refuse if True.
+Changing this to False requires removing the allowlist, the blocklist, the
+prompt guardrails, and the adapter contract tests — a deliberate, auditable
+decision, not an accidental one.
+"""
+
 _PARALLELIZABLE_TOOLS = frozenset({"get_metrics", "get_last_activity"})
 
 _ALLOWED_TOOLS = frozenset(
@@ -35,10 +44,15 @@ _MUTATING_KEYWORDS = frozenset(
         "destroy",
         "terminate",
         "kill",
+        "purge",
+        "truncate",
+        "drop",
         "stop",
         "start",
         "reboot",
         "restart",
+        "enable",
+        "disable",
         "modify",
         "update",
         "patch",
@@ -53,6 +67,11 @@ _MUTATING_KEYWORDS = frozenset(
         "attach",
         "associate",
         "disassociate",
+        "deregister",
+        "revoke",
+        "invoke",
+        "send",
+        "publish",
         "write",
         "mutate",
         "execute",
@@ -353,7 +372,12 @@ def _reject_if_mutating(tool_name: str) -> str | None:
     """
     Return an error message if the tool name is not in the allowlist or
     contains a mutating keyword. Returns None if the tool is safe.
+
+    Checks ARGUS_READ_ONLY first — if False, all tools pass (future override).
     """
+    if not ARGUS_READ_ONLY:
+        return None
+
     if tool_name in _ALLOWED_TOOLS:
         return None
 
@@ -362,13 +386,14 @@ def _reject_if_mutating(tool_name: str) -> str | None:
         if keyword in name_lower:
             return (
                 f"BLOCKED: Argus is strictly read-only. The tool '{tool_name}' "
-                f"contains a mutating keyword ('{keyword}') and cannot be executed. "
-                f"Argus only observes and reports — it never modifies cloud resources."
+                f"contains a mutating keyword ('{keyword}') and cannot be "
+                f"executed. Argus only observes and reports — it never "
+                f"modifies cloud resources."
             )
 
     return (
-        f"BLOCKED: Unknown tool '{tool_name}'. Argus only supports read-only tools: "
-        f"{sorted(_ALLOWED_TOOLS)}."
+        f"BLOCKED: Unknown tool '{tool_name}'. Argus only supports "
+        f"read-only tools: {sorted(_ALLOWED_TOOLS)}."
     )
 
 

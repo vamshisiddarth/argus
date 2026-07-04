@@ -8,6 +8,7 @@ from ai.base import AIProvider, AIResponse, ToolCall
 from core.agent.loop import (
     _ALLOWED_TOOLS,
     _MUTATING_KEYWORDS,
+    ARGUS_READ_ONLY,
     AgentLoop,
     _apply_exclusion_filters,
     _compress_resource,
@@ -493,6 +494,9 @@ class TestReadOnlyGuardrail:
         for tool in _ALLOWED_TOOLS:
             assert _reject_if_mutating(tool) is None
 
+    def test_argus_read_only_constant_is_true(self):
+        assert ARGUS_READ_ONLY is True
+
     @pytest.mark.parametrize(
         "tool_name",
         [
@@ -510,6 +514,16 @@ class TestReadOnlyGuardrail:
             "restart_service",
             "execute_command",
             "run_command_on_host",
+            "purge_queue",
+            "truncate_table",
+            "drop_database",
+            "revoke_access",
+            "deregister_target",
+            "invoke_function",
+            "send_message",
+            "publish_notification",
+            "disable_alarm",
+            "enable_logging",
         ],
     )
     def test_mutating_tools_blocked(self, tool_name):
@@ -527,15 +541,21 @@ class TestReadOnlyGuardrail:
     def test_case_insensitive_blocking(self):
         assert _reject_if_mutating("Delete_Resource") is not None
         assert _reject_if_mutating("TERMINATE_INSTANCE") is not None
+        assert _reject_if_mutating("Purge_Queue") is not None
 
     def test_blocklist_covers_common_cloud_operations(self):
         dangerous_ops = [
             "ec2_delete_instance",
             "rds_stop_cluster",
             "s3_remove_bucket",
+            "s3_purge_bucket",
             "lambda_update_function",
+            "lambda_invoke_function",
             "ecs_scale_service",
             "eks_create_nodegroup",
+            "sqs_send_message",
+            "sns_publish_topic",
+            "dynamodb_truncate_table",
         ]
         for op in dangerous_ops:
             result = _reject_if_mutating(op)
