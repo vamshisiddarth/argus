@@ -16,14 +16,10 @@ from core.token_tracker import BudgetExceededError, TokenTracker
 
 logger = structlog.get_logger(__name__)
 
-ARGUS_READ_ONLY: bool = True
-"""
-Hard architectural gate. Argus is strictly read-only. Any code path that
-would mutate cloud resources MUST check this constant and refuse if True.
-Changing this to False requires removing the allowlist, the blocklist, the
-prompt guardrails, and the adapter contract tests — a deliberate, auditable
-decision, not an accidental one.
-"""
+# Argus is strictly read-only. This is not a configuration option.
+# There is no override, no flag, and no escape hatch.
+# If you are looking to add write/execute capabilities: they belong in a
+# separate service with its own IAM role and approval workflow — not here.
 
 _PARALLELIZABLE_TOOLS = frozenset({"get_metrics", "get_last_activity"})
 
@@ -372,12 +368,7 @@ def _reject_if_mutating(tool_name: str) -> str | None:
     """
     Return an error message if the tool name is not in the allowlist or
     contains a mutating keyword. Returns None if the tool is safe.
-
-    Checks ARGUS_READ_ONLY first — if False, all tools pass (future override).
     """
-    if not ARGUS_READ_ONLY:
-        return None
-
     if tool_name in _ALLOWED_TOOLS:
         return None
 

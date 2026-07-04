@@ -8,7 +8,6 @@ from ai.base import AIProvider, AIResponse, ToolCall
 from core.agent.loop import (
     _ALLOWED_TOOLS,
     _MUTATING_KEYWORDS,
-    ARGUS_READ_ONLY,
     AgentLoop,
     _apply_exclusion_filters,
     _compress_resource,
@@ -493,9 +492,6 @@ class TestReadOnlyGuardrail:
     def test_allowed_tools_pass(self):
         for tool in _ALLOWED_TOOLS:
             assert _reject_if_mutating(tool) is None
-
-    def test_argus_read_only_constant_is_true(self):
-        assert ARGUS_READ_ONLY is True
 
     @pytest.mark.parametrize(
         "tool_name",
