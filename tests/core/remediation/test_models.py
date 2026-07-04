@@ -88,7 +88,7 @@ class TestPolicy:
             resource_type="AWS::RDS::DBInstance",
             conditions=Condition(),
             action="resize",
-            approvers=({"group": "platform-team"},),
+            approvers=("platform-team",),
             weight=10,
         )
         defaults.update(kwargs)

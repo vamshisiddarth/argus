@@ -264,21 +264,20 @@ def _parse_scope(raw: dict, fname: str, field_name: str) -> ScopeFilter:
     )
 
 
-def _parse_approvers(raw: list, fname: str) -> tuple[dict[str, str], ...]:
+def _parse_approvers(raw: list, fname: str) -> tuple[str, ...]:
     if not isinstance(raw, list):
         raise PolicyLoadError(
-            f"{fname}: 'approvers' must be a list of "
-            f"{{group: <name>}} or {{user: <email>}} entries"
+            f"{fname}: 'approvers' must be a list of strings "
+            f'(group names or emails), e.g. ["platform-team", "j@co.com"]'
         )
-    result: list[dict[str, str]] = []
+    result: list[str] = []
     for i, item in enumerate(raw):
-        if not isinstance(item, dict):
-            raise PolicyLoadError(f"{fname}: 'approvers[{i}]' must be a mapping")
-        if not set(item.keys()) & {"group", "user"}:
+        s = str(item).strip()
+        if not s:
             raise PolicyLoadError(
-                f"{fname}: 'approvers[{i}]' must have a 'group' or 'user' key"
+                f"{fname}: 'approvers[{i}]' must not be empty"
             )
-        result.append({k: str(v) for k, v in item.items()})
+        result.append(s)
     return tuple(result)
 
 

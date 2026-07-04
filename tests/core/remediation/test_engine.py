@@ -56,7 +56,7 @@ def _policy(
         resource_type=resource_type,
         conditions=conditions or Condition(),
         action=action,
-        approvers=({"group": "platform-team"},),
+        approvers=("platform-team",),
         weight=weight,
         include=include or ScopeFilter(),
         exclude=exclude or ScopeFilter(),

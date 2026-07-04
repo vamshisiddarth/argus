@@ -29,7 +29,7 @@ resource_type: "{resource_type}"
 action: {action}
 weight: {weight}
 approvers:
-  - group: platform-team
+  - platform-team
 """
     if extra:
         base += textwrap.dedent(extra).strip() + "\n"
@@ -276,47 +276,48 @@ class TestScopeFilterParsing:
 
 
 class TestApproverParsing:
-    def test_group_approver_parsed(self, tmp_path):
+    def test_group_name_parsed(self, tmp_path):
         _write(
             tmp_path,
             "p.yaml",
             _minimal(
                 extra="""
         approvers:
-          - group: platform-team
+          - platform-team
         """
             ),
         )
         p = load_policies(tmp_path)[0]
-        assert p.approvers == ({"group": "platform-team"},)
+        assert p.approvers == ("platform-team",)
 
-    def test_user_approver_parsed(self, tmp_path):
+    def test_email_parsed(self, tmp_path):
         _write(
             tmp_path,
             "p.yaml",
             _minimal(
                 extra="""
         approvers:
-          - user: john@company.com
+          - john@company.com
         """
             ),
         )
         p = load_policies(tmp_path)[0]
-        assert p.approvers == ({"user": "john@company.com"},)
+        assert p.approvers == ("john@company.com",)
 
-    def test_missing_group_or_user_raises(self, tmp_path):
+    def test_multiple_approvers_parsed(self, tmp_path):
         _write(
             tmp_path,
             "p.yaml",
             _minimal(
                 extra="""
         approvers:
-          - name: platform-team
+          - platform-team
+          - john@company.com
         """
             ),
         )
-        with pytest.raises(PolicyLoadError, match="group.*user"):
-            load_policies(tmp_path)
+        p = load_policies(tmp_path)[0]
+        assert p.approvers == ("platform-team", "john@company.com")
 
     def test_empty_approvers_allowed(self, tmp_path):
         _write(tmp_path, "p.yaml", _minimal(extra="approvers: []"))
