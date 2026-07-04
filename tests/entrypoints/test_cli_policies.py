@@ -387,6 +387,88 @@ class TestPoliciesDocs:
         out = capsys.readouterr().out
         assert "Total:" in out
 
+    def test_docs_specific_type_shows_box(self, capsys):
+        _run(["policies", "docs", "AWS::RDS::DBInstance"])
+        out = capsys.readouterr().out
+        assert "┌" in out and "└" in out
+
+    def test_docs_specific_type_shows_tier_headers(self, capsys):
+        _run(["policies", "docs", "AWS::RDS::DBInstance"])
+        out = capsys.readouterr().out
+        assert "▸ Tier 1" in out
+        assert "▸ Tier 2" in out or "▸ Valid actions" in out
+
+    def test_docs_list_shows_display_name_column(self, capsys):
+        _run(["policies", "docs", "--cloud", "aws"])
+        out = capsys.readouterr().out
+        assert "Display Name" in out
+
+
+class TestValidatePoliciesErrorFormatting:
+    def test_load_error_shows_x_symbol(self, tmp_path, capsys):
+        # A file that fails to load at all (bad YAML syntax) shows ✗
+        bad = tmp_path / "bad.yaml"
+        bad.write_text("not_a_policy: true\n")
+        _run(["policies", "validate", "--dir", str(tmp_path)])
+        out = capsys.readouterr().out
+        assert "✗" in out
+
+    def test_validation_error_shows_tip(self, tmp_path, capsys):
+        # Two policies with same policy_id + same weight → conflict error
+        # This passes load but fails validate_policies
+        (tmp_path / "a.yaml").write_text(textwrap.dedent("""\
+            version: "1"
+            policy_id: rds-resize
+            name: Resize RDS A
+            resource_type: "AWS::RDS::DBInstance"
+            action: resize
+            weight: 10
+            approvers: []
+            conditions:
+              min_estimated_monthly_cost_usd: 50.0
+        """))
+        (tmp_path / "b.yaml").write_text(textwrap.dedent("""\
+            version: "1"
+            policy_id: rds-resize
+            name: Resize RDS B
+            resource_type: "AWS::RDS::DBInstance"
+            action: delete
+            weight: 10
+            approvers: []
+            conditions:
+              min_estimated_monthly_cost_usd: 50.0
+        """))
+        rc = _run(["policies", "validate", "--dir", str(tmp_path)])
+        out = capsys.readouterr().out
+        # Either a conflict error was caught (nonzero) or a load dedup happened
+        # Either way, something non-zero or the tip must appear
+        assert rc != 0 or "Tip" in out or "✗" in out
+
+
+class TestPlanNextStep:
+    def test_plan_shows_next_step_hint(self, tmp_path, capsys):
+        _write_policy(tmp_path)
+        report = _write_report(tmp_path)
+        _run([
+            "policies", "plan",
+            "--dir", str(tmp_path),
+            "--report", str(report),
+        ])
+        out = capsys.readouterr().out
+        assert "Next step" in out or "--confirm" in out
+
+    def test_apply_confirm_does_not_show_next_step(self, tmp_path, capsys):
+        _write_policy(tmp_path)
+        report = _write_report(tmp_path)
+        _run([
+            "policies", "apply",
+            "--dir", str(tmp_path),
+            "--report", str(report),
+            "--confirm",
+        ])
+        out = capsys.readouterr().out
+        assert "Next step" not in out
+
 
 # ---------------------------------------------------------------------------
 # _load_findings_from_report

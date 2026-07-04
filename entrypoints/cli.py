@@ -559,13 +559,21 @@ def _run_policies_validate(args: argparse.Namespace) -> int:
 
     if result.errors:
         print()
+        print("  Errors (must fix before deploying):")
         for err in result.errors:
-            print(f"  ERROR: {err}\n")
+            # Highlight the filename at the start for easy navigation
+            print(f"  ✗ {err}")
+        print()
+        print(
+            "  Tip: each error starts with the filename. Open the file, "
+            "find the field mentioned, and correct it."
+        )
 
     if result.warnings:
         print()
+        print("  Warnings (non-blocking, but worth reviewing):")
         for warn in result.warnings:
-            print(f"  WARNING: {warn}\n")
+            print(f"  ⚠  {warn}")
 
     total = len(policies)
     print(
@@ -574,11 +582,11 @@ def _run_policies_validate(args: argparse.Namespace) -> int:
     )
 
     if result.errors:
-        print("Fix errors before deploying.\n")
+        print()
         return 1
 
     if result.warnings:
-        print("Warnings are non-blocking but should be reviewed.\n")
+        print()
 
     return 0
 
@@ -768,10 +776,15 @@ def _print_plan(
 
     print()
     print("─" * (width + 2))
-    print(
-        f"  {action_verb} {len(proposals)} Jira ticket(s). "
-        + ("No changes made." if not confirm else "")
-    )
+    if confirm:
+        print(f"  {action_verb} {len(proposals)} Jira ticket(s).")
+    else:
+        print(f"  {action_verb} {len(proposals)} Jira ticket(s).  No changes made.")
+        print()
+        print(
+            "  Next step: add --confirm to create tickets "
+            "(requires Phase 3 Jira integration)."
+        )
     print()
 
 
@@ -813,47 +826,63 @@ def _run_policies_docs(args: argparse.Namespace) -> None:
 
     print()
     for cloud, specs in sorted(by_cloud.items()):
-        print(f"  {cloud.upper()} ({len(specs)} types)")
-        print(f"  {'─' * 50}")
+        print(f"  {cloud.upper()}  ({len(specs)} types)")
+        print(f"  {'─' * 70}")
+        print(f"    {'Resource Type':<45}  {'Display Name':<28}  Actions")
+        print(f"    {'─'*45}  {'─'*28}  {'─'*20}")
         for spec in specs:
-            actions = ", ".join(spec.actions) if spec.actions else "(none)"
-            print(f"    {spec.type_id:<45} actions: {actions}")
+            actions = ", ".join(spec.actions) if spec.actions else "—"
+            print(f"    {spec.type_id:<45}  {spec.display_name:<28}  {actions}")
         print()
 
     print(
-        f"  Total: {len(all_specs)} known types. "
-        f"Run 'argus policies docs <TYPE>' for full metric details.\n"
+        f"  Total: {len(all_specs)} known types  •  "
+        f"Run 'argus policies docs <TYPE>' for conditions and metrics.\n"
     )
 
 
 def _print_resource_docs(spec: object) -> None:
-    print(f"\n  {spec.type_id} — {spec.display_name}")  # type: ignore[attr-defined]
-    print(f"  Registry: ✓ known type (cloud: {spec.cloud})")  # type: ignore[attr-defined]
+    type_id = spec.type_id  # type: ignore[attr-defined]
+    display_name = spec.display_name  # type: ignore[attr-defined]
+    cloud = spec.cloud  # type: ignore[attr-defined]
+    sep = "─" * 62
+
     print()
-    print("  Tier 1 conditions (universal — work on all resource types):")
-    print("    min_estimated_monthly_cost_usd  float")
-    print("    ai_priority                     tuple   (high | medium | low)")
-    print("    idle_days_min                   int")
+    print(f"  ┌{sep}┐")
+    print(f"  │  {type_id:<60}│")
+    print(f"  │  {display_name:<60}│")
+    print(f"  │  cloud: {cloud:<53}│")
+    print(f"  └{sep}┘")
     print()
 
+    # Tier 1 — universal conditions
+    print("  ▸ Tier 1  (universal — apply to every resource type)")
+    print(f"    {'Condition':<38}  {'Type':<8}  Values / Notes")
+    print(f"    {'─'*38}  {'─'*8}  {'─'*25}")
+    print(f"    {'min_estimated_monthly_cost_usd':<38}  {'float':<8}  e.g. 50.0")
+    print(f"    {'ai_priority':<38}  {'list':<8}  [high, medium, low]")
+    print(f"    {'idle_days_min':<38}  {'int':<8}  e.g. 30")
+    print()
+
+    # Tier 2 — metric-based conditions
     metrics = getattr(spec, "metrics", None) or []
     if metrics:
-        print("  Tier 2 conditions (metric-based — this type only):")
+        print("  ▸ Tier 2  (metric-based — this resource type only)")
+        print(f"    {'Condition (metric name)':<38}  {'Type':<8}  Operators")
+        print(f"    {'─'*38}  {'─'*8}  {'─'*25}")
         for m in metrics:
             name = m if isinstance(m, str) else getattr(m, "name", str(m))
-            print(
-                f"    {name:<38} operator: lt/gt/lte/gte/eq   threshold: float"
-            )
+            print(f"    {name:<38}  {'float':<8}  lt / gt / lte / gte / eq")
         print()
     else:
-        print("  Tier 2 conditions: none defined for this type (Tier 1 only)\n")
+        print("  ▸ Tier 2  (none — only Tier 1 conditions apply to this type)")
+        print()
 
+    # Valid actions
     actions = getattr(spec, "actions", None) or []
-    if actions:
-        print(f"  Valid actions: {', '.join(actions)}")
-    else:
-        print("  Valid actions: (none defined)")
+    action_str = "  ".join(f"[{a}]" for a in actions) if actions else "(none defined)"
+    print(f"  ▸ Valid actions:  {action_str}")
 
     if getattr(spec, "docs_url", None):
-        print(f"  Docs: {spec.docs_url}")  # type: ignore[attr-defined]
+        print(f"  ▸ Docs: {spec.docs_url}")  # type: ignore[attr-defined]
     print()
