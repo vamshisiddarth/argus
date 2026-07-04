@@ -8,6 +8,27 @@
 > Cloud adapters are swappable. The runtime host (Lambda / Cloud Run / Azure Function) is swappable.
 > Deploying on a new cloud means writing one adapter — nothing else changes.
 
+## Read-Only Guarantee
+
+**Argus never mutates cloud resources.** This is enforced at four layers:
+
+1. **IAM** — Deploy templates create read-only roles. Never grant write permissions.
+2. **Adapter contract** — `CloudAdapter` defines only four read methods. No write method
+   can be added without failing CI (adapter method names are scanned for mutating keywords).
+3. **Agent loop allowlist** — The tool dispatcher only permits five tool names
+   (`list_resources`, `get_metrics`, `get_cost`, `get_last_activity`, `submit_findings`).
+   Any other tool call is rejected with a clear error before execution.
+4. **System prompt** — Both scan and chat prompts instruct the AI to refuse
+   destructive actions and explain that Argus only provides recommendations.
+
+Even with admin credentials attached, Argus will not execute write operations.
+The remediation feature creates Jira tickets with runbooks — humans execute changes
+through their normal change management process.
+
+If a future version adds automated execution, it must be a **separate component**
+with its own isolated IAM role, its own approval workflow, and its own audit trail.
+It must never share the scan role or run inside the Argus agent loop.
+
 ---
 
 ## High-Level System Overview
