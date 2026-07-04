@@ -826,8 +826,6 @@ def _print_plan(
         print(f"    Cost     : ${f.estimated_monthly_cost:.2f}/mo")
         print(f"    AI says  : \"{f.waste_reason[:80]}\"")
         print(f"    Action   : {_bold(p.action)}")
-        approvers_str = ", ".join(p.approvers) if p.approvers else "(none)"
-        print(f"    Approvers: {approvers_str}")
 
     unmatched = [p for p in policies if not any(
         prop.policy.policy_id == p.policy_id for prop in proposals

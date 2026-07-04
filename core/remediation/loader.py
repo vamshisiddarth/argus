@@ -142,7 +142,6 @@ def _parse_policy(raw: dict, source_file: str) -> Policy:
     conditions = _parse_conditions(raw.get("conditions") or {}, fname)
     include = _parse_scope(raw.get("include") or {}, fname, "include")
     exclude = _parse_scope(raw.get("exclude") or {}, fname, "exclude")
-    approvers = _parse_approvers(raw.get("approvers") or [], fname)
 
     return Policy(
         policy_id=policy_id,
@@ -150,7 +149,6 @@ def _parse_policy(raw: dict, source_file: str) -> Policy:
         resource_type=resource_type,
         conditions=conditions,
         action=action,
-        approvers=approvers,
         weight=weight,
         include=include,
         exclude=exclude,
@@ -267,23 +265,6 @@ def _parse_scope(raw: dict, fname: str, field_name: str) -> ScopeFilter:
         regions=regions,
         tags=tuple(tags),
     )
-
-
-def _parse_approvers(raw: list, fname: str) -> tuple[str, ...]:
-    if not isinstance(raw, list):
-        raise PolicyLoadError(
-            f"{fname}: 'approvers' must be a list of strings "
-            f'(group names or emails), e.g. ["platform-team", "j@co.com"]'
-        )
-    result: list[str] = []
-    for i, item in enumerate(raw):
-        s = str(item).strip()
-        if not s:
-            raise PolicyLoadError(
-                f"{fname}: 'approvers[{i}]' must not be empty"
-            )
-        result.append(s)
-    return tuple(result)
 
 
 class PolicyLoadError(Exception):

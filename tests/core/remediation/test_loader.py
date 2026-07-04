@@ -28,8 +28,6 @@ name: Resize underutilized RDS
 resource_type: "{resource_type}"
 action: {action}
 weight: {weight}
-approvers:
-  - platform-team
 """
     if extra:
         base += textwrap.dedent(extra).strip() + "\n"
@@ -290,51 +288,3 @@ class TestScopeFilterParsing:
             load_policies(tmp_path)
 
 
-class TestApproverParsing:
-    def test_group_name_parsed(self, tmp_path):
-        _write(
-            tmp_path,
-            "p.yaml",
-            _minimal(
-                extra="""
-        approvers:
-          - platform-team
-        """
-            ),
-        )
-        p = load_policies(tmp_path)[0]
-        assert p.approvers == ("platform-team",)
-
-    def test_email_parsed(self, tmp_path):
-        _write(
-            tmp_path,
-            "p.yaml",
-            _minimal(
-                extra="""
-        approvers:
-          - john@company.com
-        """
-            ),
-        )
-        p = load_policies(tmp_path)[0]
-        assert p.approvers == ("john@company.com",)
-
-    def test_multiple_approvers_parsed(self, tmp_path):
-        _write(
-            tmp_path,
-            "p.yaml",
-            _minimal(
-                extra="""
-        approvers:
-          - platform-team
-          - john@company.com
-        """
-            ),
-        )
-        p = load_policies(tmp_path)[0]
-        assert p.approvers == ("platform-team", "john@company.com")
-
-    def test_empty_approvers_allowed(self, tmp_path):
-        _write(tmp_path, "p.yaml", _minimal(extra="approvers: []"))
-        p = load_policies(tmp_path)[0]
-        assert p.approvers == ()

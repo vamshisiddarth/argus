@@ -40,8 +40,6 @@ def _write_policy(tmp_path: Path, filename: str = "rds.yaml") -> Path:
         resource_type: "AWS::RDS::DBInstance"
         action: resize
         weight: 10
-        approvers:
-          - platform-team
         conditions:
           min_estimated_monthly_cost_usd: 50.0
           ai_priority: [high, medium]
@@ -124,7 +122,6 @@ class TestPoliciesValidate:
             resource_type: "AWS::RDS::DBInstance"
             action: delete
             weight: 5
-            approvers: []
             conditions:
               min_estimated_monthly_cost_usd: 10.0
         """))
@@ -177,7 +174,7 @@ class TestPoliciesPlan:
         out = capsys.readouterr().out
         assert "120.00" in out
 
-    def test_plan_shows_approvers(self, tmp_path, capsys):
+    def test_plan_shows_action(self, tmp_path, capsys):
         _write_policy(tmp_path)
         report = _write_report(tmp_path)
 
@@ -187,7 +184,7 @@ class TestPoliciesPlan:
             "--report", str(report),
         ])
         out = capsys.readouterr().out
-        assert "platform-team" in out
+        assert "resize" in out
 
     def test_plan_no_match(self, tmp_path, capsys):
         _write_policy(tmp_path)
@@ -423,7 +420,6 @@ class TestValidatePoliciesErrorFormatting:
             resource_type: "AWS::RDS::DBInstance"
             action: resize
             weight: 10
-            approvers: []
             conditions:
               min_estimated_monthly_cost_usd: 50.0
         """))
@@ -434,7 +430,6 @@ class TestValidatePoliciesErrorFormatting:
             resource_type: "AWS::RDS::DBInstance"
             action: delete
             weight: 10
-            approvers: []
             conditions:
               min_estimated_monthly_cost_usd: 50.0
         """))

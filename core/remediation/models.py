@@ -85,7 +85,6 @@ class Policy:
     resource_type: str  # "AWS::RDS::DBInstance" or "*"
     conditions: Condition
     action: str  # from registry _VALID_ACTIONS
-    approvers: tuple[str, ...]  # ("platform-team", "john@company.com")
     weight: int = 0
     include: ScopeFilter = field(default_factory=ScopeFilter)
     exclude: ScopeFilter = field(default_factory=ScopeFilter)
