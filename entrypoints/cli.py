@@ -105,6 +105,111 @@ def main(argv: list[str] | None = None) -> None:
 
     subparsers = parser.add_subparsers(dest="command")
 
+    # --- argus policies ---
+    policies_parser = subparsers.add_parser(
+        "policies", help="Manage and validate remediation policies"
+    )
+    policies_sub = policies_parser.add_subparsers(dest="policies_command")
+
+    # argus policies validate
+    pol_validate = policies_sub.add_parser(
+        "validate",
+        help="Validate policy files — schema + conflict detection (use as CI gate)",
+    )
+    pol_validate.add_argument(
+        "--dir",
+        default=os.environ.get("ARGUS_POLICIES_DIR", "./config/policies"),
+        dest="policies_dir",
+        metavar="DIR",
+        help="Directory containing policy YAML files (default: ./config/policies)",
+    )
+
+    # argus policies plan
+    pol_plan = policies_sub.add_parser(
+        "plan",
+        help="Dry-run: show which findings would match policies (no tickets created)",
+    )
+    pol_plan.add_argument(
+        "--dir",
+        default=os.environ.get("ARGUS_POLICIES_DIR", "./config/policies"),
+        dest="policies_dir",
+        metavar="DIR",
+        help="Directory containing policy YAML files (default: ./config/policies)",
+    )
+    pol_plan.add_argument(
+        "--report",
+        default=None,
+        dest="report_path",
+        metavar="PATH",
+        help="Path to existing scan report JSON (fast, no cloud API calls)",
+    )
+    pol_plan.add_argument(
+        "--live",
+        action="store_true",
+        help="Run a live scan instead of using --report (slower, incurs API costs)",
+    )
+    pol_plan.add_argument(
+        "--cloud",
+        default=None,
+        choices=["aws", "gcp", "azure"],
+        help="Cloud provider — required when --live is set",
+    )
+
+    # argus policies apply
+    pol_apply = policies_sub.add_parser(
+        "apply",
+        help="Create Jira tickets for matched findings (dry-run by default)",
+    )
+    pol_apply.add_argument(
+        "--dir",
+        default=os.environ.get("ARGUS_POLICIES_DIR", "./config/policies"),
+        dest="policies_dir",
+        metavar="DIR",
+        help="Directory containing policy YAML files (default: ./config/policies)",
+    )
+    pol_apply.add_argument(
+        "--report",
+        default=None,
+        dest="report_path",
+        metavar="PATH",
+        help="Path to existing scan report JSON",
+    )
+    pol_apply.add_argument(
+        "--live",
+        action="store_true",
+        help="Run a live scan instead of using --report",
+    )
+    pol_apply.add_argument(
+        "--cloud",
+        default=None,
+        choices=["aws", "gcp", "azure"],
+        help="Cloud provider — required when --live is set",
+    )
+    pol_apply.add_argument(
+        "--confirm",
+        action="store_true",
+        help="Actually create Jira tickets (omit for dry-run)",
+    )
+
+    # argus policies docs
+    pol_docs = policies_sub.add_parser(
+        "docs",
+        help="Show registry metadata, valid metrics, and valid actions per type",
+    )
+    pol_docs.add_argument(
+        "resource_type",
+        nargs="?",
+        default=None,
+        metavar="RESOURCE_TYPE",
+        help="e.g. AWS::RDS::DBInstance (omit to list all known types)",
+    )
+    pol_docs.add_argument(
+        "--cloud",
+        default=None,
+        choices=["aws", "gcp", "azure"],
+        help="Filter listed types by cloud (only applies when no resource_type given)",
+    )
+
     # --- argus scan ---
     scan_parser = subparsers.add_parser(
         "scan", help="Run a full cost optimization scan"
@@ -231,6 +336,21 @@ def main(argv: list[str] | None = None) -> None:
     if not args.command:
         parser.print_help()
         sys.exit(0)
+
+    # policies subcommands don't require a cloud provider
+    if args.command == "policies":
+        if not hasattr(args, "policies_command") or not args.policies_command:
+            policies_parser.print_help()
+            sys.exit(0)
+        if args.policies_command == "validate":
+            sys.exit(_run_policies_validate(args))
+        elif args.policies_command == "plan":
+            sys.exit(_run_policies_plan(args, confirm=False))
+        elif args.policies_command == "apply":
+            sys.exit(_run_policies_plan(args, confirm=args.confirm))
+        elif args.policies_command == "docs":
+            _run_policies_docs(args)
+        return
 
     # Auto-detect cloud from env vars if not specified
     if args.cloud is None:
@@ -385,3 +505,355 @@ def _apply_accounts_config(path: str, cloud: str) -> None:
         else:
             accounts = config.get("accounts", [])
             os.environ["ACCOUNTS_CONFIG"] = json.dumps(accounts)
+
+
+# ---------------------------------------------------------------------------
+# argus policies validate
+# ---------------------------------------------------------------------------
+
+
+def _run_policies_validate(args: argparse.Namespace) -> int:
+    """Returns 0 (ok/warnings only) or 1 (errors)."""
+    from core.remediation.loader import PolicyLoadError, load_policies
+    from core.remediation.validator import validate_policies
+
+    policies_dir = args.policies_dir
+
+    try:
+        policies = load_policies(policies_dir)
+    except PolicyLoadError as exc:
+        print(f"\n✗ Failed to load policies from {policies_dir!r}:\n  {exc}\n")
+        return 1
+
+    if not policies:
+        print(f"\n⚠  No policy files found in {policies_dir!r}.\n")
+        return 0
+
+    result = validate_policies(policies)
+
+    # Per-file summary
+    seen_files: dict[str, list] = {}
+    for p in policies:
+        seen_files.setdefault(p.source_file, []).append(p)
+
+    print()
+    for source_file, file_policies in sorted(seen_files.items()):
+        fname = os.path.basename(source_file)
+        file_errors = [
+            e for e in result.errors if fname in e or source_file in e
+        ]
+        file_warnings = [
+            w for w in result.warnings if fname in w or source_file in w
+        ]
+        for p in file_policies:
+            if file_errors:
+                status = "✗"
+            elif file_warnings:
+                status = "⚠"
+            else:
+                status = "✓"
+            print(
+                f"  {status} {fname:<30} weight: {p.weight:<4} "
+                f"resource: {p.resource_type}"
+            )
+
+    if result.errors:
+        print()
+        for err in result.errors:
+            print(f"  ERROR: {err}\n")
+
+    if result.warnings:
+        print()
+        for warn in result.warnings:
+            print(f"  WARNING: {warn}\n")
+
+    total = len(policies)
+    print(
+        f"\n{total} polic{'y' if total == 1 else 'ies'} loaded — "
+        f"{len(result.errors)} error(s), {len(result.warnings)} warning(s)."
+    )
+
+    if result.errors:
+        print("Fix errors before deploying.\n")
+        return 1
+
+    if result.warnings:
+        print("Warnings are non-blocking but should be reviewed.\n")
+
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# argus policies plan / apply (shared logic, confirm flag distinguishes them)
+# ---------------------------------------------------------------------------
+
+
+def _load_findings_from_report(report_path: str) -> list:
+    """Load ResourceFinding objects from a saved scan report JSON."""
+    from datetime import datetime, timezone
+
+    from core.models.finding import ResourceFinding
+
+    with open(report_path) as fh:
+        report = json.load(fh)
+
+    findings = []
+    for raw in report.get("findings", []):
+        findings.append(
+            ResourceFinding(
+                resource_id=raw["resource_id"],
+                resource_type=raw["resource_type"],
+                cloud=raw.get("cloud", "unknown"),
+                region=raw.get("region", "unknown"),
+                name=raw.get("name"),
+                estimated_monthly_cost=float(raw.get("estimated_monthly_cost", 0.0)),
+                waste_reason=raw.get("waste_reason", ""),
+                recommendation=raw.get("recommendation", ""),
+                priority=raw.get("priority", "low"),
+                metrics_summary=raw.get("metrics_summary") or {},
+                tags=raw.get("tags") or {},
+                last_activity=(
+                    datetime.fromisoformat(raw["last_activity"])
+                    if raw.get("last_activity")
+                    else None
+                ),
+                scan_time=datetime.now(tz=timezone.utc),
+            )
+        )
+    return findings
+
+
+def _run_policies_plan(args: argparse.Namespace, *, confirm: bool) -> int:
+    """Shared logic for plan (confirm=False) and apply (confirm=True/False)."""
+    from core.remediation.engine import evaluate
+    from core.remediation.loader import PolicyLoadError, load_policies
+    from core.remediation.validator import validate_policies
+
+    # --- load policies ---
+    try:
+        policies = load_policies(args.policies_dir)
+    except PolicyLoadError as exc:
+        print(f"\n✗ Failed to load policies:\n  {exc}\n")
+        return 1
+
+    if not policies:
+        print(f"\n⚠  No policies found in {args.policies_dir!r}. Nothing to do.\n")
+        return 0
+
+    result = validate_policies(policies)
+    if not result.ok:
+        print("\n✗ Policies have errors — fix them before running plan/apply:\n")
+        for err in result.errors:
+            print(f"  {err}\n")
+        return 1
+    for warn in result.warnings:
+        print(f"  ⚠  WARNING: {warn}\n")
+
+    # --- load findings ---
+    if args.report_path:
+        try:
+            findings = _load_findings_from_report(args.report_path)
+        except Exception as exc:  # noqa: BLE001
+            print(f"\n✗ Failed to load report {args.report_path!r}: {exc}\n")
+            return 1
+        source_label = os.path.basename(args.report_path)
+    elif args.live:
+        if not args.cloud:
+            print("\n✗ --live requires --cloud (aws | gcp | azure).\n")
+            return 1
+        print(f"\nRunning live scan on {args.cloud.upper()}...")
+        findings = _run_live_scan_for_plan(args)
+        source_label = f"live {args.cloud.upper()} scan"
+    else:
+        print(
+            "\n✗ Specify --report PATH (fast) or --live --cloud CLOUD (live scan).\n"
+        )
+        return 1
+
+    # --- evaluate ---
+    proposals = evaluate(findings, policies)
+
+    _print_plan(findings, policies, proposals, source_label, confirm=confirm)
+
+    if confirm and proposals:
+        print("\n  --confirm flag detected — ticket creation is a Phase 3 feature.\n")
+
+    return 0
+
+
+def _run_live_scan_for_plan(args: argparse.Namespace) -> list:
+    """Trigger a minimal scan and return findings without delivering a report."""
+    import tempfile
+
+
+    # Reuse scan machinery via entrypoint — capture findings only
+    cloud = args.cloud
+    os.environ.setdefault("AI_PROVIDER", "anthropic")
+    os.environ.setdefault("DRY_RUN", "true")
+
+    if cloud == "aws":
+        from entrypoints.aws_lambda import handler
+
+        result = handler({}, None) or {}
+    elif cloud == "gcp":
+        from entrypoints.gcp_cloudrun import main as gcp_main
+
+        result = gcp_main() or {}  # type: ignore[assignment]
+    elif cloud == "azure":
+        from entrypoints.azure_function import main as azure_main
+
+        result = azure_main(None) or {}  # type: ignore[assignment]
+    else:
+        return []
+
+    # Deserialise findings from the result dict
+    tmp = tempfile.NamedTemporaryFile(
+        mode="w", suffix=".json", delete=False
+    )
+    json.dump(result, tmp)
+    tmp.close()
+    return _load_findings_from_report(tmp.name)
+
+
+def _print_plan(
+    findings: list,
+    policies: list,
+    proposals: list,
+    source_label: str,
+    *,
+    confirm: bool,
+) -> None:
+    from datetime import date
+
+    action_verb = "Creating" if confirm else "Would create"
+    width = 69
+
+    print(f"\nLoaded {len(policies)} polic{'y' if len(policies) == 1 else 'ies'}"
+          f" from {policies[0].source_file if policies else '.'}")
+    print()
+    print("┌" + "─" * width + "┐")
+    verb = "APPLY" if confirm else "PLAN"
+    title = f" POLICY {verb} — {source_label} — {date.today()} "
+    print(f"│{title:^{width}}│")
+    summary = (
+        f" {len(findings)} finding(s) · {len(policies)} polic"
+        f"{'y' if len(policies) == 1 else 'ies'} · "
+        f"{len(proposals)} match(es) "
+    )
+    print(f"│{summary:^{width}}│")
+    print("└" + "─" * width + "┘")
+
+    if not proposals:
+        print("\n  No findings matched any policy.\n")
+        return
+
+    for proposal in proposals:
+        f = proposal.finding
+        p = proposal.policy
+        print(f"\n  MATCH  {p.policy_id} (weight: {p.weight})")
+        resource_label = f"{f.name or f.resource_id} · {f.resource_type}"
+        print(f"    Resource : {resource_label} · {f.region}")
+        print(f"    Cost     : ${f.estimated_monthly_cost:.2f}/mo")
+        print(f"    AI says  : \"{f.waste_reason[:80]}\"")
+        print(f"    Action   : {p.action}")
+        approvers_str = ", ".join(p.approvers) if p.approvers else "(none)"
+        print(f"    Approvers: {approvers_str}")
+
+    unmatched = [p for p in policies if not any(
+        prop.policy.policy_id == p.policy_id for prop in proposals
+    )]
+    for p in unmatched:
+        print(f"\n  NO MATCH  {p.policy_id} (weight: {p.weight})")
+        print("    Reason   : no findings matched conditions/scope")
+
+    print()
+    print("─" * (width + 2))
+    print(
+        f"  {action_verb} {len(proposals)} Jira ticket(s). "
+        + ("No changes made." if not confirm else "")
+    )
+    print()
+
+
+# ---------------------------------------------------------------------------
+# argus policies docs
+# ---------------------------------------------------------------------------
+
+
+def _run_policies_docs(args: argparse.Namespace) -> None:
+    from core.registry import get_registry
+
+    registry = get_registry()
+
+    if args.resource_type:
+        spec = registry.get(args.resource_type)
+        if spec is None:
+            print(
+                f"\n  Unknown resource type: {args.resource_type!r}\n"
+                f"  Run 'argus policies docs' (no argument) to list all known types.\n"
+            )
+            return
+        _print_resource_docs(spec)
+        return
+
+    # List all known types, grouped by cloud
+    type_ids = registry.all_type_ids()
+    if args.cloud:
+        all_specs = registry.all_for_cloud(args.cloud)
+    else:
+        all_specs = [registry.get(tid) for tid in type_ids if registry.get(tid)]
+
+    by_cloud: dict[str, list] = {}
+    for spec in sorted(all_specs, key=lambda s: (s.cloud, s.type_id)):
+        by_cloud.setdefault(spec.cloud, []).append(spec)
+
+    if not by_cloud:
+        print("\n  No resource types found.\n")
+        return
+
+    print()
+    for cloud, specs in sorted(by_cloud.items()):
+        print(f"  {cloud.upper()} ({len(specs)} types)")
+        print(f"  {'─' * 50}")
+        for spec in specs:
+            actions = ", ".join(spec.actions) if spec.actions else "(none)"
+            print(f"    {spec.type_id:<45} actions: {actions}")
+        print()
+
+    print(
+        f"  Total: {len(all_specs)} known types. "
+        f"Run 'argus policies docs <TYPE>' for full metric details.\n"
+    )
+
+
+def _print_resource_docs(spec: object) -> None:
+    print(f"\n  {spec.type_id} — {spec.display_name}")  # type: ignore[attr-defined]
+    print(f"  Registry: ✓ known type (cloud: {spec.cloud})")  # type: ignore[attr-defined]
+    print()
+    print("  Tier 1 conditions (universal — work on all resource types):")
+    print("    min_estimated_monthly_cost_usd  float")
+    print("    ai_priority                     tuple   (high | medium | low)")
+    print("    idle_days_min                   int")
+    print()
+
+    metrics = getattr(spec, "metrics", None) or []
+    if metrics:
+        print("  Tier 2 conditions (metric-based — this type only):")
+        for m in metrics:
+            name = m if isinstance(m, str) else getattr(m, "name", str(m))
+            print(
+                f"    {name:<38} operator: lt/gt/lte/gte/eq   threshold: float"
+            )
+        print()
+    else:
+        print("  Tier 2 conditions: none defined for this type (Tier 1 only)\n")
+
+    actions = getattr(spec, "actions", None) or []
+    if actions:
+        print(f"  Valid actions: {', '.join(actions)}")
+    else:
+        print("  Valid actions: (none defined)")
+
+    if getattr(spec, "docs_url", None):
+        print(f"  Docs: {spec.docs_url}")  # type: ignore[attr-defined]
+    print()
