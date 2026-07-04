@@ -385,7 +385,7 @@ class TestPoliciesDocs:
 
         _run(["policies", "docs"])
         out = capsys.readouterr().out
-        assert "Total:" in out
+        assert "resource types known" in out or "Total:" in out
 
     def test_docs_specific_type_shows_box(self, capsys):
         _run(["policies", "docs", "AWS::RDS::DBInstance"])

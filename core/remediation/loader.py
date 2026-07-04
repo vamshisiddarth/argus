@@ -72,7 +72,12 @@ def _parse_file(path: Path) -> list[Policy]:
     try:
         raw = yaml.safe_load(path.read_text())
     except yaml.YAMLError as exc:
-        raise PolicyLoadError(f"{path.name}: invalid YAML — {exc}") from exc
+        mark = getattr(exc, "problem_mark", None)
+        location = f":{mark.line + 1}:{mark.column + 1}" if mark else ""
+        problem = getattr(exc, "problem", None) or str(exc).splitlines()[0]
+        raise PolicyLoadError(
+            f"{path.name}{location}: invalid YAML — {problem}"
+        ) from exc
 
     if not isinstance(raw, dict):
         raise PolicyLoadError(f"{path.name}: must be a YAML mapping at top level")

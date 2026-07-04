@@ -111,6 +111,21 @@ class TestSchemaValidation:
         with pytest.raises(PolicyLoadError, match="invalid YAML"):
             load_policies(tmp_path)
 
+    def test_invalid_yaml_includes_line_number(self, tmp_path):
+        # Multi-line file: error is on line 3 (0-indexed line 2 → displayed as 3)
+        _write(tmp_path, "p.yaml", "version: '1'\nkey: value\n  bad: indent: here: :")
+        try:
+            load_policies(tmp_path)
+        except PolicyLoadError as exc:
+            msg = str(exc)
+            # Should include filename:line: pattern (e.g. "p.yaml:3:1:")
+            assert "p.yaml" in msg
+            # Line number should appear as a digit after the colon
+            import re
+            assert re.search(r"p\.yaml:\d+:\d+", msg), (
+                f"Expected line:col in error, got: {msg}"
+            )
+
     def test_unknown_resource_type_warns_but_loads(self, tmp_path, caplog):
         import logging
 

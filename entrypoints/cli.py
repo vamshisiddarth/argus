@@ -20,6 +20,34 @@ import json
 import os
 import sys
 
+# ---------------------------------------------------------------------------
+# Minimal ANSI color helper (no dependencies, TTY-aware)
+# ---------------------------------------------------------------------------
+
+_IS_TTY = sys.stdout.isatty()
+
+_RED = "\033[31m" if _IS_TTY else ""
+_GREEN = "\033[32m" if _IS_TTY else ""
+_YELLOW = "\033[33m" if _IS_TTY else ""
+_BOLD = "\033[1m" if _IS_TTY else ""
+_RESET = "\033[0m" if _IS_TTY else ""
+
+
+def _ok(s: str) -> str:
+    return f"{_GREEN}{s}{_RESET}"
+
+
+def _err(s: str) -> str:
+    return f"{_RED}{s}{_RESET}"
+
+
+def _warn(s: str) -> str:
+    return f"{_YELLOW}{s}{_RESET}"
+
+
+def _bold(s: str) -> str:
+    return f"{_BOLD}{s}{_RESET}"
+
 
 def _detect_cloud() -> str | None:
     """Infer cloud provider from environment variables.
@@ -107,7 +135,21 @@ def main(argv: list[str] | None = None) -> None:
 
     # --- argus policies ---
     policies_parser = subparsers.add_parser(
-        "policies", help="Manage and validate remediation policies"
+        "policies",
+        help="Manage and validate remediation policies",
+        description=(
+            "Manage Argus remediation policies.\n\n"
+            "Subcommands:\n"
+            "  validate   Check policy files for schema errors and conflicts\n"
+            "  plan       Preview which findings would trigger Jira tickets\n"
+            "  apply      Same as plan — add --confirm to create tickets (Phase 3)\n"
+            "  docs       Show registry metadata: conditions and actions per type\n\n"
+            "Example workflow:\n"
+            "  argus policies validate --dir ./config/policies\n"
+            "  argus policies plan --dir ./config/policies --report scan.json\n"
+            "  argus policies docs AWS::RDS::DBInstance"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     policies_sub = policies_parser.add_subparsers(dest="policies_command")
 
@@ -522,16 +564,25 @@ def _run_policies_validate(args: argparse.Namespace) -> int:
     try:
         policies = load_policies(policies_dir)
     except PolicyLoadError as exc:
-        print(f"\n✗ Failed to load policies from {policies_dir!r}:\n  {exc}\n")
+        # PolicyLoadError from load() bundles all per-file errors.
+        # Print each bullet on its own line with ✗ prefix for clarity.
+        print()
+        for line in str(exc).splitlines():
+            stripped = line.strip()
+            if stripped.startswith("•"):
+                print(_err(f"  ✗ {stripped[1:].strip()}"))
+            elif stripped:
+                print(f"  {stripped}")
+        print()
         return 1
 
     if not policies:
-        print(f"\n⚠  No policy files found in {policies_dir!r}.\n")
+        print(_warn(f"\n⚠  No policy files found in {policies_dir!r}.\n"))
         return 0
 
     result = validate_policies(policies)
 
-    # Per-file summary
+    # Per-file summary line
     seen_files: dict[str, list] = {}
     for p in policies:
         seen_files.setdefault(p.source_file, []).append(p)
@@ -539,54 +590,70 @@ def _run_policies_validate(args: argparse.Namespace) -> int:
     print()
     for source_file, file_policies in sorted(seen_files.items()):
         fname = os.path.basename(source_file)
-        file_errors = [
-            e for e in result.errors if fname in e or source_file in e
-        ]
-        file_warnings = [
-            w for w in result.warnings if fname in w or source_file in w
-        ]
+        file_errors = [e for e in result.errors if fname in e or source_file in e]
+        file_warnings = [w for w in result.warnings if fname in w or source_file in w]
         for p in file_policies:
             if file_errors:
-                status = "✗"
+                marker = _err("✗")
+                fname_col = _err(f"{fname:<30}")
             elif file_warnings:
-                status = "⚠"
+                marker = _warn("⚠")
+                fname_col = _warn(f"{fname:<30}")
             else:
-                status = "✓"
+                marker = _ok("✓")
+                fname_col = f"{fname:<30}"
             print(
-                f"  {status} {fname:<30} weight: {p.weight:<4} "
+                f"  {marker} {fname_col}  weight: {p.weight:<4}  "
                 f"resource: {p.resource_type}"
             )
 
+    # Errors section
     if result.errors:
         print()
-        print("  Errors (must fix before deploying):")
         for err in result.errors:
-            # Highlight the filename at the start for easy navigation
-            print(f"  ✗ {err}")
-        print()
-        print(
-            "  Tip: each error starts with the filename. Open the file, "
-            "find the field mentioned, and correct it."
-        )
+            # err format: "filename.yaml: <message>" or "filename.yaml:3:1: <message>"
+            # Split at first ': ' to separate file ref from message
+            if ": " in err:
+                file_ref, _, msg = err.partition(": ")
+                print(f"  {_err('✗')} {_bold(file_ref)}: {msg}")
+                # Emit a targeted tip when the message names a field
+                if "field" in msg or "'" in msg:
+                    # Extract first quoted token as the field name hint
+                    import re as _re
+                    fields = _re.findall(r"'([^']+)'", msg)
+                    if fields:
+                        print(
+                            f"     {_warn('Tip:')} Check the "
+                            f"'{fields[0]}' field in {file_ref}"
+                        )
+            else:
+                print(f"  {_err('✗')} {err}")
 
+    # Warnings section
     if result.warnings:
         print()
-        print("  Warnings (non-blocking, but worth reviewing):")
         for warn in result.warnings:
-            print(f"  ⚠  {warn}")
+            if ": " in warn:
+                file_ref, _, msg = warn.partition(": ")
+                print(f"  {_warn('⚠')}  {_bold(file_ref)}: {msg}")
+            else:
+                print(f"  {_warn('⚠')}  {warn}")
 
+    # Summary line
+    n_err = len(result.errors)
+    n_warn = len(result.warnings)
     total = len(policies)
-    print(
-        f"\n{total} polic{'y' if total == 1 else 'ies'} loaded — "
-        f"{len(result.errors)} error(s), {len(result.warnings)} warning(s)."
-    )
+    polword = "policy" if total == 1 else "policies"
+    errword = _err(f"{n_err} error(s)") if n_err else f"{n_err} error(s)"
+    warnword = _warn(f"{n_warn} warning(s)") if n_warn else f"{n_warn} warning(s)"
+    print(f"\n{total} {polword} loaded — {errword}, {warnword}.")
 
-    if result.errors:
-        print()
+    if n_err:
+        print(f"{_err('Fix errors before using policies.')}\n")
         return 1
 
-    if result.warnings:
-        print()
+    if n_warn:
+        print("Warnings are non-blocking but should be reviewed.\n")
 
     return 0
 
@@ -682,10 +749,6 @@ def _run_policies_plan(args: argparse.Namespace, *, confirm: bool) -> int:
     proposals = evaluate(findings, policies)
 
     _print_plan(findings, policies, proposals, source_label, confirm=confirm)
-
-    if confirm and proposals:
-        print("\n  --confirm flag detected — ticket creation is a Phase 3 feature.\n")
-
     return 0
 
 
@@ -733,7 +796,6 @@ def _print_plan(
 ) -> None:
     from datetime import date
 
-    action_verb = "Creating" if confirm else "Would create"
     width = 69
 
     print(f"\nLoaded {len(policies)} polic{'y' if len(policies) == 1 else 'ies'}"
@@ -752,18 +814,18 @@ def _print_plan(
     print("└" + "─" * width + "┘")
 
     if not proposals:
-        print("\n  No findings matched any policy.\n")
+        print(_warn("\n  No findings matched any policy.\n"))
         return
 
     for proposal in proposals:
         f = proposal.finding
         p = proposal.policy
-        print(f"\n  MATCH  {p.policy_id} (weight: {p.weight})")
+        print(f"\n  {_ok('MATCH')}  {_bold(p.policy_id)} (weight: {p.weight})")
         resource_label = f"{f.name or f.resource_id} · {f.resource_type}"
         print(f"    Resource : {resource_label} · {f.region}")
         print(f"    Cost     : ${f.estimated_monthly_cost:.2f}/mo")
         print(f"    AI says  : \"{f.waste_reason[:80]}\"")
-        print(f"    Action   : {p.action}")
+        print(f"    Action   : {_bold(p.action)}")
         approvers_str = ", ".join(p.approvers) if p.approvers else "(none)"
         print(f"    Approvers: {approvers_str}")
 
@@ -771,21 +833,23 @@ def _print_plan(
         prop.policy.policy_id == p.policy_id for prop in proposals
     )]
     for p in unmatched:
-        print(f"\n  NO MATCH  {p.policy_id} (weight: {p.weight})")
+        print(f"\n  {_warn('NO MATCH')}  {p.policy_id} (weight: {p.weight})")
         print("    Reason   : no findings matched conditions/scope")
 
     print()
     print("─" * (width + 2))
     if confirm:
-        print(f"  {action_verb} {len(proposals)} Jira ticket(s).")
+        print(f"  {_bold('Creating')} {len(proposals)} Jira ticket(s).")
+        print(_warn("\n  Tickets would be created here in Phase 3.\n"))
     else:
-        print(f"  {action_verb} {len(proposals)} Jira ticket(s).  No changes made.")
-        print()
         print(
-            "  Next step: add --confirm to create tickets "
-            "(requires Phase 3 Jira integration)."
+            f"  {_bold('Would create')} {len(proposals)} Jira ticket(s).  "
+            "No changes made."
         )
-    print()
+        print(
+            f"\n  {_warn('Next step:')} Run with --confirm to create "
+            "Jira tickets (Phase 3)\n"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -835,10 +899,8 @@ def _run_policies_docs(args: argparse.Namespace) -> None:
             print(f"    {spec.type_id:<45}  {spec.display_name:<28}  {actions}")
         print()
 
-    print(
-        f"  Total: {len(all_specs)} known types  •  "
-        f"Run 'argus policies docs <TYPE>' for conditions and metrics.\n"
-    )
+    print(f"  {len(all_specs)} resource types known to registry.")
+    print("  Use 'argus policies docs <TYPE>' for conditions, metrics, and actions.\n")
 
 
 def _print_resource_docs(spec: object) -> None:
@@ -856,32 +918,37 @@ def _print_resource_docs(spec: object) -> None:
     print()
 
     # Tier 1 — universal conditions
-    print("  ▸ Tier 1  (universal — apply to every resource type)")
-    print(f"    {'Condition':<38}  {'Type':<8}  Values / Notes")
-    print(f"    {'─'*38}  {'─'*8}  {'─'*25}")
-    print(f"    {'min_estimated_monthly_cost_usd':<38}  {'float':<8}  e.g. 50.0")
-    print(f"    {'ai_priority':<38}  {'list':<8}  [high, medium, low]")
-    print(f"    {'idle_days_min':<38}  {'int':<8}  e.g. 30")
+    print(_bold("  ▸ Tier 1 Conditions") + "  (universal — all resource types)")
+    print(f"    {'Condition':<38}  {'Type':<8}  Description")
+    print(f"    {'─'*38}  {'─'*8}  {'─'*35}")
+    print(
+        f"    {'min_estimated_monthly_cost_usd':<38}  {'float':<8}  "
+        "Min cost (USD/mo) to trigger"
+    )
+    print(f"    {'ai_priority':<38}  {'list':<8}  [high] / [medium] / [low]")
+    print(f"    {'idle_days_min':<38}  {'int':<8}  Days since last activity")
     print()
 
     # Tier 2 — metric-based conditions
     metrics = getattr(spec, "metrics", None) or []
     if metrics:
-        print("  ▸ Tier 2  (metric-based — this resource type only)")
+        print(_bold("  ▸ Tier 2 Conditions") + "  (metric-based — this type only)")
         print(f"    {'Condition (metric name)':<38}  {'Type':<8}  Operators")
-        print(f"    {'─'*38}  {'─'*8}  {'─'*25}")
+        print(f"    {'─'*38}  {'─'*8}  {'─'*35}")
         for m in metrics:
             name = m if isinstance(m, str) else getattr(m, "name", str(m))
             print(f"    {name:<38}  {'float':<8}  lt / gt / lte / gte / eq")
         print()
     else:
-        print("  ▸ Tier 2  (none — only Tier 1 conditions apply to this type)")
+        print(_warn("  ▸ Tier 2 Conditions") + "  none — Tier 1 only for this type")
         print()
 
     # Valid actions
     actions = getattr(spec, "actions", None) or []
-    action_str = "  ".join(f"[{a}]" for a in actions) if actions else "(none defined)"
-    print(f"  ▸ Valid actions:  {action_str}")
+    action_str = (
+        "  ".join(_ok(f"[{a}]") for a in actions) if actions else "(none defined)"
+    )
+    print(f"  ▸ {_bold('Valid actions:')}  {action_str}")
 
     if getattr(spec, "docs_url", None):
         print(f"  ▸ Docs: {spec.docs_url}")  # type: ignore[attr-defined]
