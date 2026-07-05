@@ -297,6 +297,10 @@ Create `tests/ai/test_myprovider.py`. Mock all HTTP calls — no real API calls 
 Policies live in `config/policies/`. Each file is a single YAML document that
 tells the engine which findings to act on and what action to propose.
 
+**Not sure where to start?** Copy one of the three annotated templates from
+`config/policies.example/` — each has inline comments explaining every field
+and safe production-exclusion defaults already set.
+
 ### Minimal example
 
 ```yaml

@@ -2,6 +2,9 @@
 
 Policies are YAML files that tell Argus which findings deserve a Jira ticket and what action to propose. Argus ships 13 bundled policies; you can add your own in `config/policies/`.
 
+!!! tip "Starter templates"
+    `config/policies.example/` contains three annotated example policies (EC2 stop, RDS resize, GCE stop) with inline comments explaining every field and production-safe exclude defaults. Copy them to `config/policies/` and edit to match your environment.
+
 ## Policy YAML format
 
 ```yaml

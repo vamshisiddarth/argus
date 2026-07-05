@@ -4,7 +4,17 @@ Argus creates Jira tickets for approved proposals. Each ticket contains the AI r
 
 ## Setup
 
-### 1 — Jira API token
+### 1 — Policy directory
+
+Tell Argus where your policy files live:
+
+```bash
+export ARGUS_POLICY_DIR=./config/policies   # default — already correct if you use the repo layout
+```
+
+Not set? Argus silently skips remediation and only posts the scan digest to Slack. Copy starter templates from `config/policies.example/` to get going quickly.
+
+### 2 — Jira API token
 
 Generate an API token at [id.atlassian.com/manage-profile/security/api-tokens](https://id.atlassian.com/manage-profile/security/api-tokens) and set these env vars:
 
@@ -14,7 +24,7 @@ export JIRA_USER_EMAIL=you@yourorg.com
 export JIRA_API_TOKEN=your-token-here
 ```
 
-### 2 — Integrations config
+### 3 — Integrations config
 
 Create `config/integrations.yaml` (gitignored — never commit this):
 

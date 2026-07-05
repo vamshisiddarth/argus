@@ -27,6 +27,19 @@ argus policies stats   →   acceptance rate per policy from audit log
 | **Rightsizing** | `resize` and `reduce_nodes` proposals include a specific target tier or node count |
 | **Policy count** | 13 bundled policies across AWS, GCP, and Azure |
 
+## Required environment variables
+
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `ARGUS_POLICY_DIR` | Directory containing your `*.yaml` policy files | `./config/policies` |
+| `JIRA_BASE_URL` | Your Jira instance URL (e.g. `https://org.atlassian.net`) | — |
+| `JIRA_USER_EMAIL` | Bot account email for ticket creation | — |
+| `JIRA_API_TOKEN` | Atlassian API token (not your password) | — |
+| `ARGUS_INTEGRATIONS_CONFIG` | Path to `integrations.yaml` (project key, labels, priority map) | `./config/integrations.yaml` |
+| `ARGUS_AUDIT_LOG` | Path for the JSONL audit log | `./local_reports/audit.jsonl` |
+
+See `.env.example` for the full list with comments.
+
 ## Pages in this section
 
 - [**Policies**](policies.md) — YAML format, bundled policies, writing your own

@@ -79,7 +79,7 @@ argus scan → scan_report.json
                ▼
 argus policies plan --report scan_report.json
                │
-               ├── evaluates 13 bundled policies (weight-ordered, first-match-wins)
+               ├── evaluates policies in config/policies/ (13 bundled — weight-ordered, first-match-wins)
                ├── applies two-tier conditions: cost/priority/idle-days + metric thresholds
                ├── computes rightsizing target (e.g. "Recommend db.t3.small — CPU ~8%")
                └── prints proposal table with total savings estimate
@@ -175,7 +175,7 @@ docker run --rm \
 
 ```bash
 pip install argus-cloud-optimizer
-argus --version   # argus 0.4.1
+argus --version   # argus 0.5.0
 argus --help
 ```
 
@@ -598,6 +598,7 @@ argus/
 ├── integrations/
 │   └── jira/              # Ticket lifecycle: create, dedup, diff-comment, ADF formatter, webhook
 ├── config/policies/       # 13 bundled YAML policies (AWS / GCP / Azure)
+├── config/policies.example/  # 3 annotated starter templates — copy here to begin
 ├── entrypoints/
 │   ├── cli.py             # argus scan / chat / policies validate|plan|apply|stats|docs
 │   ├── aws_lambda.py      # AWS Lambda handler
