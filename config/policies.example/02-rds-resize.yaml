@@ -1,0 +1,39 @@
+# EXAMPLE POLICY — copy to config/policies/ and edit to suit your environment.
+#
+# What this does:
+#   Flags over-provisioned RDS instances for resizing.
+#   Argus creates a Jira ticket with the AI's recommendation and a runbook
+#   command. Your team reviews and applies the change.
+#
+# RDS resize is typically safe — AWS allows live resizes with a brief reboot.
+# Test in staging first and check your maintenance window.
+
+version: "1"
+
+policy_id: rds-resize-overprovisioned-starter
+name: Resize over-provisioned RDS instances
+
+resource_type: AWS::RDS::DBInstance
+
+action: resize
+
+weight: 15
+
+conditions:
+  ai_priority: [high, medium]
+
+  # $100/mo is a reasonable floor — below this the savings rarely justify
+  # the operational overhead of a resize.
+  min_estimated_monthly_cost_usd: 100
+
+  # Only flag if CPU has been consistently low.
+  metrics:
+    - metric: CPUUtilization_avg
+      operator: lt
+      threshold: 10.0     # less than 10% average CPU
+
+exclude:
+  tags:
+    env: [production, prod]
+    argus-ignore: ["true"]
+    rds-resize-exempt: ["true"]
