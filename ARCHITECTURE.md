@@ -475,41 +475,64 @@ picks it up automatically.
 ## Remediation Flow — Policy Engine
 
 Argus never executes changes. Instead it generates a prioritised work-order
-(Jira ticket) for a human to review and action. The flow is:
+(Jira ticket) for a human to review and action. The full pipeline is:
 
 ```
   Scan report (JSON)
         │
         ▼
-  load_policies()        ← config/policies/*.yaml
-  validate_policies()    ← conflict detection, duplicate IDs
+  load_policies()          ← config/policies/*.yaml (13 bundled + your own)
+  validate_policies()      ← conflict detection, duplicate IDs, registry cross-check
         │
         ▼
-  engine.evaluate()      ← match findings → policies (weight-sorted, first-win)
-        │
+  engine.evaluate()        ← match findings → policies (weight-sorted, first-win)
+        │  ├── Tier 1: cost / ai_priority / idle_days (universal)
+        │  └── Tier 2: metric thresholds (registry-known types only)
         ▼
-  ChangeProposal[]       ← finding + matching policy + CLI runbook
+  ChangeProposal[]         ← finding + matching policy + CLI runbook + resize_recommendation
+        │  └── rightsizing.suggest() computes specific target tier/node count from CPU%
         │
         ▼  (only with --confirm)
-  JiraTracker.create()   ← dedup via label, diff-comment on re-scan
-        │
+  JiraTracker.create()     ← dedup via label, diff-comment on re-scan
+        │  └── audit.log_proposal() → appends line to local_reports/audit.jsonl
         ▼
-  Jira ticket            ← summary, AI reasoning, runbook, snapshot fingerprint
+  Jira ticket              ← ADF description: Finding · Metrics table · Rightsizing hint ·
+                              Runbook code block · Policy · Snapshot fingerprint
         │
         ▼  (human reviews ticket)
-  Human executes runbook ← Argus stays read-only; it never calls the runbook
+  Human executes runbook   ← Argus stays read-only; it never calls the runbook
+        │
+        ▼  (ongoing)
+  argus policies stats     ← reads audit.jsonl → per-policy proposal counts, Jira new/update,
+                              cloud breakdown, configurable day window
 ```
 
 ### Safety layers
 
-| Layer          | Mechanism                                                      |
-|----------------|----------------------------------------------------------------|
-| IAM            | Read-only roles — write APIs unavailable even with creds       |
-| Code           | No cloud SDK write calls anywhere in codebase                  |
-| CLI gate       | `apply` is dry-run by default; `--confirm` is required         |
-| Jira dedup     | Deterministic label `argus:<resource_id>:<policy_id>` — one ticket per resource per policy |
-| Human gate     | Runbook printed in ticket; human executes it manually          |
+| Layer          | Mechanism                                                                      |
+|----------------|--------------------------------------------------------------------------------|
+| IAM            | Read-only roles — write APIs unavailable even with creds                       |
+| Code           | No cloud SDK write calls anywhere in the codebase                              |
+| CLI gate       | `apply` is dry-run by default; `--confirm` is required to create tickets       |
+| Jira dedup     | Deterministic label `argus:<resource_id>:<policy_id>` — one open ticket per resource per policy |
+| Human gate     | Runbook printed in ticket; Argus never executes it                             |
+| Audit log      | Append-only JSONL — every create/update event is recorded; never overwritten   |
 | Webhook (v2)   | `integrations/jira/webhook.py` placeholder — auto-remediation path not implemented |
+
+### Rightsizing module (`core/remediation/rightsizing.py`)
+
+For `resize` and `reduce_nodes` actions, `rightsizing.suggest()` maps the
+observed CPU% from `metrics_summary` to a concrete recommendation:
+
+| Resource type       | CPU% → recommendation example                              |
+|---------------------|------------------------------------------------------------|
+| `AWS::RDS::*`       | < 5% → `db.t3.micro`, < 15% → `db.t3.small`, etc.        |
+| `AWS::EC2::Instance`| < 3% → `t3.nano/micro`, < 10% → `t3.small`, etc.         |
+| GKE / AKS clusters  | < 15% + node count → "reduce to N nodes (target 60% util)"|
+| Unknown types       | Generic "consider downsizing by one tier" message          |
+
+The recommendation appears inline in the CLI plan table and in the Jira ticket
+Recommendation section. It is advisory — the human decides.
 
 ### Policy YAML structure
 
@@ -545,6 +568,23 @@ exclude:                                   # exclusion filter (omit = none)
 
 Sample policies live in `config/policies/`. Run `argus policies docs` to see
 all valid metric names and actions per resource type.
+
+### Future: proposal review UI
+
+The current interface is CLI + Jira. A lightweight web UI for proposal review
+would sit between `engine.evaluate()` and `JiraTracker.create()`:
+
+```
+  ChangeProposal[] → UI (approve / reject / defer per proposal) → approved list → JiraTracker
+```
+
+Prerequisites before building it:
+- `audit.jsonl` is the source of truth for accepted/rejected decisions (already in place)
+- The UI would be a thin reader/writer on top of `audit.jsonl` — no new data model needed
+- Should remain optional (CLI path stays as the default)
+
+Don't build this until the CLI workflow is battle-tested and the acceptance rate
+data from `argus policies stats` shows a clear pattern worth optimising.
 
 ---
 

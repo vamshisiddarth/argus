@@ -15,13 +15,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 - **Policy loader & validator** — YAML-driven policy files with deep validation: registry action cross-check (invalid action for resource type fails at load time), duplicate ID detection, weight-conflict detection, shadowed-policy warnings.
 - **Jira integration** (`integrations/jira/`) — full ticket lifecycle: create (idempotent via label dedup), diff-comment on re-scan, ADF-structured description with metrics table, runbook code block, and snapshot fingerprint.
 - **JSONL audit log** (`core/remediation/audit.py`) — every `apply --confirm` writes a line to `local_reports/audit.jsonl` mapping `proposal_id → jira_key → jira_url`. Path overrideable via `ARGUS_AUDIT_LOG` env var.
-- **CLI** — `argus policies validate / plan / apply / docs` fully implemented.
-  - `plan` output: sorted table with cost-per-resource, total savings estimate, and Jira ticket preview.
+- **Rightsizing recommendations** (`core/remediation/rightsizing.py`) — `resize` and `reduce_nodes` proposals include a specific target tier or node count derived from observed CPU% (e.g., "Recommend db.t3.small — CPU ~8%"). Shown in CLI plan table and Jira Recommendation section.
+- **13 bundled policies** in `config/policies/` covering all three clouds:
+  - AWS: EC2 stop, RDS resize, EBS delete, ELB delete, ElastiCache delete, Lambda delete, Redshift snapshot-delete
+  - GCP: Compute stop, Cloud SQL stop, GKE reduce-nodes
+  - Azure: VM stop, SQL resize, AKS reduce-nodes
+- **CLI** — `argus policies validate / plan / apply / docs / stats` fully implemented.
+  - `plan` output: sorted table with cost-per-resource, rightsizing hints, total savings estimate, and Jira ticket preview.
   - `apply --confirm` creates/updates tickets and prints per-ticket status.
-- **5 sample policies** in `config/policies/` with inline comments (AWS EC2, RDS, EBS; GCP Compute Engine; Azure VM).
+  - `stats` reads `audit.jsonl` and reports per-policy proposal counts, Jira new/update split, and cloud breakdown for a configurable `--days` window.
 - **CONTRIBUTING.md** — new "Adding a remediation policy" section with step-by-step guide, policy YAML reference, and safety rules.
-- **ARCHITECTURE.md** — remediation flow diagram, safety layers table, and annotated policy YAML reference.
-- 57 new unit tests (engine dedup, scope edge cases, ADF formatter, tracker lifecycle, audit log, webhook, loader edge cases, validator overlap descriptions). Total: 1712 tests.
+- **ARCHITECTURE.md** — remediation flow diagram, rightsizing module table, safety layers, future UI design note.
+- **README** — remediation section with quick-start flow, bundled policy table, and safety guarantees.
+- 101 new tests (engine dedup, scope edge cases, ADF formatter, tracker lifecycle, audit log, webhook, loader edge cases, validator, rightsizing heuristics, stats command). Total: 1756 tests.
 
 ### Changed
 
