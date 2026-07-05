@@ -165,6 +165,8 @@ def _build_adf_description(
     # h2 Recommendation
     content.append(_adf_heading("Recommendation", level=2))
     content.append(_adf_paragraph(f.recommendation))
+    if proposal.resize_recommendation:
+        content.append(_adf_paragraph(f"💡 Rightsizing: {proposal.resize_recommendation}"))
 
     # h2 Runbook
     content.append(_adf_heading("Runbook", level=2))

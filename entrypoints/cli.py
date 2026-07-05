@@ -891,6 +891,8 @@ def _print_plan(
             f"  {priority_marker} {policy_label:<{col_w - 2}}  "
             f"{resource_label:<{col_w}}  {cost_str:>8}  {p.action}"
         )
+        if proposal.resize_recommendation:
+            print(f"    {_ok('↳')} {proposal.resize_recommendation}")
         total_savings += proposal.estimated_monthly_cost_usd
 
     unmatched = [p for p in policies if not any(

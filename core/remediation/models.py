@@ -110,6 +110,7 @@ class ChangeProposal:
     estimated_monthly_cost_usd: float
     proposal_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     jira_ticket_url: str | None = None
+    resize_recommendation: str | None = None  # human-readable target tier/node count
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -121,4 +122,5 @@ class ChangeProposal:
             "estimated_monthly_cost_usd": round(self.estimated_monthly_cost_usd, 2),
             "runbook": self.runbook,
             "jira_ticket_url": self.jira_ticket_url,
+            "resize_recommendation": self.resize_recommendation,
         }

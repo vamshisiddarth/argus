@@ -226,9 +226,12 @@ def _build_proposal(finding: ResourceFinding, policy: Policy) -> ChangeProposal:
         policy.weight,
     )
 
+    from core.remediation.rightsizing import suggest as _rightsizing_suggest
+
     return ChangeProposal(
         finding=finding,
         policy=policy,
         runbook=runbook_text,
         estimated_monthly_cost_usd=finding.estimated_monthly_cost,
+        resize_recommendation=_rightsizing_suggest(finding, policy),
     )
