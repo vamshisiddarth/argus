@@ -1,0 +1,29 @@
+# Resize underutilised Azure SQL databases.
+#
+# Azure SQL databases are often over-provisioned at creation.
+# This policy targets databases where DTU/vCore utilisation has
+# stayed below 10% — a strong signal they're on the wrong tier.
+
+version: "1"
+
+policy_id: azure-sql-resize-underutilised
+name: Resize underutilised Azure SQL databases
+resource_type: microsoft.sql/servers/databases
+action: resize
+weight: 15
+
+conditions:
+  ai_priority: [high, medium]
+  min_estimated_monthly_cost_usd: 50
+  metrics:
+    - metric: dtu_consumption_percent
+      operator: lt
+      threshold: 10.0
+    - metric: connection_successful
+      operator: lt
+      threshold: 10.0
+
+exclude:
+  tags:
+    - environment: [prod, production]
+    - argus-exempt: ["true"]

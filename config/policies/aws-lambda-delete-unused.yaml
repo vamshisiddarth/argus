@@ -1,0 +1,30 @@
+# Delete Lambda functions with zero invocations for 30+ days.
+#
+# Unused Lambdas cost nothing at rest but represent dead code, stale IAM
+# permissions, and maintenance burden. This policy cleans them up when
+# the AI confirms they're unused and invocation count is zero.
+
+version: "1"
+
+policy_id: aws-lambda-delete-unused-30d
+name: Delete Lambda functions unused for 30+ days
+resource_type: AWS::Lambda::Function
+action: delete
+weight: 10
+
+conditions:
+  ai_priority: [high, medium]
+  idle_days_min: 30
+  metrics:
+    - metric: Invocations_sum
+      operator: lt
+      threshold: 1.0
+    - metric: Errors_sum
+      operator: lt
+      threshold: 1.0
+
+exclude:
+  tags:
+    - environment: [prod, production]
+    - argus-exempt: ["true"]
+    - purpose: [scheduled, cron, event-driven]

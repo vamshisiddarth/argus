@@ -1,0 +1,29 @@
+# Delete idle ElastiCache clusters.
+#
+# ElastiCache has no "stop" — the only cost-saving action is delete.
+# This policy is conservative: requires high AI priority + 30 idle days
+# + zero cache hits to avoid touching clusters with infrequent but real traffic.
+
+version: "1"
+
+policy_id: aws-elasticache-delete-idle-30d
+name: Delete ElastiCache clusters idle for 30+ days
+resource_type: AWS::ElastiCache::CacheCluster
+action: delete
+weight: 15
+
+conditions:
+  ai_priority: [high]
+  idle_days_min: 30
+  metrics:
+    - metric: CacheHits_sum
+      operator: lt
+      threshold: 1.0
+    - metric: CurrConnections_avg
+      operator: lt
+      threshold: 1.0
+
+exclude:
+  tags:
+    - environment: [prod, production]
+    - argus-exempt: ["true"]

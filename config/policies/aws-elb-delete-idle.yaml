@@ -1,0 +1,26 @@
+# Delete idle Application/Network Load Balancers.
+#
+# Load balancers charge ~$16-25/mo even with zero traffic.
+# This policy fires when the AI flagged it high/medium and
+# request count has been zero for the full scan window.
+
+version: "1"
+
+policy_id: aws-elb-delete-idle
+name: Delete idle Application/Network Load Balancers
+resource_type: AWS::ElasticLoadBalancingV2::LoadBalancer
+action: delete
+weight: 15
+
+conditions:
+  ai_priority: [high, medium]
+  min_estimated_monthly_cost_usd: 10
+  metrics:
+    - metric: RequestCount_sum
+      operator: lt
+      threshold: 1.0
+
+exclude:
+  tags:
+    - environment: [prod, production]
+    - argus-exempt: ["true"]

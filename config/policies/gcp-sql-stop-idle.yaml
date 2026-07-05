@@ -1,0 +1,29 @@
+# Stop idle Cloud SQL instances.
+#
+# Cloud SQL instances bill for compute even when idle.
+# 'stop' suspends billing for compute (storage still billed).
+# Use 'delete' + 'snapshot_delete' for permanent removal.
+
+version: "1"
+
+policy_id: gcp-sql-stop-idle-14d
+name: Stop GCP Cloud SQL instances idle for 14+ days
+resource_type: sqladmin.googleapis.com/Instance
+action: stop
+weight: 20
+
+conditions:
+  ai_priority: [high, medium]
+  idle_days_min: 14
+  metrics:
+    - metric: database/cpu/utilization
+      operator: lt
+      threshold: 0.02
+    - metric: database/network/connections
+      operator: lt
+      threshold: 1.0
+
+exclude:
+  tags:
+    - environment: [prod, production]
+    - argus-exempt: ["true"]

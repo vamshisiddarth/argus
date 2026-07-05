@@ -1,0 +1,26 @@
+# Reduce node count on underutilised AKS clusters.
+#
+# Like GKE, AKS clusters are commonly over-provisioned.
+# Fires when average node CPU is below 15% — the human-reviewed
+# Jira ticket specifies the recommended new node count.
+
+version: "1"
+
+policy_id: azure-aks-reduce-nodes-underutilised
+name: Reduce nodes on underutilised AKS clusters
+resource_type: microsoft.containerservice/managedclusters
+action: reduce_nodes
+weight: 20
+
+conditions:
+  ai_priority: [high, medium]
+  min_estimated_monthly_cost_usd: 150
+  metrics:
+    - metric: node_cpu_usage_percentage
+      operator: lt
+      threshold: 15.0
+
+exclude:
+  tags:
+    - environment: [prod, production]
+    - argus-exempt: ["true"]
