@@ -644,6 +644,7 @@ def _run_policies_validate(args: argparse.Namespace) -> int:
                 if "field" in msg or "'" in msg:
                     # Extract first quoted token as the field name hint
                     import re as _re
+
                     fields = _re.findall(r"'([^']+)'", msg)
                     if fields:
                         print(
@@ -764,9 +765,7 @@ def _run_policies_plan(args: argparse.Namespace, *, confirm: bool) -> int:
         findings = _run_live_scan_for_plan(args)
         source_label = f"live {args.cloud.upper()} scan"
     else:
-        print(
-            "\n✗ Specify --report PATH (fast) or --live --cloud CLOUD (live scan).\n"
-        )
+        print("\n✗ Specify --report PATH (fast) or --live --cloud CLOUD (live scan).\n")
         return 1
 
     # --- evaluate ---
@@ -815,7 +814,6 @@ def _run_live_scan_for_plan(args: argparse.Namespace) -> list:
     """Trigger a minimal scan and return findings without delivering a report."""
     import tempfile
 
-
     # Reuse scan machinery via entrypoint — capture findings only
     cloud = args.cloud
     os.environ.setdefault("AI_PROVIDER", "anthropic")
@@ -837,9 +835,7 @@ def _run_live_scan_for_plan(args: argparse.Namespace) -> list:
         return []
 
     # Deserialise findings from the result dict
-    tmp = tempfile.NamedTemporaryFile(
-        mode="w", suffix=".json", delete=False
-    )
+    tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False)
     json.dump(result, tmp)
     tmp.close()
     return _load_findings_from_report(tmp.name)
@@ -857,8 +853,10 @@ def _print_plan(
 
     width = 69
 
-    print(f"\nLoaded {len(policies)} polic{'y' if len(policies) == 1 else 'ies'}"
-          f" from {policies[0].source_file if policies else '.'}")
+    print(
+        f"\nLoaded {len(policies)} polic{'y' if len(policies) == 1 else 'ies'}"
+        f" from {policies[0].source_file if policies else '.'}"
+    )
     print()
     print("┌" + "─" * width + "┐")
     verb = "APPLY" if confirm else "PLAN"
@@ -898,9 +896,11 @@ def _print_plan(
             print(f"    {_ok('↳')} {proposal.resize_recommendation}")
         total_savings += proposal.estimated_monthly_cost_usd
 
-    unmatched = [p for p in policies if not any(
-        prop.policy.policy_id == p.policy_id for prop in proposals
-    )]
+    unmatched = [
+        p
+        for p in policies
+        if not any(prop.policy.policy_id == p.policy_id for prop in proposals)
+    ]
     if unmatched:
         print()
         for p in unmatched:
@@ -924,8 +924,11 @@ def _print_plan(
             f = proposal.finding
             p = proposal.policy
             action_verb = {
-                "delete": "Delete", "resize": "Resize", "stop": "Stop",
-                "snapshot_delete": "Snapshot & delete", "archive": "Archive",
+                "delete": "Delete",
+                "resize": "Resize",
+                "stop": "Stop",
+                "snapshot_delete": "Snapshot & delete",
+                "archive": "Archive",
                 "convert_spot": "Convert to Spot",
                 "reduce_replicas": "Reduce replicas for",
                 "reduce_nodes": "Reduce nodes for",
@@ -970,8 +973,11 @@ def _run_policies_stats(args: argparse.Namespace) -> None:
     # policy_id → {total, jira_created, jira_updated, actions, clouds}
     stats: dict[str, dict] = defaultdict(
         lambda: {
-            "total": 0, "jira_created": 0, "jira_updated": 0,
-            "actions": set(), "clouds": set(),
+            "total": 0,
+            "jira_created": 0,
+            "jira_updated": 0,
+            "actions": set(),
+            "clouds": set(),
         }
     )
     total_rows = 0

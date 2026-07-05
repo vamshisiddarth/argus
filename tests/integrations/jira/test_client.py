@@ -120,7 +120,9 @@ class TestAddComment:
 
 class TestIssueUrl:
     def test_constructs_browse_url(self, client):
-        assert client.issue_url("INFRA-99") == "https://test.atlassian.net/browse/INFRA-99"
+        assert (
+            client.issue_url("INFRA-99") == "https://test.atlassian.net/browse/INFRA-99"
+        )
 
     def test_strips_trailing_slash(self):
         c = JiraClient("https://test.atlassian.net/", "e", "t")

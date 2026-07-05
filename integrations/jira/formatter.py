@@ -114,7 +114,7 @@ def extract_snapshot(description_text: str) -> dict[str, Any] | None:
     end = description_text.find(_SNAPSHOT_END, start)
     if end == -1:
         return None
-    raw = description_text[start + len(_SNAPSHOT_MARKER):end].strip()
+    raw = description_text[start + len(_SNAPSHOT_MARKER) : end].strip()
     try:
         return json.loads(raw)
     except (json.JSONDecodeError, ValueError):
@@ -138,24 +138,27 @@ def _build_adf_description(
 
     # h2 Finding
     content.append(_adf_heading("Finding", level=2))
-    content.append(_adf_paragraph(
-        f"Resource:  {f.name or f.resource_id}\n"
-        f"Type:      {f.resource_type}\n"
-        f"Cloud:     {f.cloud.upper()}\n"
-        f"Region:    {f.region}\n"
-        f"Cost:      ${proposal.estimated_monthly_cost_usd:.2f}/mo\n"
-        f"Priority:  {f.priority.upper()}\n"
-        f"Action:    {p.action}\n"
-        f"Proposal:  {proposal.proposal_id}"
-    ))
+    content.append(
+        _adf_paragraph(
+            f"Resource:  {f.name or f.resource_id}\n"
+            f"Type:      {f.resource_type}\n"
+            f"Cloud:     {f.cloud.upper()}\n"
+            f"Region:    {f.region}\n"
+            f"Cost:      ${proposal.estimated_monthly_cost_usd:.2f}/mo\n"
+            f"Priority:  {f.priority.upper()}\n"
+            f"Action:    {p.action}\n"
+            f"Proposal:  {proposal.proposal_id}"
+        )
+    )
 
     # h2 Key Metrics (only if present)
     if f.metrics_summary:
         content.append(_adf_heading("Key Metrics", level=2))
         rows = [
-            [_adf_text(k), _adf_text(
-                str(round(v, 4)) if isinstance(v, float) else str(v)
-            )]
+            [
+                _adf_text(k),
+                _adf_text(str(round(v, 4)) if isinstance(v, float) else str(v)),
+            ]
             for k, v in sorted(f.metrics_summary.items())
         ]
         content.append(_adf_table(["Metric", "Value"], rows))
@@ -168,24 +171,26 @@ def _build_adf_description(
     content.append(_adf_heading("Recommendation", level=2))
     content.append(_adf_paragraph(f.recommendation))
     if proposal.resize_recommendation:
-        content.append(
-            _adf_paragraph(f"Rightsizing: {proposal.resize_recommendation}")
-        )
+        content.append(_adf_paragraph(f"Rightsizing: {proposal.resize_recommendation}"))
 
     # h2 Runbook
     content.append(_adf_heading("Runbook", level=2))
-    content.append(_adf_paragraph(
-        "⚠  Human approval required. Argus does not execute these commands."
-    ))
+    content.append(
+        _adf_paragraph(
+            "⚠  Human approval required. Argus does not execute these commands."
+        )
+    )
     content.append(_adf_code_block(proposal.runbook))
 
     # h2 Policy
     content.append(_adf_heading("Policy", level=2))
-    content.append(_adf_paragraph(
-        f"Policy ID:   {p.policy_id}\n"
-        f"Weight:      {p.weight}\n"
-        f"Source:      {p.source_file}"
-    ))
+    content.append(
+        _adf_paragraph(
+            f"Policy ID:   {p.policy_id}\n"
+            f"Weight:      {p.weight}\n"
+            f"Source:      {p.source_file}"
+        )
+    )
 
     # h2 Full Report
     if report_url:

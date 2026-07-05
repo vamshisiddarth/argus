@@ -34,9 +34,11 @@ def _finding(
         last_activity=last_activity,
         scan_time=datetime.now(tz=timezone.utc),
     )
-    object.__setattr__(f, "account_id", account_id) if hasattr(
-        f, "__dataclass_fields__"
-    ) else None
+    (
+        object.__setattr__(f, "account_id", account_id)
+        if hasattr(f, "__dataclass_fields__")
+        else None
+    )
     f.__dict__["account_id"] = account_id
     return f
 
@@ -277,9 +279,14 @@ class TestTier2Conditions:
         )
         cond = Condition(metrics=(cpu_ok, conn_fail))
         proposals = evaluate(
-            [_finding(metrics_summary={
-                "CPUUtilization_avg": 10.0, "DatabaseConnections": 50.0
-            })],
+            [
+                _finding(
+                    metrics_summary={
+                        "CPUUtilization_avg": 10.0,
+                        "DatabaseConnections": 50.0,
+                    }
+                )
+            ],
             [_policy(conditions=cond)],
         )
         assert proposals == []
@@ -293,9 +300,14 @@ class TestTier2Conditions:
         )
         cond = Condition(metrics=(cpu_ok, conn_ok))
         proposals = evaluate(
-            [_finding(metrics_summary={
-                "CPUUtilization_avg": 10.0, "DatabaseConnections": 2.0
-            })],
+            [
+                _finding(
+                    metrics_summary={
+                        "CPUUtilization_avg": 10.0,
+                        "DatabaseConnections": 2.0,
+                    }
+                )
+            ],
             [_policy(conditions=cond)],
         )
         assert len(proposals) == 1

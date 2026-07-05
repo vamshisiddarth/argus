@@ -160,6 +160,7 @@ class TestNodeReduction:
         if rec is not None:
             # Extract any number mentioned after "reducing to"
             import re
+
             match = re.search(r"reducing to (\d+)", rec)
             if match:
                 assert int(match.group(1)) < 5

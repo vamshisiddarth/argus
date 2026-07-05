@@ -120,9 +120,10 @@ class TestSchemaValidation:
             assert "p.yaml" in msg
             # Line number should appear as a digit after the colon
             import re
-            assert re.search(r"p\.yaml:\d+:\d+", msg), (
-                f"Expected line:col in error, got: {msg}"
-            )
+
+            assert re.search(
+                r"p\.yaml:\d+:\d+", msg
+            ), f"Expected line:col in error, got: {msg}"
 
     def test_unknown_resource_type_warns_but_loads(self, tmp_path, caplog):
         import logging
@@ -409,5 +410,3 @@ class TestConditionEdgeCases:
         _write(tmp_path, "p.yaml", _minimal(weight=-1))
         with pytest.raises(PolicyLoadError, match="weight.*>= 0"):
             load_policies(tmp_path)
-
-

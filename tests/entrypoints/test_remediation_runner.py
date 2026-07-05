@@ -1,4 +1,5 @@
 """Tests for the shared remediation runner (entrypoints/_remediation.py)."""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -100,9 +101,7 @@ class TestRunRemediationSuccess:
 
         self._setup(tmp_path, monkeypatch)
         mock_tracker = MagicMock()
-        mock_tracker.create.return_value = (
-            "https://jira.example.com/browse/INFRA-1"
-        )
+        mock_tracker.create.return_value = "https://jira.example.com/browse/INFRA-1"
         with patch(
             "integrations.jira.tracker.JiraTracker.from_env",
             return_value=mock_tracker,

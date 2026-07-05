@@ -64,7 +64,7 @@ class JiraTracker(ChangeTracker):
         jql = (
             f'project = "{self._project}" '
             f'AND labels = "{label}" '
-            f'AND statusCategory != Done'
+            f"AND statusCategory != Done"
         )
 
         try:
@@ -93,9 +93,7 @@ class JiraTracker(ChangeTracker):
     # Internal
     # ------------------------------------------------------------------
 
-    def _maybe_update(
-        self, issue: dict[str, Any], proposal: ChangeProposal
-    ) -> None:
+    def _maybe_update(self, issue: dict[str, Any], proposal: ChangeProposal) -> None:
         key = issue["key"]
         description_text = _extract_description_text(issue)
         stored = extract_snapshot(description_text)
@@ -220,6 +218,7 @@ def _dedup_label(proposal: ChangeProposal) -> str:
 def _audit(proposal: ChangeProposal, jira_key: str, jira_url: str) -> None:
     try:
         from core.remediation.audit import log_proposal
+
         log_proposal(proposal, jira_key=jira_key, jira_url=jira_url)
     except Exception as exc:  # noqa: BLE001
         logger.warning(

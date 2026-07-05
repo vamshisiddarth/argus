@@ -81,7 +81,10 @@ def _finding(
 def _mock_jira_client(new_key: str = "INFRA-42") -> MagicMock:
     client = MagicMock()
     client.search.return_value = []  # no existing ticket
-    client.create_issue.return_value = {"key": new_key, "self": f"https://jira.example.com/rest/api/3/issue/{new_key}"}
+    client.create_issue.return_value = {
+        "key": new_key,
+        "self": f"https://jira.example.com/rest/api/3/issue/{new_key}",
+    }
     client.issue_url.side_effect = lambda key: f"https://jira.example.com/browse/{key}"
     return client
 
@@ -164,13 +167,13 @@ class TestRemediationE2E:
         desc = fields["description"]
         assert desc["type"] == "doc"
         adf_text = _flatten_adf(desc)
-        assert "CPU < 2%" in adf_text           # waste_reason in description
+        assert "CPU < 2%" in adf_text  # waste_reason in description
         assert "Human approval required" in adf_text
         assert proposal.proposal_id in adf_text  # proposal UUID traceable
 
         # Labels include dedup label and priority/action labels
         labels = fields["labels"]
-        assert any("argus:" in lbl for lbl in labels)          # dedup label
+        assert any("argus:" in lbl for lbl in labels)  # dedup label
         assert "argus-priority-high" in labels
         assert "argus-action-stop" in labels
 
@@ -321,15 +324,22 @@ class TestRemediationE2E:
                 },
             }
         ]
-        client.issue_url.side_effect = lambda key: f"https://jira.example.com/browse/{key}"
+        client.issue_url.side_effect = (
+            lambda key: f"https://jira.example.com/browse/{key}"
+        )
 
-        tracker = JiraTracker(client, project="INFRA", issue_type="Task",
-                              default_labels=["argus"], priority_map={})
+        tracker = JiraTracker(
+            client,
+            project="INFRA",
+            issue_type="Task",
+            default_labels=["argus"],
+            priority_map={},
+        )
         url = tracker.create(proposals[0])
 
         assert "INFRA-7" in url
-        client.create_issue.assert_not_called()   # no new ticket
-        client.add_comment.assert_called_once()   # comment added instead
+        client.create_issue.assert_not_called()  # no new ticket
+        client.add_comment.assert_called_once()  # comment added instead
 
     def test_invalid_policy_action_for_type_rejected(self, tmp_path):
         """convert_spot is not valid for RDS — loader must reject at load time."""

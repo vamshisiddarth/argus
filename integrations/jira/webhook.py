@@ -23,9 +23,7 @@ def handle_transition(payload: dict[str, Any]) -> None:
     v1: log only. v2: route to executor service.
     """
     issue_key = payload.get("issue", {}).get("key", "UNKNOWN")
-    status = (
-        payload.get("transition", {}).get("to", {}).get("name", "UNKNOWN")
-    )
+    status = payload.get("transition", {}).get("to", {}).get("name", "UNKNOWN")
     logger.info(
         "jira_webhook_received issue=%s transition_to=%s "
         "auto_remediation=not_implemented_v2",

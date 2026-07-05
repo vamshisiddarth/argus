@@ -321,6 +321,7 @@ class TestFromEnv:
 class TestClose:
     def test_close_logs_and_does_not_raise(self, caplog):
         import logging
+
         client = _mock_client()
         tracker = _make_tracker(client)
         with caplog.at_level(logging.INFO):
@@ -331,6 +332,7 @@ class TestClose:
 class TestExtractDescriptionText:
     def test_adf_dict_extracts_text(self):
         from integrations.jira.tracker import _extract_description_text
+
         issue = {
             "fields": {
                 "description": {
@@ -350,11 +352,13 @@ class TestExtractDescriptionText:
 
     def test_string_description_returned_as_is(self):
         from integrations.jira.tracker import _extract_description_text
+
         issue = {"fields": {"description": "plain text"}}
         assert _extract_description_text(issue) == "plain text"
 
     def test_missing_description_returns_empty(self):
         from integrations.jira.tracker import _extract_description_text
+
         assert _extract_description_text({"fields": {}}) == ""
 
 
@@ -362,9 +366,10 @@ class TestCommentFailureSilent:
     def test_comment_failure_logged_not_raised(self):
         client = _mock_client()
         client.search.return_value = [
-            {"key": "INFRA-7", "fields": {
-                "description": "", "status": {"name": "Open"}
-            }}
+            {
+                "key": "INFRA-7",
+                "fields": {"description": "", "status": {"name": "Open"}},
+            }
         ]
         client.add_comment.side_effect = Exception("network error")
         tracker = _make_tracker(client)

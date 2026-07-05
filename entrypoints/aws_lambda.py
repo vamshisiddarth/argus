@@ -112,6 +112,7 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
 
     # Run remediation (Jira ticket creation) — isolated, never blocks Slack.
     from entrypoints._remediation import run_remediation
+
     ticket_refs = run_remediation(all_findings, report_url=report_url)
 
     # Deliver Slack digest regardless of whether report upload succeeded.

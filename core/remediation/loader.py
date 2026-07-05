@@ -146,9 +146,7 @@ def _parse_policy(raw: dict, source_file: str) -> Policy:
             f"{fname}: 'weight' must be an integer, got {weight_raw!r}"
         ) from err
     if weight < 0:
-        raise PolicyLoadError(
-            f"{fname}: 'weight' must be >= 0, got {weight}"
-        )
+        raise PolicyLoadError(f"{fname}: 'weight' must be >= 0, got {weight}")
 
     conditions = _parse_conditions(raw.get("conditions") or {}, fname)
     include = _parse_scope(raw.get("include") or {}, fname, "include")

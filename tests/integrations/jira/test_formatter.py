@@ -251,7 +251,7 @@ class TestFingerprint:
 class TestExtractSnapshot:
     def test_extracts_valid_snapshot(self):
         snap = {"cost": 340.0, "priority": "high", "reason_hash": "abc123"}
-        text = f'some text\n<!-- argus-snapshot: {json.dumps(snap)} -->'
+        text = f"some text\n<!-- argus-snapshot: {json.dumps(snap)} -->"
         result = extract_snapshot(text)
         assert result == snap
 

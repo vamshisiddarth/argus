@@ -33,7 +33,8 @@ def _run(argv: list[str]) -> int:
 
 
 def _write_policy(tmp_path: Path, filename: str = "rds.yaml") -> Path:
-    content = textwrap.dedent("""\
+    content = textwrap.dedent(
+        """\
         version: "1"
         policy_id: rds-resize
         name: Resize underutilized RDS
@@ -43,7 +44,8 @@ def _write_policy(tmp_path: Path, filename: str = "rds.yaml") -> Path:
         conditions:
           min_estimated_monthly_cost_usd: 50.0
           ai_priority: [high, medium]
-    """)
+    """
+    )
     f = tmp_path / filename
     f.write_text(content)
     return f
@@ -115,7 +117,9 @@ class TestPoliciesValidate:
         _write_policy(tmp_path, "a.yaml")
         _write_policy(tmp_path, "b.yaml")
         # make second file have a different policy_id to avoid conflict
-        (tmp_path / "b.yaml").write_text(textwrap.dedent("""\
+        (tmp_path / "b.yaml").write_text(
+            textwrap.dedent(
+                """\
             version: "1"
             policy_id: rds-delete
             name: Delete stopped RDS
@@ -124,7 +128,9 @@ class TestPoliciesValidate:
             weight: 5
             conditions:
               min_estimated_monthly_cost_usd: 10.0
-        """))
+        """
+            )
+        )
 
         rc = _run(["policies", "validate", "--dir", str(tmp_path)])
         assert rc == 0
@@ -142,22 +148,32 @@ class TestPoliciesPlan:
         _write_policy(tmp_path)
         report = _write_report(tmp_path)
 
-        rc = _run([
-            "policies", "plan",
-            "--dir", str(tmp_path),
-            "--report", str(report),
-        ])
+        rc = _run(
+            [
+                "policies",
+                "plan",
+                "--dir",
+                str(tmp_path),
+                "--report",
+                str(report),
+            ]
+        )
         assert rc == 0
 
     def test_plan_shows_match(self, tmp_path, capsys):
         _write_policy(tmp_path)
         report = _write_report(tmp_path)
 
-        _run([
-            "policies", "plan",
-            "--dir", str(tmp_path),
-            "--report", str(report),
-        ])
+        _run(
+            [
+                "policies",
+                "plan",
+                "--dir",
+                str(tmp_path),
+                "--report",
+                str(report),
+            ]
+        )
         out = capsys.readouterr().out
         assert "rds-resize" in out
 
@@ -165,11 +181,16 @@ class TestPoliciesPlan:
         _write_policy(tmp_path)
         report = _write_report(tmp_path)
 
-        _run([
-            "policies", "plan",
-            "--dir", str(tmp_path),
-            "--report", str(report),
-        ])
+        _run(
+            [
+                "policies",
+                "plan",
+                "--dir",
+                str(tmp_path),
+                "--report",
+                str(report),
+            ]
+        )
         out = capsys.readouterr().out
         assert "120" in out  # shown as $120 in the table
 
@@ -177,11 +198,16 @@ class TestPoliciesPlan:
         _write_policy(tmp_path)
         report = _write_report(tmp_path)
 
-        _run([
-            "policies", "plan",
-            "--dir", str(tmp_path),
-            "--report", str(report),
-        ])
+        _run(
+            [
+                "policies",
+                "plan",
+                "--dir",
+                str(tmp_path),
+                "--report",
+                str(report),
+            ]
+        )
         out = capsys.readouterr().out
         assert "resize" in out
 
@@ -189,29 +215,36 @@ class TestPoliciesPlan:
         _write_policy(tmp_path)
         # Report with finding that does NOT meet min cost (1.0 < 50.0)
         report_data = {
-            "findings": [{
-                "resource_id": "db-cheap",
-                "resource_type": "AWS::RDS::DBInstance",
-                "cloud": "aws",
-                "region": "us-east-1",
-                "name": None,
-                "estimated_monthly_cost": 1.0,
-                "waste_reason": "unused",
-                "recommendation": "delete",
-                "priority": "low",
-                "metrics_summary": {},
-                "tags": {},
-                "last_activity": None,
-            }],
+            "findings": [
+                {
+                    "resource_id": "db-cheap",
+                    "resource_type": "AWS::RDS::DBInstance",
+                    "cloud": "aws",
+                    "region": "us-east-1",
+                    "name": None,
+                    "estimated_monthly_cost": 1.0,
+                    "waste_reason": "unused",
+                    "recommendation": "delete",
+                    "priority": "low",
+                    "metrics_summary": {},
+                    "tags": {},
+                    "last_activity": None,
+                }
+            ],
         }
         report = tmp_path / "cheap.json"
         report.write_text(json.dumps(report_data))
 
-        rc = _run([
-            "policies", "plan",
-            "--dir", str(tmp_path),
-            "--report", str(report),
-        ])
+        rc = _run(
+            [
+                "policies",
+                "plan",
+                "--dir",
+                str(tmp_path),
+                "--report",
+                str(report),
+            ]
+        )
         assert rc == 0
         out = capsys.readouterr().out
         assert "No findings matched" in out
@@ -235,11 +268,16 @@ class TestPoliciesPlan:
     def test_plan_missing_report_exits_nonzero(self, tmp_path, capsys):
         _write_policy(tmp_path)
 
-        rc = _run([
-            "policies", "plan",
-            "--dir", str(tmp_path),
-            "--report", str(tmp_path / "nope.json"),
-        ])
+        rc = _run(
+            [
+                "policies",
+                "plan",
+                "--dir",
+                str(tmp_path),
+                "--report",
+                str(tmp_path / "nope.json"),
+            ]
+        )
         assert rc == 1
 
     def test_plan_bad_policies_exits_nonzero(self, tmp_path, capsys):
@@ -247,22 +285,32 @@ class TestPoliciesPlan:
         bad.write_text("not_a_policy: true\n")
         report = _write_report(tmp_path)
 
-        rc = _run([
-            "policies", "plan",
-            "--dir", str(tmp_path),
-            "--report", str(report),
-        ])
+        rc = _run(
+            [
+                "policies",
+                "plan",
+                "--dir",
+                str(tmp_path),
+                "--report",
+                str(report),
+            ]
+        )
         assert rc == 1
 
     def test_plan_output_has_header_box(self, tmp_path, capsys):
         _write_policy(tmp_path)
         report = _write_report(tmp_path)
 
-        _run([
-            "policies", "plan",
-            "--dir", str(tmp_path),
-            "--report", str(report),
-        ])
+        _run(
+            [
+                "policies",
+                "plan",
+                "--dir",
+                str(tmp_path),
+                "--report",
+                str(report),
+            ]
+        )
         out = capsys.readouterr().out
         assert "POLICY PLAN" in out
         assert "─" in out
@@ -270,11 +318,16 @@ class TestPoliciesPlan:
     def test_plan_empty_dir_exits_zero(self, tmp_path, capsys):
         report = _write_report(tmp_path)
 
-        rc = _run([
-            "policies", "plan",
-            "--dir", str(tmp_path / "empty"),
-            "--report", str(report),
-        ])
+        rc = _run(
+            [
+                "policies",
+                "plan",
+                "--dir",
+                str(tmp_path / "empty"),
+                "--report",
+                str(report),
+            ]
+        )
         assert rc == 0
         out = capsys.readouterr().out
         assert "No policies" in out
@@ -290,11 +343,16 @@ class TestPoliciesApply:
         _write_policy(tmp_path)
         report = _write_report(tmp_path)
 
-        rc = _run([
-            "policies", "apply",
-            "--dir", str(tmp_path),
-            "--report", str(report),
-        ])
+        rc = _run(
+            [
+                "policies",
+                "apply",
+                "--dir",
+                str(tmp_path),
+                "--report",
+                str(report),
+            ]
+        )
         assert rc == 0
         out = capsys.readouterr().out
         # dry-run shows Jira preview and next step, not "Creating"
@@ -306,12 +364,17 @@ class TestPoliciesApply:
         _write_policy(tmp_path)
         report = _write_report(tmp_path)
 
-        _run([
-            "policies", "apply",
-            "--dir", str(tmp_path),
-            "--report", str(report),
-            "--confirm",
-        ])
+        _run(
+            [
+                "policies",
+                "apply",
+                "--dir",
+                str(tmp_path),
+                "--report",
+                str(report),
+                "--confirm",
+            ]
+        )
         out = capsys.readouterr().out
         # Either succeeds (Jira configured in env) or fails with clear message
         assert "Creating" in out or "Jira not configured" in out
@@ -321,12 +384,17 @@ class TestPoliciesApply:
         _write_policy(tmp_path)
         report = _write_report(tmp_path)
 
-        _run([
-            "policies", "apply",
-            "--dir", str(tmp_path),
-            "--report", str(report),
-            "--confirm",
-        ])
+        _run(
+            [
+                "policies",
+                "apply",
+                "--dir",
+                str(tmp_path),
+                "--report",
+                str(report),
+                "--confirm",
+            ]
+        )
         out = capsys.readouterr().out
         assert "POLICY APPLY" in out
 
@@ -415,7 +483,9 @@ class TestValidatePoliciesErrorFormatting:
     def test_validation_error_shows_tip(self, tmp_path, capsys):
         # Two policies with same policy_id + same weight → conflict error
         # This passes load but fails validate_policies
-        (tmp_path / "a.yaml").write_text(textwrap.dedent("""\
+        (tmp_path / "a.yaml").write_text(
+            textwrap.dedent(
+                """\
             version: "1"
             policy_id: rds-resize
             name: Resize RDS A
@@ -424,8 +494,12 @@ class TestValidatePoliciesErrorFormatting:
             weight: 10
             conditions:
               min_estimated_monthly_cost_usd: 50.0
-        """))
-        (tmp_path / "b.yaml").write_text(textwrap.dedent("""\
+        """
+            )
+        )
+        (tmp_path / "b.yaml").write_text(
+            textwrap.dedent(
+                """\
             version: "1"
             policy_id: rds-resize
             name: Resize RDS B
@@ -434,7 +508,9 @@ class TestValidatePoliciesErrorFormatting:
             weight: 10
             conditions:
               min_estimated_monthly_cost_usd: 50.0
-        """))
+        """
+            )
+        )
         rc = _run(["policies", "validate", "--dir", str(tmp_path)])
         out = capsys.readouterr().out
         # Either a conflict error was caught (nonzero) or a load dedup happened
@@ -446,23 +522,33 @@ class TestPlanNextStep:
     def test_plan_shows_next_step_hint(self, tmp_path, capsys):
         _write_policy(tmp_path)
         report = _write_report(tmp_path)
-        _run([
-            "policies", "plan",
-            "--dir", str(tmp_path),
-            "--report", str(report),
-        ])
+        _run(
+            [
+                "policies",
+                "plan",
+                "--dir",
+                str(tmp_path),
+                "--report",
+                str(report),
+            ]
+        )
         out = capsys.readouterr().out
         assert "Next step" in out or "--confirm" in out
 
     def test_apply_confirm_does_not_show_next_step(self, tmp_path, capsys):
         _write_policy(tmp_path)
         report = _write_report(tmp_path)
-        _run([
-            "policies", "apply",
-            "--dir", str(tmp_path),
-            "--report", str(report),
-            "--confirm",
-        ])
+        _run(
+            [
+                "policies",
+                "apply",
+                "--dir",
+                str(tmp_path),
+                "--report",
+                str(report),
+                "--confirm",
+            ]
+        )
         out = capsys.readouterr().out
         assert "Next step" not in out
 
@@ -498,22 +584,28 @@ class TestLoadFindingsFromReport:
 
     def test_finding_without_last_activity(self, tmp_path):
         report = tmp_path / "r.json"
-        report.write_text(json.dumps({
-            "findings": [{
-                "resource_id": "ec2-x",
-                "resource_type": "AWS::EC2::Instance",
-                "cloud": "aws",
-                "region": "us-west-2",
-                "name": None,
-                "estimated_monthly_cost": 50.0,
-                "waste_reason": "idle",
-                "recommendation": "terminate",
-                "priority": "low",
-                "metrics_summary": {},
-                "tags": {},
-                "last_activity": None,
-            }]
-        }))
+        report.write_text(
+            json.dumps(
+                {
+                    "findings": [
+                        {
+                            "resource_id": "ec2-x",
+                            "resource_type": "AWS::EC2::Instance",
+                            "cloud": "aws",
+                            "region": "us-west-2",
+                            "name": None,
+                            "estimated_monthly_cost": 50.0,
+                            "waste_reason": "idle",
+                            "recommendation": "terminate",
+                            "priority": "low",
+                            "metrics_summary": {},
+                            "tags": {},
+                            "last_activity": None,
+                        }
+                    ]
+                }
+            )
+        )
         from entrypoints.cli import _load_findings_from_report
 
         findings = _load_findings_from_report(str(report))
@@ -521,22 +613,28 @@ class TestLoadFindingsFromReport:
 
     def test_finding_with_last_activity(self, tmp_path):
         report = tmp_path / "r.json"
-        report.write_text(json.dumps({
-            "findings": [{
-                "resource_id": "ec2-y",
-                "resource_type": "AWS::EC2::Instance",
-                "cloud": "aws",
-                "region": "us-east-1",
-                "name": "old-server",
-                "estimated_monthly_cost": 80.0,
-                "waste_reason": "idle",
-                "recommendation": "terminate",
-                "priority": "medium",
-                "metrics_summary": {},
-                "tags": {},
-                "last_activity": "2026-01-01T00:00:00",
-            }]
-        }))
+        report.write_text(
+            json.dumps(
+                {
+                    "findings": [
+                        {
+                            "resource_id": "ec2-y",
+                            "resource_type": "AWS::EC2::Instance",
+                            "cloud": "aws",
+                            "region": "us-east-1",
+                            "name": "old-server",
+                            "estimated_monthly_cost": 80.0,
+                            "waste_reason": "idle",
+                            "recommendation": "terminate",
+                            "priority": "medium",
+                            "metrics_summary": {},
+                            "tags": {},
+                            "last_activity": "2026-01-01T00:00:00",
+                        }
+                    ]
+                }
+            )
+        )
         from entrypoints.cli import _load_findings_from_report
 
         findings = _load_findings_from_report(str(report))
@@ -578,13 +676,18 @@ class TestPoliciesStats:
     def test_empty_window_prints_no_proposals(self, tmp_path):
         log = tmp_path / "audit.jsonl"
         # Row from 2020 — outside 30-day window
-        _write_audit(log, [{
-            "ts": "2020-01-01T00:00:00+00:00",
-            "policy_id": "old-policy",
-            "action": "stop",
-            "cloud": "aws",
-            "jira_key": None,
-        }])
+        _write_audit(
+            log,
+            [
+                {
+                    "ts": "2020-01-01T00:00:00+00:00",
+                    "policy_id": "old-policy",
+                    "action": "stop",
+                    "cloud": "aws",
+                    "jira_key": None,
+                }
+            ],
+        )
         code, out = self._run_stats(
             ["policies", "stats", "--audit-log", str(log), "--days", "30"]
         )
@@ -596,14 +699,32 @@ class TestPoliciesStats:
 
         now = datetime.now(tz=timezone.utc).isoformat()
         log = tmp_path / "audit.jsonl"
-        _write_audit(log, [
-            {"ts": now, "policy_id": "rds-resize", "action": "resize",
-             "cloud": "aws", "jira_key": "COST-1"},
-            {"ts": now, "policy_id": "rds-resize", "action": "resize",
-             "cloud": "aws", "jira_key": "COST-2"},
-            {"ts": now, "policy_id": "ec2-stop", "action": "stop",
-             "cloud": "aws", "jira_key": None},
-        ])
+        _write_audit(
+            log,
+            [
+                {
+                    "ts": now,
+                    "policy_id": "rds-resize",
+                    "action": "resize",
+                    "cloud": "aws",
+                    "jira_key": "COST-1",
+                },
+                {
+                    "ts": now,
+                    "policy_id": "rds-resize",
+                    "action": "resize",
+                    "cloud": "aws",
+                    "jira_key": "COST-2",
+                },
+                {
+                    "ts": now,
+                    "policy_id": "ec2-stop",
+                    "action": "stop",
+                    "cloud": "aws",
+                    "jira_key": None,
+                },
+            ],
+        )
         code, out = self._run_stats(["policies", "stats", "--audit-log", str(log)])
         assert code == 0
         assert "rds-resize" in out
@@ -617,12 +738,25 @@ class TestPoliciesStats:
         now = datetime.now(tz=timezone.utc).isoformat()
         log = tmp_path / "audit.jsonl"
         # COST-1 appears twice — first is "new", second is "update"
-        _write_audit(log, [
-            {"ts": now, "policy_id": "p1", "action": "stop",
-             "cloud": "gcp", "jira_key": "COST-1"},
-            {"ts": now, "policy_id": "p1", "action": "stop",
-             "cloud": "gcp", "jira_key": "COST-1"},
-        ])
+        _write_audit(
+            log,
+            [
+                {
+                    "ts": now,
+                    "policy_id": "p1",
+                    "action": "stop",
+                    "cloud": "gcp",
+                    "jira_key": "COST-1",
+                },
+                {
+                    "ts": now,
+                    "policy_id": "p1",
+                    "action": "stop",
+                    "cloud": "gcp",
+                    "jira_key": "COST-1",
+                },
+            ],
+        )
         code, out = self._run_stats(["policies", "stats", "--audit-log", str(log)])
         assert code == 0
         assert "p1" in out
