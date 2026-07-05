@@ -121,7 +121,7 @@ Both `include` and `exclude` support the same fields:
 2. Set a unique `policy_id`.
 3. Run `argus policies validate --dir config/policies` — fix any errors.
 4. Run `argus policies plan --report <scan.json>` to see which findings it matches.
-5. Add a test in `tests/core/remediation/` — see [CONTRIBUTING.md](../../CONTRIBUTING.md).
+5. Add a test in `tests/core/remediation/` — see [Contributing](../contributing/index.md).
 
 !!! note "Safety rules"
     - Never remove the `argus-exempt: ["true"]` exclude — it's the emergency off-switch for individual resources.
