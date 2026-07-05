@@ -1,0 +1,48 @@
+# EXAMPLE POLICY — copy to config/policies/ and edit to suit your environment.
+#
+# What this does:
+#   Flags idle EC2 instances for manual stopping.
+#   Argus creates a Jira ticket when all conditions below are true.
+#   Your team reviews the ticket and stops the instance manually.
+#
+# Tune the thresholds to match your workload patterns.
+# Run `argus policies plan --dir config/policies --report <report.json>`
+# to preview which instances would be matched before enabling.
+
+version: "1"
+
+policy_id: ec2-stop-idle-starter
+name: Stop idle EC2 instances
+
+# Which resource type this policy applies to.
+# Run `argus policies docs` to see all supported types.
+resource_type: AWS::EC2::Instance
+
+# Action that will appear in the Jira ticket title and runbook.
+# Argus never executes this — it is guidance for your team.
+# Valid: stop | delete | resize | snapshot_delete | archive | convert_spot
+action: stop
+
+# Higher weight wins when multiple policies match the same resource.
+weight: 10
+
+conditions:
+  # Only match resources the AI already classified as high or medium priority.
+  ai_priority: [high, medium]
+
+  # Minimum monthly cost in USD. Keeps noise out of your ticket queue.
+  min_estimated_monthly_cost_usd: 50
+
+  # Minimum days since any recorded activity.
+  idle_days_min: 14
+
+# Tags that must be present on the resource to match (AND logic).
+# include:
+#   tags:
+#     env: [dev, staging]      # only dev and staging — never production
+
+# Tags that block the match if present (emergency brake for production).
+exclude:
+  tags:
+    env: [production, prod]
+    argus-ignore: ["true"]

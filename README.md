@@ -37,15 +37,16 @@ Top findings
 
 ---
 
-## 🆕 What's new in v0.4.1
+## 🆕 What's new in v0.5.0
 
-> **Biggest release yet.** Argus jumps from scheduled reporter to a conversational FinOps companion.
+> **Remediation is now first-class.** Argus goes beyond reporting — it generates Jira tickets, suggests exact resize targets, and tracks acceptance rates.
 
-- **Interactive chat mode** — `argus chat` lets you ask natural-language questions about your cloud costs and get intelligent, context-aware answers backed by real metrics and cost data.
-- **True multi-cloud, multi-account** — GCP multi-project and Azure multi-subscription support with unified reporting across all accounts in a single run.
-- **Expanded resource coverage** — 31 GCP resource types (up from 22) and 40 Azure resource types (up from 26), all with curated metric mappings.
-- **Chat UX polish** — live spinner updates per tool call, AI-generated context summaries, turn-safe history trimming, and rich terminal formatting via `pip install argus-cloud-optimizer[chat]`.
-- **Docs overhaul** — new architecture diagram, corrected IAM permissions for all three clouds, and accurate env-var reference.
+- **Policy engine** — YAML-driven policies match AI findings and generate prioritised `ChangeProposal` objects (weight-ordered, one proposal per resource per scan). Ships with 13 real-world policies across AWS, GCP, and Azure.
+- **Jira integration** — idempotent ticket creation with ADF-structured descriptions (metrics table, runbook code block, snapshot fingerprint for diff-on-update). Dedup via deterministic label; diff-comment on re-scan.
+- **Rightsizing recommendations** — `resize` and `reduce_nodes` proposals now include a specific target tier or node count derived from observed CPU% (e.g., "Recommend db.t3.small — observed CPU ~8%").
+- **Acceptance rate monitoring** — `argus policies stats` reads the append-only audit log and prints per-policy proposal counts, Jira new/update splits, and cloud breakdown.
+- **JSONL audit log** — every `apply --confirm` appends a line to `local_reports/audit.jsonl` mapping `proposal_id → jira_key → jira_url`.
+- **1756 tests** — all pass offline, no cloud credentials needed.
 
 [Full changelog →](CHANGELOG.md)
 
@@ -63,6 +64,63 @@ Every week (or on demand), Argus:
 The **Full report** button links to a self-contained HTML file (S3 / GCS / Azure Blob) with a filterable/sortable table and expandable AI reasoning per finding. Works offline, no login required.
 
 > **See realistic examples:** [`sample-report-aws.json`](examples/sample-report-aws.json) · [`sample-report-gcp.json`](examples/sample-report-gcp.json) · [`sample-report-azure.json`](examples/sample-report-azure.json) — 5 findings each with AI-written reasoning, metrics, and cost data.
+
+---
+
+## Remediation
+
+Argus stays **strictly read-only** — it never mutates a resource. Instead, the policy engine turns AI findings into prioritised Jira tickets that a human reviews and acts on.
+
+### How it works
+
+```
+argus scan → scan_report.json
+               │
+               ▼
+argus policies plan --report scan_report.json
+               │
+               ├── evaluates policies in config/policies/ (13 bundled — weight-ordered, first-match-wins)
+               ├── applies two-tier conditions: cost/priority/idle-days + metric thresholds
+               ├── computes rightsizing target (e.g. "Recommend db.t3.small — CPU ~8%")
+               └── prints proposal table with total savings estimate
+               │
+               ▼  (add --confirm to create tickets)
+argus policies apply --report scan_report.json --confirm
+               │
+               ├── creates Jira ticket per proposal (idempotent — dedup via label)
+               ├── diff-comments on re-scan if finding changed
+               ├── appends line to local_reports/audit.jsonl
+               └── prints per-ticket status
+
+argus policies stats   # acceptance rate per policy from audit log
+```
+
+### Bundled policies (13)
+
+| Policy | Cloud | Action | Cost threshold |
+|--------|-------|--------|---------------|
+| `aws-ec2-stop-idle-14d` | AWS | stop | $20/mo |
+| `aws-rds-resize-high-cost-idle` | AWS | resize | $100/mo |
+| `aws-ebs-delete-unattached-30d` | AWS | delete | $5/mo |
+| `aws-elb-delete-idle` | AWS | delete | $20/mo |
+| `aws-elasticache-delete-idle-30d` | AWS | delete | $50/mo |
+| `aws-lambda-delete-unused-30d` | AWS | delete | $0 |
+| `aws-redshift-snapshot-delete-14d` | AWS | snapshot_delete | $100/mo |
+| `gcp-compute-stop-idle-7d` | GCP | stop | $20/mo |
+| `gcp-sql-stop-idle-14d` | GCP | stop | $20/mo |
+| `gcp-gke-reduce-nodes-underutilised` | GCP | reduce_nodes | $200/mo |
+| `azure-vm-stop-idle-14d` | Azure | stop | $20/mo |
+| `azure-sql-resize-underutilised` | Azure | resize | $50/mo |
+| `azure-aks-reduce-nodes-underutilised` | Azure | reduce_nodes | $150/mo |
+
+All policies exclude `environment: prod` and `argus-exempt: "true"` tags by default. Add your own in `config/policies/` — see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+### Safety guarantees
+
+- **IAM** — read-only roles; write APIs are unavailable even with creds attached
+- **Code** — no cloud SDK write calls anywhere in the codebase
+- **CLI gate** — `apply` is a dry-run by default; `--confirm` is required to create tickets
+- **Human gate** — runbook is printed in the Jira ticket; Argus never executes it
 
 ---
 
@@ -117,7 +175,7 @@ docker run --rm \
 
 ```bash
 pip install argus-cloud-optimizer
-argus --version   # argus 0.4.1
+argus --version   # argus 0.5.0
 argus --help
 ```
 
@@ -482,7 +540,7 @@ Before you invest time deploying Argus, know what it **can't** do yet:
 | **AI non-determinism** | By design | The AI decides what's idle — different runs may produce slightly different findings or reasoning. Set `AI_TEMPERATURE=0.0` (default) for most consistent results. |
 | **LLM cost** | Configurable | A full scan of ~200 resources costs ~$0.05–$0.50 in LLM API fees depending on provider. Use `--llm-budget` to set a hard cap (default: $2.00/scan). Large estates (1000+ resources) will hit the budget limit — increase it or use `--max-resources`. |
 | **AWS Resource Explorer setup** | Manual step | You must enable Resource Explorer with an **aggregator index** (typically in `us-east-1`). Without this, Argus cannot discover resources. This is a one-time setup but is easy to miss. |
-| **Write actions** | None | Argus is read-only. It reports findings but never deletes, stops, or modifies resources. Remediation is manual. |
+| **Write actions** | None (by design) | Argus is strictly read-only. The policy engine generates Jira tickets with runbooks — a human reviews and executes. Argus never calls the runbook itself. |
 | **Multi-cloud in one scan** | Not yet | Each `argus` invocation scans one cloud. Use the merge report feature (`core/reports/multi_cloud.py`) to combine results after separate runs. |
 | **Notifications** | Slack + Teams + webhook | No email. Slack/Teams delivery requires a webhook URL. |
 
@@ -524,6 +582,7 @@ argus/
 │   ├── agent/loop.py      # ReAct agent loop
 │   ├── agent/prompts.py   # System prompt + tool schemas
 │   ├── models/finding.py  # ResourceFinding dataclass
+│   ├── remediation/       # Policy engine — models, loader, validator, engine, audit, rightsizing
 │   └── reports/           # Report generator, multi-cloud merge, export, notifications
 ├── adapters/
 │   ├── base.py            # CloudAdapter abstract class
@@ -536,8 +595,12 @@ argus/
 │   ├── bedrock.py         # AWS Bedrock (Converse API)
 │   ├── vertexai.py        # Vertex AI / Gemini (GCP)
 │   └── azure_openai.py    # Azure OpenAI / GPT-4o (Azure)
+├── integrations/
+│   └── jira/              # Ticket lifecycle: create, dedup, diff-comment, ADF formatter, webhook
+├── config/policies/       # 13 bundled YAML policies (AWS / GCP / Azure)
+├── config/policies.example/  # 3 annotated starter templates — copy here to begin
 ├── entrypoints/
-│   ├── cli.py             # argus --cloud aws --run-now
+│   ├── cli.py             # argus scan / chat / policies validate|plan|apply|stats|docs
 │   ├── aws_lambda.py      # AWS Lambda handler
 │   ├── gcp_cloudrun.py    # GCP Cloud Run Job handler
 │   └── azure_function.py  # Azure Function timer trigger
@@ -545,7 +608,7 @@ argus/
 │   ├── aws/               # CloudFormation templates
 │   ├── gcp/               # Cloud Run + Scheduler deploy script
 │   └── azure/             # Bicep templates
-└── tests/                 # 560 tests, all pass offline
+└── tests/                 # 1756 tests, all pass offline
 ```
 
 ---

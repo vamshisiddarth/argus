@@ -16,7 +16,64 @@ from core.token_tracker import BudgetExceededError, TokenTracker
 
 logger = structlog.get_logger(__name__)
 
+# Argus is strictly read-only. This is not a configuration option.
+# There is no override, no flag, and no escape hatch.
+# If you are looking to add write/execute capabilities: they belong in a
+# separate service with its own IAM role and approval workflow — not here.
+
 _PARALLELIZABLE_TOOLS = frozenset({"get_metrics", "get_last_activity"})
+
+_ALLOWED_TOOLS = frozenset(
+    {
+        "list_resources",
+        "get_metrics",
+        "get_cost",
+        "get_last_activity",
+        "submit_findings",
+    }
+)
+
+_MUTATING_KEYWORDS = frozenset(
+    {
+        "delete",
+        "remove",
+        "destroy",
+        "terminate",
+        "kill",
+        "purge",
+        "truncate",
+        "drop",
+        "stop",
+        "start",
+        "reboot",
+        "restart",
+        "enable",
+        "disable",
+        "modify",
+        "update",
+        "patch",
+        "put",
+        "create",
+        "launch",
+        "provision",
+        "resize",
+        "scale",
+        "migrate",
+        "detach",
+        "attach",
+        "associate",
+        "disassociate",
+        "deregister",
+        "revoke",
+        "invoke",
+        "send",
+        "publish",
+        "write",
+        "mutate",
+        "execute",
+        "run_command",
+    }
+)
 
 
 class AgentLoop:
@@ -252,6 +309,15 @@ class AgentLoop:
 
     def _execute(self, tc: ToolCall) -> tuple[str, bool]:
         """Dispatch a tool call to the adapter. Returns (result_str, is_error)."""
+        rejected = _reject_if_mutating(tc.name)
+        if rejected:
+            logger.warning(
+                "tool_rejected_read_only tool=%s reason=%s",
+                tc.name,
+                rejected,
+            )
+            return rejected, True
+
         try:
             match tc.name:
                 case "list_resources":
@@ -291,6 +357,35 @@ class AgentLoop:
         except Exception as exc:  # noqa: BLE001
             logger.error("tool_error", tool=tc.name, error=str(exc))
             return f"Tool error: {exc}", True
+
+
+# ------------------------------------------------------------------
+# Read-only guardrail
+# ------------------------------------------------------------------
+
+
+def _reject_if_mutating(tool_name: str) -> str | None:
+    """
+    Return an error message if the tool name is not in the allowlist or
+    contains a mutating keyword. Returns None if the tool is safe.
+    """
+    if tool_name in _ALLOWED_TOOLS:
+        return None
+
+    name_lower = tool_name.lower()
+    for keyword in _MUTATING_KEYWORDS:
+        if keyword in name_lower:
+            return (
+                f"BLOCKED: Argus is strictly read-only. The tool '{tool_name}' "
+                f"contains a mutating keyword ('{keyword}') and cannot be "
+                f"executed. Argus only observes and reports — it never "
+                f"modifies cloud resources."
+            )
+
+    return (
+        f"BLOCKED: Unknown tool '{tool_name}'. Argus only supports "
+        f"read-only tools: {sorted(_ALLOWED_TOOLS)}."
+    )
 
 
 # ------------------------------------------------------------------

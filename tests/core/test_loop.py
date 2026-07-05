@@ -6,9 +6,12 @@ import pytest
 from adapters.base import CloudAdapter, MetricSummary, Resource
 from ai.base import AIProvider, AIResponse, ToolCall
 from core.agent.loop import (
+    _ALLOWED_TOOLS,
+    _MUTATING_KEYWORDS,
     AgentLoop,
     _apply_exclusion_filters,
     _compress_resource,
+    _reject_if_mutating,
 )
 from core.config import ScanSettings
 
@@ -476,3 +479,100 @@ class TestParallelExecution:
         cfg = ScanSettings()
         assert cfg.adapter_concurrency == 5
         clear_settings_cache()
+
+
+# ------------------------------------------------------------------
+# Read-only guardrail tests
+# ------------------------------------------------------------------
+
+
+class TestReadOnlyGuardrail:
+    """Verify that the agent loop blocks any mutating tool call."""
+
+    def test_allowed_tools_pass(self):
+        for tool in _ALLOWED_TOOLS:
+            assert _reject_if_mutating(tool) is None
+
+    @pytest.mark.parametrize(
+        "tool_name",
+        [
+            "delete_resource",
+            "terminate_instance",
+            "stop_instance",
+            "modify_db_instance",
+            "create_snapshot",
+            "remove_tags",
+            "update_security_group",
+            "resize_instance",
+            "scale_cluster",
+            "destroy_stack",
+            "launch_instance",
+            "restart_service",
+            "execute_command",
+            "run_command_on_host",
+            "purge_queue",
+            "truncate_table",
+            "drop_database",
+            "revoke_access",
+            "deregister_target",
+            "invoke_function",
+            "send_message",
+            "publish_notification",
+            "disable_alarm",
+            "enable_logging",
+        ],
+    )
+    def test_mutating_tools_blocked(self, tool_name):
+        result = _reject_if_mutating(tool_name)
+        assert result is not None
+        assert "BLOCKED" in result
+        assert "read-only" in result
+
+    def test_unknown_tool_blocked(self):
+        result = _reject_if_mutating("some_random_tool")
+        assert result is not None
+        assert "BLOCKED" in result
+        assert "Unknown tool" in result
+
+    def test_case_insensitive_blocking(self):
+        assert _reject_if_mutating("Delete_Resource") is not None
+        assert _reject_if_mutating("TERMINATE_INSTANCE") is not None
+        assert _reject_if_mutating("Purge_Queue") is not None
+
+    def test_blocklist_covers_common_cloud_operations(self):
+        dangerous_ops = [
+            "ec2_delete_instance",
+            "rds_stop_cluster",
+            "s3_remove_bucket",
+            "s3_purge_bucket",
+            "lambda_update_function",
+            "lambda_invoke_function",
+            "ecs_scale_service",
+            "eks_create_nodegroup",
+            "sqs_send_message",
+            "sns_publish_topic",
+            "dynamodb_truncate_table",
+        ]
+        for op in dangerous_ops:
+            result = _reject_if_mutating(op)
+            assert result is not None, f"{op} should be blocked"
+
+    def test_adapter_interface_is_read_only(self):
+        """CloudAdapter subclasses must not define methods with mutating names."""
+
+        from adapters.base import CloudAdapter
+
+        for subclass in CloudAdapter.__subclasses__():
+            methods = [
+                m
+                for m in dir(subclass)
+                if not m.startswith("_") and callable(getattr(subclass, m))
+            ]
+            for method in methods:
+                name_lower = method.lower()
+                for keyword in _MUTATING_KEYWORDS:
+                    assert keyword not in name_lower, (
+                        f"Adapter {subclass.__name__}.{method}() contains "
+                        f"mutating keyword '{keyword}'. "
+                        f"CloudAdapter implementations must be read-only."
+                    )

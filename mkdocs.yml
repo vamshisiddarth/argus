@@ -61,6 +61,9 @@ theme:
 # ---------------------------------------------------------------------------
 plugins:
   - search
+  - mike:
+      alias_type: symlink
+      canonical_version: latest   # sets <link rel="canonical"> to the latest release
   - blog:
       blog_dir: blog
       post_url_format: "{slug}"
@@ -118,6 +121,11 @@ nav:
     - AI Reasoning: concepts/ai-reasoning.md
     - Cloud Adapters: concepts/adapters.md
     - AI Providers: concepts/ai-providers.md
+  - Remediation:
+    - remediation/index.md
+    - Policies: remediation/policies.md
+    - Jira Integration: remediation/jira.md
+    - CLI Reference: remediation/cli.md
   - Reference:
     - reference/index.md
     - Environment Variables: reference/env-vars.md
@@ -139,6 +147,10 @@ nav:
 copyright: "© 2026 Argus — AI Cloud Detective · MIT License"
 
 extra:
+  version:
+    provider: mike
+    default: latest
+    alias: true
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/vamshisiddarth/argus

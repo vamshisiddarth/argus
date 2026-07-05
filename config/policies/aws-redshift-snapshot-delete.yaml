@@ -1,0 +1,29 @@
+# Snapshot then delete idle Redshift clusters.
+#
+# Redshift clusters are among the most expensive idle resources ($180-700+/mo).
+# This policy requires: high AI priority + 14 idle days + near-zero query activity.
+# 'snapshot_delete' takes a final snapshot before deletion — safer than 'delete'.
+#
+# Lower the idle_days_min threshold if your team runs weekly batch jobs.
+
+version: "1"
+
+policy_id: aws-redshift-snapshot-delete-14d
+name: Snapshot & delete idle Redshift clusters
+resource_type: AWS::Redshift::Cluster
+action: snapshot_delete
+weight: 25
+
+conditions:
+  ai_priority: [high]
+  min_estimated_monthly_cost_usd: 100
+  idle_days_min: 14
+  metrics:
+    - metric: QueriesCompletedPerSecond_avg
+      operator: lt
+      threshold: 0.01
+
+exclude:
+  tags:
+    - environment: [prod, production]
+    - argus-exempt: ["true"]

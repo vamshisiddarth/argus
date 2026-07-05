@@ -1,0 +1,12 @@
+version: "1"
+
+jira:
+  project: INFRA                         # Jira project key
+  issue_type: Task                       # "Task", "Bug", "Change Request", etc.
+  default_labels:
+    - argus
+    - cost-optimization
+  priority_map:
+    high: High
+    medium: Medium
+    low: Low

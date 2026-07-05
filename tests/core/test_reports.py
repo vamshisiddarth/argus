@@ -331,6 +331,44 @@ class TestBuildSlackPayload:
         payload = build_slack_payload(report)
         assert "2/4" in _all_text(payload)
 
+    def test_ticket_refs_section_shown_when_provided(self):
+        report = self._report()
+        urls = [
+            "https://jira.example.com/browse/INFRA-1",
+            "https://jira.example.com/browse/INFRA-2",
+        ]
+        payload = build_slack_payload(report, ticket_refs=urls)
+        text = _all_text(payload)
+        assert "INFRA-1" in text
+        assert "INFRA-2" in text
+        assert "ticket" in text.lower()
+
+    def test_no_ticket_section_when_refs_empty(self):
+        report = self._report()
+        payload = build_slack_payload(report, ticket_refs=[])
+        text = _all_text(payload)
+        assert "ticket" not in text.lower()
+
+    def test_no_ticket_section_when_refs_none(self):
+        report = self._report()
+        payload = build_slack_payload(report, ticket_refs=None)
+        text = _all_text(payload)
+        assert "ticket" not in text.lower()
+
+    def test_ticket_count_in_section_header(self):
+        report = self._report()
+        urls = [f"https://jira.example.com/browse/INFRA-{i}" for i in range(3)]
+        payload = build_slack_payload(report, ticket_refs=urls)
+        text = _all_text(payload)
+        assert "3" in text
+
+    def test_ticket_overflow_truncated_at_10(self):
+        report = self._report()
+        urls = [f"https://jira.example.com/browse/INFRA-{i}" for i in range(15)]
+        payload = build_slack_payload(report, ticket_refs=urls)
+        text = _all_text(payload)
+        assert "5 more" in text
+
 
 # ---------------------------------------------------------------------------
 # build_html_report tests

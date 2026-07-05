@@ -4,6 +4,8 @@
 *.key
 credentials.json
 service-account*.json
+config/integrations.yaml
+accounts.yaml
 
 # Python
 __pycache__/
@@ -42,3 +44,4 @@ site/
 # SAM — generated after sam deploy --guided (may contain webhook URLs)
 samconfig.toml
 .claude/settings.local.json
+REMEDIATION_PLAN.md

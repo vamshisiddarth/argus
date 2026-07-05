@@ -1,0 +1,34 @@
+# Stop EC2 instances that have been idle for 14+ days.
+#
+# Fires when ALL conditions are true:
+#   - AI classified the resource as high or medium priority
+#   - No activity recorded for at least 14 days
+#   - CPU utilisation averaged below 2% over the scan window
+#   - Network out averaged below 1 MB over the scan window
+#
+# 'stop' preserves the instance (can be restarted); use 'delete' to
+# permanently remove it (add 'snapshot_delete' to snapshot first).
+
+version: "1"
+
+policy_id: aws-ec2-stop-idle-14d
+name: Stop EC2 instances idle for 14+ days
+resource_type: AWS::EC2::Instance
+action: stop
+weight: 10
+
+conditions:
+  ai_priority: [high, medium]
+  idle_days_min: 14
+  metrics:
+    - metric: CPUUtilization
+      operator: lt
+      threshold: 2.0
+    - metric: NetworkOut
+      operator: lt
+      threshold: 1048576  # 1 MB in bytes
+
+exclude:
+  tags:
+    - environment: [prod, production]
+    - argus-exempt: ["true"]

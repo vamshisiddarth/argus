@@ -52,7 +52,11 @@ class CloudAdapter(ABC):
     """
     Abstract cloud adapter. One implementation per cloud provider.
     The agent loop only ever calls these four methods — never raw SDK clients.
-    All implementations must be read-only (no mutations to cloud resources).
+
+    READ-ONLY CONTRACT: All implementations must be strictly read-only.
+    No method may create, modify, delete, or mutate any cloud resource.
+    This contract is enforced by tests that scan adapter subclasses for
+    mutating method names. Violations fail CI.
     """
 
     @abstractmethod

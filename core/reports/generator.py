@@ -166,6 +166,7 @@ def _estimate_cost(input_tokens: int, output_tokens: int) -> float:
 def build_slack_payload(
     report: dict[str, Any],
     report_url: str | None = None,
+    ticket_refs: list[str] | None = None,
 ) -> dict[str, Any]:
     """
     Build a compact Slack Block Kit digest.
@@ -276,6 +277,19 @@ def build_slack_payload(
                 f"finding{'s' if remaining != 1 else ''} in the full report_"
             )
 
+        blocks.append(
+            {"type": "section", "text": {"type": "mrkdwn", "text": "\n".join(lines)}}
+        )
+        blocks.append({"type": "divider"})
+
+    if ticket_refs:
+        urls = ticket_refs[:10]
+        lines = [f":ticket: *{len(ticket_refs)} remediation ticket(s) created*"]
+        for url in urls:
+            key = url.rstrip("/").rsplit("/", 1)[-1]
+            lines.append(f"• <{url}|{key}>")
+        if len(ticket_refs) > 10:
+            lines.append(f"_+{len(ticket_refs) - 10} more_")
         blocks.append(
             {"type": "section", "text": {"type": "mrkdwn", "text": "\n".join(lines)}}
         )

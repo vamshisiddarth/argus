@@ -1,0 +1,27 @@
+# Reduce node count on underutilised GKE clusters.
+#
+# Oversized node pools are a common source of GCP waste.
+# This policy fires when cluster-level CPU is consistently low,
+# suggesting the node pool can be scaled down without impact.
+# A human reviews the Jira ticket and decides the new node count.
+
+version: "1"
+
+policy_id: gcp-gke-reduce-nodes-underutilised
+name: Reduce nodes on underutilised GKE clusters
+resource_type: container.googleapis.com/Cluster
+action: reduce_nodes
+weight: 20
+
+conditions:
+  ai_priority: [high, medium]
+  min_estimated_monthly_cost_usd: 200
+  metrics:
+    - metric: kubernetes.io/container/cpu/request_utilization
+      operator: lt
+      threshold: 0.2
+
+exclude:
+  tags:
+    - environment: [prod, production]
+    - argus-exempt: ["true"]

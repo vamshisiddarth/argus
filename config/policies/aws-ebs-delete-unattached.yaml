@@ -1,0 +1,32 @@
+# Delete unattached EBS volumes that have been idle for 30+ days.
+#
+# Unattached volumes accrue full storage charges with no workload benefit.
+# This policy targets volumes the AI flagged as high priority where no
+# read/write activity was recorded for at least 30 days.
+#
+# Safe default: snapshot is taken automatically before deletion when using
+# 'snapshot_delete'. Change to 'delete' to skip the snapshot.
+
+version: "1"
+
+policy_id: aws-ebs-delete-unattached-30d
+name: Delete unattached EBS volumes idle for 30+ days
+resource_type: AWS::EC2::Volume
+action: snapshot_delete
+weight: 15
+
+conditions:
+  ai_priority: [high, medium]
+  idle_days_min: 30
+  metrics:
+    - metric: VolumeReadOps_sum
+      operator: lt
+      threshold: 1.0
+    - metric: VolumeWriteOps_sum
+      operator: lt
+      threshold: 1.0
+
+exclude:
+  tags:
+    - environment: [prod, production]
+    - argus-exempt: ["true"]
