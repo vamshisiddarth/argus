@@ -110,9 +110,15 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     else:
         save_reports_locally(report)
 
+    # Run remediation (Jira ticket creation) — isolated, never blocks Slack.
+    from entrypoints._remediation import run_remediation
+    ticket_refs = run_remediation(all_findings, report_url=report_url)
+
     # Deliver Slack digest regardless of whether report upload succeeded.
     structlog.contextvars.bind_contextvars(scan_id=report["scan_id"])
-    payload = build_slack_payload(report, report_url=report_url)
+    payload = build_slack_payload(
+        report, report_url=report_url, ticket_refs=ticket_refs
+    )
     delivered = notify_all(payload)
 
     budget_exceeded = executive_summary.startswith("Scan aborted")
