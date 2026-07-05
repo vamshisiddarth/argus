@@ -106,3 +106,18 @@ Instead of storing sensitive values directly in environment variables, you can p
 | Azure Key Vault | `akv://<vault-name>/<secret-name>` | `ANTHROPIC_API_KEY=akv://my-vault/anthropic-key` |
 
 The required SDK must be installed for the cloud you reference — `boto3` for AWS, `google-cloud-secret-manager` for GCP, `azure-keyvault-secrets` + `azure-identity` for Azure. If the value doesn't match any pattern, it's used as-is (no SDK required).
+
+## :material-clipboard-check-outline: Remediation
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ARGUS_POLICIES_DIR` | `config/policies` | Directory containing `*.yaml` policy files |
+| `ARGUS_INTEGRATIONS_CONFIG` | `config/integrations.yaml` | Path to integrations config (Jira project key, issue type, labels) |
+| `ARGUS_AUDIT_LOG` | `./local_reports/audit.jsonl` | Path for the append-only proposal audit log |
+| `JIRA_BASE_URL` | — | Jira instance URL, e.g. `https://yourorg.atlassian.net` |
+| `JIRA_USER_EMAIL` | — | Email address associated with the Jira API token |
+| `JIRA_API_TOKEN` | — | Jira API token (generate at id.atlassian.com) |
+
+!!! note
+    `config/integrations.yaml` is gitignored — never commit Jira credentials.
+    Store the API token in a secret manager (see [Secret manager integration](#material-key-variant-secret-manager-integration) above) for production deployments.

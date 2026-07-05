@@ -118,6 +118,11 @@ nav:
     - AI Reasoning: concepts/ai-reasoning.md
     - Cloud Adapters: concepts/adapters.md
     - AI Providers: concepts/ai-providers.md
+  - Remediation:
+    - remediation/index.md
+    - Policies: remediation/policies.md
+    - Jira Integration: remediation/jira.md
+    - CLI Reference: remediation/cli.md
   - Reference:
     - reference/index.md
     - Environment Variables: reference/env-vars.md
