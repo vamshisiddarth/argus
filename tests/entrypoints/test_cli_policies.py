@@ -90,14 +90,12 @@ class TestPoliciesValidate:
         assert "policy loaded" in out or "policies loaded" in out
 
     def test_empty_dir_exits_zero_with_warning(self, tmp_path, capsys):
-
         rc = _run(["policies", "validate", "--dir", str(tmp_path)])
         assert rc == 0
         out = capsys.readouterr().out
         assert "No polic" in out or "0 policy" in out or "0 policies" in out
 
     def test_missing_dir_exits_zero_with_warning(self, tmp_path, capsys):
-
         rc = _run(["policies", "validate", "--dir", str(tmp_path / "nonexistent")])
         assert rc == 0
         out = capsys.readouterr().out
@@ -115,7 +113,8 @@ class TestPoliciesValidate:
         _write_policy(tmp_path, "a.yaml")
         _write_policy(tmp_path, "b.yaml")
         # make second file have a different policy_id to avoid conflict
-        (tmp_path / "b.yaml").write_text(textwrap.dedent("""\
+        (tmp_path / "b.yaml").write_text(
+            textwrap.dedent("""\
             version: "1"
             policy_id: rds-delete
             name: Delete stopped RDS
@@ -124,7 +123,8 @@ class TestPoliciesValidate:
             weight: 5
             conditions:
               min_estimated_monthly_cost_usd: 10.0
-        """))
+        """)
+        )
 
         rc = _run(["policies", "validate", "--dir", str(tmp_path)])
         assert rc == 0
@@ -400,7 +400,6 @@ class TestPoliciesApply:
 
 class TestPoliciesDocs:
     def test_docs_lists_all_types(self, capsys):
-
         rc = _run(["policies", "docs"])
         assert rc is None or rc == 0
         out = capsys.readouterr().out
@@ -408,13 +407,11 @@ class TestPoliciesDocs:
         assert "AWS" in out or "GCP" in out or "AZURE" in out
 
     def test_docs_filter_by_cloud(self, capsys):
-
         _run(["policies", "docs", "--cloud", "aws"])
         out = capsys.readouterr().out
         assert "AWS" in out
 
     def test_docs_specific_type_known(self, capsys):
-
         _run(["policies", "docs", "AWS::RDS::DBInstance"])
         out = capsys.readouterr().out
         assert "AWS::RDS::DBInstance" in out
@@ -422,20 +419,17 @@ class TestPoliciesDocs:
         assert "Tier 2" in out or "none defined" in out.lower()
 
     def test_docs_specific_type_unknown(self, capsys):
-
         _run(["policies", "docs", "AWS::Fake::Resource"])
         out = capsys.readouterr().out
         assert "Unknown resource type" in out
 
     def test_docs_shows_actions(self, capsys):
-
         _run(["policies", "docs", "AWS::RDS::DBInstance"])
         out = capsys.readouterr().out
         # RDS should have at least one valid action listed
         assert "actions:" in out or "Valid actions:" in out
 
     def test_docs_shows_tier1_conditions(self, capsys):
-
         _run(["policies", "docs", "AWS::RDS::DBInstance"])
         out = capsys.readouterr().out
         assert "min_estimated_monthly_cost_usd" in out
@@ -443,7 +437,6 @@ class TestPoliciesDocs:
         assert "idle_days_min" in out
 
     def test_docs_shows_total_count(self, capsys):
-
         _run(["policies", "docs"])
         out = capsys.readouterr().out
         assert "resource types known" in out or "Total:" in out
@@ -477,7 +470,8 @@ class TestValidatePoliciesErrorFormatting:
     def test_validation_error_shows_tip(self, tmp_path, capsys):
         # Two policies with same policy_id + same weight → conflict error
         # This passes load but fails validate_policies
-        (tmp_path / "a.yaml").write_text(textwrap.dedent("""\
+        (tmp_path / "a.yaml").write_text(
+            textwrap.dedent("""\
             version: "1"
             policy_id: rds-resize
             name: Resize RDS A
@@ -486,8 +480,10 @@ class TestValidatePoliciesErrorFormatting:
             weight: 10
             conditions:
               min_estimated_monthly_cost_usd: 50.0
-        """))
-        (tmp_path / "b.yaml").write_text(textwrap.dedent("""\
+        """)
+        )
+        (tmp_path / "b.yaml").write_text(
+            textwrap.dedent("""\
             version: "1"
             policy_id: rds-resize
             name: Resize RDS B
@@ -496,7 +492,8 @@ class TestValidatePoliciesErrorFormatting:
             weight: 10
             conditions:
               min_estimated_monthly_cost_usd: 50.0
-        """))
+        """)
+        )
         rc = _run(["policies", "validate", "--dir", str(tmp_path)])
         out = capsys.readouterr().out
         # Either a conflict error was caught (nonzero) or a load dedup happened
