@@ -56,4 +56,5 @@ jobs:
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          print-hash: true   # logs SHA256 of uploaded files for audit trail
+          print-hash: true      # logs SHA256 of uploaded files for audit trail
+          skip-existing: true   # idempotent — re-runs won't fail if file already uploaded
