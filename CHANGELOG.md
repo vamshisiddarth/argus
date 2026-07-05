@@ -27,7 +27,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 - **CONTRIBUTING.md** — new "Adding a remediation policy" section with step-by-step guide, policy YAML reference, and safety rules.
 - **ARCHITECTURE.md** — remediation flow diagram, rightsizing module table, safety layers, future UI design note.
 - **README** — remediation section with quick-start flow, bundled policy table, and safety guarantees.
-- 101 new tests (engine dedup, scope edge cases, ADF formatter, tracker lifecycle, audit log, webhook, loader edge cases, validator, rightsizing heuristics, stats command). Total: 1756 tests.
+- 101 new tests (engine dedup, scope edge cases, ADF formatter, tracker lifecycle, audit log, webhook, loader edge cases, validator, rightsizing heuristics, stats command). Total: **1,765 tests** (1,733 unit + 32 integration).
 
 ### Changed
 
