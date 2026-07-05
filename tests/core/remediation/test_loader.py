@@ -378,4 +378,36 @@ class TestConditionEdgeCases:
         with pytest.raises(PolicyLoadError, match="not valid for resource type"):
             load_policies(tmp_path)
 
+    def test_negative_cost_raises(self, tmp_path):
+        _write(
+            tmp_path,
+            "p.yaml",
+            _minimal(extra="conditions:\n  min_estimated_monthly_cost_usd: -10\n"),
+        )
+        with pytest.raises(PolicyLoadError, match=">= 0"):
+            load_policies(tmp_path)
+
+    def test_zero_idle_days_raises(self, tmp_path):
+        _write(
+            tmp_path,
+            "p.yaml",
+            _minimal(extra="conditions:\n  idle_days_min: 0\n"),
+        )
+        with pytest.raises(PolicyLoadError, match=">= 1"):
+            load_policies(tmp_path)
+
+    def test_negative_idle_days_raises(self, tmp_path):
+        _write(
+            tmp_path,
+            "p.yaml",
+            _minimal(extra="conditions:\n  idle_days_min: -5\n"),
+        )
+        with pytest.raises(PolicyLoadError, match=">= 1"):
+            load_policies(tmp_path)
+
+    def test_negative_weight_raises(self, tmp_path):
+        _write(tmp_path, "p.yaml", _minimal(weight=-1))
+        with pytest.raises(PolicyLoadError, match="weight.*>= 0"):
+            load_policies(tmp_path)
+
 

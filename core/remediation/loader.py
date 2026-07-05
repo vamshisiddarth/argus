@@ -145,6 +145,10 @@ def _parse_policy(raw: dict, source_file: str) -> Policy:
         raise PolicyLoadError(
             f"{fname}: 'weight' must be an integer, got {weight_raw!r}"
         ) from err
+    if weight < 0:
+        raise PolicyLoadError(
+            f"{fname}: 'weight' must be >= 0, got {weight}"
+        )
 
     conditions = _parse_conditions(raw.get("conditions") or {}, fname)
     include = _parse_scope(raw.get("include") or {}, fname, "include")
@@ -172,6 +176,10 @@ def _parse_conditions(raw: dict, fname: str) -> Condition:
             raise PolicyLoadError(
                 f"{fname}: 'conditions.min_estimated_monthly_cost_usd' must be a number"
             ) from err
+        if min_cost < 0:
+            raise PolicyLoadError(
+                f"{fname}: 'conditions.min_estimated_monthly_cost_usd' must be >= 0, got {min_cost}"
+            )
 
     idle_days = raw.get("idle_days_min")
     if idle_days is not None:
@@ -181,6 +189,10 @@ def _parse_conditions(raw: dict, fname: str) -> Condition:
             raise PolicyLoadError(
                 f"{fname}: 'conditions.idle_days_min' must be an integer"
             ) from err
+        if idle_days < 1:
+            raise PolicyLoadError(
+                f"{fname}: 'conditions.idle_days_min' must be >= 1, got {idle_days}"
+            )
 
     ai_priority_raw = raw.get("ai_priority")
     ai_priority: tuple[str, ...] | None = None
