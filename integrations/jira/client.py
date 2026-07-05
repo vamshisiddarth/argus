@@ -43,18 +43,22 @@ class JiraClient:
                 "fields": "summary,status,description",
             },
         )
-        return resp.get("issues", [])
+        issues: list[dict[str, Any]] = resp.get("issues", [])
+        return issues
 
     def create_issue(self, fields: dict[str, Any]) -> dict[str, Any]:
         """Create an issue and return the response dict (contains key + self URL)."""
-        resp = self._post("/rest/api/3/issue", json={"fields": fields})
-        return resp
+        result: dict[str, Any] = self._post(
+            "/rest/api/3/issue", json={"fields": fields}
+        )
+        return result
 
-    def add_comment(self, issue_key: str, body: str) -> None:
-        """Add a plain-text comment to an issue."""
+    def add_comment(self, issue_key: str, body: str | dict[str, Any]) -> None:
+        """Add a comment to an issue. body may be plain text or an ADF dict."""
+        adf_body = body if isinstance(body, dict) else _adf_paragraph(body)
         self._post(
             f"/rest/api/3/issue/{issue_key}/comment",
-            json={"body": _adf_paragraph(body)},
+            json={"body": adf_body},
         )
 
     def get_issue(self, issue_key: str) -> dict[str, Any]:
@@ -80,7 +84,8 @@ class JiraClient:
             timeout=_TIMEOUT,
         )
         resp.raise_for_status()
-        return resp.json()
+        result: dict[str, Any] = resp.json()
+        return result
 
     def _post(self, path: str, json: dict | None = None) -> dict[str, Any]:
         resp = requests.post(
@@ -92,7 +97,8 @@ class JiraClient:
         )
         resp.raise_for_status()
         if resp.content:
-            return resp.json()
+            result: dict[str, Any] = resp.json()
+            return result
         return {}
 
 

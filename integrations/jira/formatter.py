@@ -116,7 +116,8 @@ def extract_snapshot(description_text: str) -> dict[str, Any] | None:
         return None
     raw = description_text[start + len(_SNAPSHOT_MARKER) : end].strip()
     try:
-        return json.loads(raw)
+        result: dict[str, Any] = json.loads(raw)
+        return result
     except (json.JSONDecodeError, ValueError):
         return None
 

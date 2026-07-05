@@ -826,11 +826,11 @@ def _run_live_scan_for_plan(args: argparse.Namespace) -> list:
     elif cloud == "gcp":
         from entrypoints.gcp_cloudrun import main as gcp_main
 
-        result = gcp_main() or {}  # type: ignore[assignment]
+        result = gcp_main() or {}  # type: ignore[assignment,func-returns-value]
     elif cloud == "azure":
         from entrypoints.azure_function import main as azure_main
 
-        result = azure_main(None) or {}  # type: ignore[assignment]
+        result = azure_main(None) or {}  # type: ignore[assignment,func-returns-value]
     else:
         return []
 
@@ -1073,7 +1073,7 @@ def _run_policies_docs(args: argparse.Namespace) -> None:
     if args.cloud:
         all_specs = registry.all_for_cloud(args.cloud)
     else:
-        all_specs = [registry.get(tid) for tid in type_ids if registry.get(tid)]
+        all_specs = [s for tid in type_ids if (s := registry.get(tid)) is not None]
 
     by_cloud: dict[str, list] = {}
     for spec in sorted(all_specs, key=lambda s: (s.cloud, s.type_id)):
