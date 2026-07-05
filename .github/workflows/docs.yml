@@ -8,7 +8,7 @@ on:
       - "v*"           # deploys versioned + updates "latest" alias
   pull_request:
     branches:
-      - main           # build-only check — no deploy
+      - main           # build-only check -- no deploy
 
 # Only one docs deploy at a time; PRs never cancel a running deploy
 concurrency:
@@ -20,7 +20,7 @@ permissions:
 
 jobs:
   # ------------------------------------------------------------------
-  # Job 1: Build (all triggers) — catches doc errors before merge
+  # Job 1: Build (all triggers) -- catches doc errors before merge
   # ------------------------------------------------------------------
   build:
     name: Build docs
@@ -39,11 +39,11 @@ jobs:
       - name: Install docs dependencies
         run: pip install mkdocs-material mkdocs-minify-plugin mike
 
-      - name: Build (strict — fails on warnings)
+      - name: Build (strict -- fails on warnings)
         run: mkdocs build --strict
 
   # ------------------------------------------------------------------
-  # Job 2: Deploy "dev" — only on push to main (not feature branches, not PRs)
+  # Job 2: Deploy "dev" -- only on push to main (not feature branches, not PRs)
   # ------------------------------------------------------------------
   deploy-dev:
     name: Deploy dev docs
@@ -73,7 +73,7 @@ jobs:
         run: mike deploy dev --push --message "docs: update dev from main@${{ github.sha }}"
 
   # ------------------------------------------------------------------
-  # Job 3: Deploy versioned release — only on v* tags
+  # Job 3: Deploy versioned release -- only on v* tags
   # ------------------------------------------------------------------
   deploy-release:
     name: Deploy versioned docs

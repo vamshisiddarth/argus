@@ -240,7 +240,7 @@ argus chat                                       # auto-detects cloud
 ```
 
 ```
-Argus v0.4.1 — AI Cloud Detective
+Argus v0.5.0 — AI Cloud Detective
 Cloud: AWS  |  Accounts: prod (123456789012)  |  Budget: $1.00/session
 Tip: end a line with \ to continue on the next line.
 Type your question, or /help for commands.

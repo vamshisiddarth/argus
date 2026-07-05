@@ -10,7 +10,7 @@ hide:
 <div class="hero-inner">
 <div class="hero-left" markdown>
 
-<div class="hero-badge" markdown><span class="hero-badge-version">v0.4.1</span> · Open Source · MIT License</div>
+<div class="hero-badge" markdown><span class="hero-badge-version">v0.5.0</span> · Open Source · MIT License</div>
 
 <p class="hero-tagline">AI Cloud Detective</p>
 
