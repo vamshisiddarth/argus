@@ -233,6 +233,25 @@ def main(argv: list[str] | None = None) -> None:
         help="Actually create Jira tickets (omit for dry-run)",
     )
 
+    # argus policies stats
+    pol_stats = policies_sub.add_parser(
+        "stats",
+        help="Show proposal acceptance stats from the audit log",
+    )
+    pol_stats.add_argument(
+        "--audit-log",
+        default=None,
+        metavar="PATH",
+        help="Path to audit.jsonl (default: ARGUS_AUDIT_LOG env var or ./local_reports/audit.jsonl)",
+    )
+    pol_stats.add_argument(
+        "--days",
+        type=int,
+        default=30,
+        metavar="N",
+        help="Only count proposals from the last N days (default: 30)",
+    )
+
     # argus policies docs
     pol_docs = policies_sub.add_parser(
         "docs",
@@ -390,6 +409,8 @@ def main(argv: list[str] | None = None) -> None:
             sys.exit(_run_policies_plan(args, confirm=False))
         elif args.policies_command == "apply":
             sys.exit(_run_policies_plan(args, confirm=args.confirm))
+        elif args.policies_command == "stats":
+            _run_policies_stats(args)
         elif args.policies_command == "docs":
             _run_policies_docs(args)
         return
@@ -910,6 +931,98 @@ def _print_plan(
             print(f"  · {ticket_summary[:width - 4]}")
         print()
         print(f"  {_warn('Next step:')} Run with --confirm to create Jira tickets.\n")
+
+
+# ---------------------------------------------------------------------------
+# argus policies stats
+# ---------------------------------------------------------------------------
+
+
+def _run_policies_stats(args: argparse.Namespace) -> None:
+    import json
+    import os
+    from collections import defaultdict
+    from datetime import datetime, timedelta, timezone
+    from pathlib import Path
+
+    audit_path = Path(
+        args.audit_log
+        or os.environ.get("ARGUS_AUDIT_LOG", "./local_reports/audit.jsonl")
+    )
+
+    if not audit_path.exists():
+        print(_warn(f"Audit log not found: {audit_path}"))
+        print("  Proposals are logged here when 'argus policies apply --confirm' runs.\n")
+        return
+
+    cutoff = datetime.now(tz=timezone.utc) - timedelta(days=args.days)
+
+    # policy_id → {total, jira_created, jira_updated, actions, clouds}
+    stats: dict[str, dict] = defaultdict(
+        lambda: {"total": 0, "jira_created": 0, "jira_updated": 0, "actions": set(), "clouds": set()}
+    )
+    total_rows = 0
+
+    with audit_path.open() as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+
+            ts_str = record.get("ts", "")
+            try:
+                ts = datetime.fromisoformat(ts_str)
+            except ValueError:
+                continue
+            if ts < cutoff:
+                continue
+
+            total_rows += 1
+            pid = record.get("policy_id", "unknown")
+            s = stats[pid]
+            s["total"] += 1
+            s["actions"].add(record.get("action", "?"))
+            s["clouds"].add(record.get("cloud", "?"))
+            jira_key = record.get("jira_key")
+            if jira_key:
+                # distinguish new vs. update by checking if we've seen this key before
+                seen = s.setdefault("_seen_keys", set())
+                if jira_key in seen:
+                    s["jira_updated"] += 1
+                else:
+                    seen.add(jira_key)
+                    s["jira_created"] += 1
+
+    if total_rows == 0:
+        print(_warn(f"No proposals found in the last {args.days} days.\n"))
+        return
+
+    print(f"\n{_bold('Policy Proposal Stats')} — last {args.days} days\n")
+    col_w = max((len(pid) for pid in stats), default=30) + 2
+
+    header = f"  {'POLICY':<{col_w}}  {'PROPOSALS':>9}  {'JIRA NEW':>8}  {'JIRA UPDATE':>11}  CLOUDS"
+    print(_bold(header))
+    print("  " + "-" * (len(header) - 2))
+
+    total_proposals = 0
+    total_tickets = 0
+    for pid in sorted(stats):
+        s = stats[pid]
+        clouds_str = ",".join(sorted(s["clouds"]))
+        props = s["total"]
+        created = s["jira_created"]
+        updated = s["jira_updated"]
+        total_proposals += props
+        total_tickets += created
+        row = f"  {pid:<{col_w}}  {props:>9}  {created:>8}  {updated:>11}  {clouds_str}"
+        print(row)
+
+    print("  " + "-" * (len(header) - 2))
+    print(f"  {'TOTAL':<{col_w}}  {total_proposals:>9}  {total_tickets:>8}\n")
 
 
 # ---------------------------------------------------------------------------

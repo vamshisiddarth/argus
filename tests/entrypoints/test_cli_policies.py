@@ -542,3 +542,93 @@ class TestLoadFindingsFromReport:
         findings = _load_findings_from_report(str(report))
         assert findings[0].last_activity is not None
         assert findings[0].last_activity.year == 2026
+
+
+# ---------------------------------------------------------------------------
+# argus policies stats
+# ---------------------------------------------------------------------------
+
+
+def _write_audit(path: Path, rows: list[dict]) -> None:
+    import json
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w") as fh:
+        for row in rows:
+            fh.write(json.dumps(row) + "\n")
+
+
+class TestPoliciesStats:
+    def _run_stats(self, argv: list[str]) -> tuple[int, str]:
+        import io
+        from unittest.mock import patch
+
+        buf = io.StringIO()
+        with patch("sys.stdout", buf):
+            code = _run(argv)
+        return code, buf.getvalue()
+
+    def test_no_audit_log_prints_hint(self, tmp_path):
+        code, out = self._run_stats(
+            ["policies", "stats", "--audit-log", str(tmp_path / "missing.jsonl")]
+        )
+        assert code == 0
+        assert "Audit log not found" in out
+
+    def test_empty_window_prints_no_proposals(self, tmp_path):
+        log = tmp_path / "audit.jsonl"
+        # Row from 2020 — outside 30-day window
+        _write_audit(log, [{
+            "ts": "2020-01-01T00:00:00+00:00",
+            "policy_id": "old-policy",
+            "action": "stop",
+            "cloud": "aws",
+            "jira_key": None,
+        }])
+        code, out = self._run_stats(
+            ["policies", "stats", "--audit-log", str(log), "--days", "30"]
+        )
+        assert code == 0
+        assert "No proposals found" in out
+
+    def test_counts_proposals_per_policy(self, tmp_path):
+        from datetime import datetime, timezone
+
+        now = datetime.now(tz=timezone.utc).isoformat()
+        log = tmp_path / "audit.jsonl"
+        _write_audit(log, [
+            {"ts": now, "policy_id": "rds-resize", "action": "resize", "cloud": "aws", "jira_key": "COST-1"},
+            {"ts": now, "policy_id": "rds-resize", "action": "resize", "cloud": "aws", "jira_key": "COST-2"},
+            {"ts": now, "policy_id": "ec2-stop", "action": "stop", "cloud": "aws", "jira_key": None},
+        ])
+        code, out = self._run_stats(["policies", "stats", "--audit-log", str(log)])
+        assert code == 0
+        assert "rds-resize" in out
+        assert "ec2-stop" in out
+        # total proposals row
+        assert "3" in out
+
+    def test_deduplicates_jira_new_vs_update(self, tmp_path):
+        from datetime import datetime, timezone
+
+        now = datetime.now(tz=timezone.utc).isoformat()
+        log = tmp_path / "audit.jsonl"
+        # COST-1 appears twice — first is "new", second is "update"
+        _write_audit(log, [
+            {"ts": now, "policy_id": "p1", "action": "stop", "cloud": "gcp", "jira_key": "COST-1"},
+            {"ts": now, "policy_id": "p1", "action": "stop", "cloud": "gcp", "jira_key": "COST-1"},
+        ])
+        code, out = self._run_stats(["policies", "stats", "--audit-log", str(log)])
+        assert code == 0
+        assert "p1" in out
+        # 1 new ticket, 1 update
+        lines = [l for l in out.splitlines() if "p1" in l and "POLICY" not in l]
+        assert lines, "p1 row not found"
+        parts = lines[0].split()
+        # parts: policy  total  jira_new  jira_update  clouds
+        total = int(parts[1])
+        new = int(parts[2])
+        update = int(parts[3])
+        assert total == 2
+        assert new == 1
+        assert update == 1
