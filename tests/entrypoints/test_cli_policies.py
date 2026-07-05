@@ -33,8 +33,7 @@ def _run(argv: list[str]) -> int:
 
 
 def _write_policy(tmp_path: Path, filename: str = "rds.yaml") -> Path:
-    content = textwrap.dedent(
-        """\
+    content = textwrap.dedent("""\
         version: "1"
         policy_id: rds-resize
         name: Resize underutilized RDS
@@ -44,8 +43,7 @@ def _write_policy(tmp_path: Path, filename: str = "rds.yaml") -> Path:
         conditions:
           min_estimated_monthly_cost_usd: 50.0
           ai_priority: [high, medium]
-    """
-    )
+    """)
     f = tmp_path / filename
     f.write_text(content)
     return f
@@ -117,9 +115,7 @@ class TestPoliciesValidate:
         _write_policy(tmp_path, "a.yaml")
         _write_policy(tmp_path, "b.yaml")
         # make second file have a different policy_id to avoid conflict
-        (tmp_path / "b.yaml").write_text(
-            textwrap.dedent(
-                """\
+        (tmp_path / "b.yaml").write_text(textwrap.dedent("""\
             version: "1"
             policy_id: rds-delete
             name: Delete stopped RDS
@@ -128,9 +124,7 @@ class TestPoliciesValidate:
             weight: 5
             conditions:
               min_estimated_monthly_cost_usd: 10.0
-        """
-            )
-        )
+        """))
 
         rc = _run(["policies", "validate", "--dir", str(tmp_path)])
         assert rc == 0
@@ -483,9 +477,7 @@ class TestValidatePoliciesErrorFormatting:
     def test_validation_error_shows_tip(self, tmp_path, capsys):
         # Two policies with same policy_id + same weight → conflict error
         # This passes load but fails validate_policies
-        (tmp_path / "a.yaml").write_text(
-            textwrap.dedent(
-                """\
+        (tmp_path / "a.yaml").write_text(textwrap.dedent("""\
             version: "1"
             policy_id: rds-resize
             name: Resize RDS A
@@ -494,12 +486,8 @@ class TestValidatePoliciesErrorFormatting:
             weight: 10
             conditions:
               min_estimated_monthly_cost_usd: 50.0
-        """
-            )
-        )
-        (tmp_path / "b.yaml").write_text(
-            textwrap.dedent(
-                """\
+        """))
+        (tmp_path / "b.yaml").write_text(textwrap.dedent("""\
             version: "1"
             policy_id: rds-resize
             name: Resize RDS B
@@ -508,9 +496,7 @@ class TestValidatePoliciesErrorFormatting:
             weight: 10
             conditions:
               min_estimated_monthly_cost_usd: 50.0
-        """
-            )
-        )
+        """))
         rc = _run(["policies", "validate", "--dir", str(tmp_path)])
         out = capsys.readouterr().out
         # Either a conflict error was caught (nonzero) or a load dedup happened
