@@ -222,7 +222,9 @@ def _audit(proposal: ChangeProposal, jira_key: str, jira_url: str) -> None:
         from core.remediation.audit import log_proposal
         log_proposal(proposal, jira_key=jira_key, jira_url=jira_url)
     except Exception as exc:  # noqa: BLE001
-        logger.warning("audit_failed proposal_id=%s error=%s", proposal.proposal_id, exc)
+        logger.warning(
+            "audit_failed proposal_id=%s error=%s", proposal.proposal_id, exc
+        )
 
 
 def _extract_description_text(issue: dict[str, Any]) -> str:

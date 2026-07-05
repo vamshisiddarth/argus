@@ -4,12 +4,9 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-import pytest
-
 from core.models.finding import ResourceFinding
 from core.remediation.models import Condition, Policy, ScopeFilter
 from core.remediation.rightsizing import suggest
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

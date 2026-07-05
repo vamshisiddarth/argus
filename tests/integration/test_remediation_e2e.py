@@ -38,7 +38,6 @@ from core.remediation.models import ChangeProposal
 from core.remediation.validator import validate_policies
 from integrations.jira.tracker import JiraTracker
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -176,7 +175,7 @@ class TestRemediationE2E:
         assert "argus-action-stop" in labels
 
     def test_finding_excluded_by_tag_produces_no_proposal(self, tmp_path):
-        """A production-tagged resource must never match a policy with prod exclusion."""
+        """Production-tagged resource must not match a policy with prod exclusion."""
         _write_policy(
             tmp_path / "ec2-stop.yaml",
             """\
@@ -234,8 +233,8 @@ class TestRemediationE2E:
         assert len(proposals) == 2
 
         by_resource = {p.finding.resource_id: p for p in proposals}
-        assert by_resource["i-expensive"].policy.action == "resize"   # high-weight matched
-        assert by_resource["i-cheap"].policy.action == "stop"         # fell through to catch-all
+        assert by_resource["i-expensive"].policy.action == "resize"
+        assert by_resource["i-cheap"].policy.action == "stop"
 
     def test_duplicate_resource_id_deduped(self, tmp_path):
         """Same resource appearing twice in findings produces one proposal."""
@@ -258,7 +257,7 @@ class TestRemediationE2E:
 
     def test_audit_log_written(self, tmp_path):
         """log_proposal appends a parseable JSONL line."""
-        from core.remediation.models import Condition, Policy, ScopeFilter
+        from core.remediation.models import Condition, Policy
 
         policy = Policy(
             policy_id="test-p",
@@ -277,7 +276,12 @@ class TestRemediationE2E:
         )
 
         audit_file = tmp_path / "audit.jsonl"
-        log_proposal(proposal, jira_key="INFRA-1", jira_url="https://jira.example.com/browse/INFRA-1", audit_path=str(audit_file))
+        log_proposal(
+            proposal,
+            jira_key="INFRA-1",
+            jira_url="https://jira.example.com/browse/INFRA-1",
+            audit_path=str(audit_file),
+        )
 
         assert audit_file.exists()
         line = json.loads(audit_file.read_text().strip())

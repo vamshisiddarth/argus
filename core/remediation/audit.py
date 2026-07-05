@@ -50,6 +50,8 @@ def log_proposal(
     try:
         with path.open("a") as fh:
             fh.write(json.dumps(record) + "\n")
-        logger.debug("audit_logged proposal_id=%s jira_key=%s", proposal.proposal_id, jira_key)
+        logger.debug(
+            "audit_logged proposal_id=%s jira_key=%s", proposal.proposal_id, jira_key
+        )
     except OSError as exc:
         logger.warning("audit_write_failed path=%s error=%s", path, exc)

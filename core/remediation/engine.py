@@ -34,7 +34,8 @@ def evaluate(
     for finding in findings:
         if finding.resource_id in seen_resource_ids:
             logger.debug(
-                "proposal_dedup_skipped resource_id=%s (already matched by earlier finding)",
+                "proposal_dedup_skipped resource_id=%s "
+                "(already matched by earlier finding)",
                 finding.resource_id,
             )
             continue

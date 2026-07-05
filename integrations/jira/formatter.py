@@ -153,7 +153,9 @@ def _build_adf_description(
     if f.metrics_summary:
         content.append(_adf_heading("Key Metrics", level=2))
         rows = [
-            [_adf_text(k), _adf_text(str(round(v, 4)) if isinstance(v, float) else str(v))]
+            [_adf_text(k), _adf_text(
+                str(round(v, 4)) if isinstance(v, float) else str(v)
+            )]
             for k, v in sorted(f.metrics_summary.items())
         ]
         content.append(_adf_table(["Metric", "Value"], rows))
@@ -166,7 +168,9 @@ def _build_adf_description(
     content.append(_adf_heading("Recommendation", level=2))
     content.append(_adf_paragraph(f.recommendation))
     if proposal.resize_recommendation:
-        content.append(_adf_paragraph(f"💡 Rightsizing: {proposal.resize_recommendation}"))
+        content.append(
+            _adf_paragraph(f"Rightsizing: {proposal.resize_recommendation}")
+        )
 
     # h2 Runbook
     content.append(_adf_heading("Runbook", level=2))

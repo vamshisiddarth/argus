@@ -269,21 +269,33 @@ class TestTier2Conditions:
 
     def test_all_metric_conditions_must_pass(self):
         # Both conditions must be satisfied — failing one blocks the match.
-        cpu_ok = MetricCondition(metric="CPUUtilization_avg", operator="lt", threshold=30.0)
-        conn_fail = MetricCondition(metric="DatabaseConnections", operator="lt", threshold=5.0)
+        cpu_ok = MetricCondition(
+            metric="CPUUtilization_avg", operator="lt", threshold=30.0
+        )
+        conn_fail = MetricCondition(
+            metric="DatabaseConnections", operator="lt", threshold=5.0
+        )
         cond = Condition(metrics=(cpu_ok, conn_fail))
         proposals = evaluate(
-            [_finding(metrics_summary={"CPUUtilization_avg": 10.0, "DatabaseConnections": 50.0})],
+            [_finding(metrics_summary={
+                "CPUUtilization_avg": 10.0, "DatabaseConnections": 50.0
+            })],
             [_policy(conditions=cond)],
         )
         assert proposals == []
 
     def test_all_metric_conditions_pass(self):
-        cpu_ok = MetricCondition(metric="CPUUtilization_avg", operator="lt", threshold=30.0)
-        conn_ok = MetricCondition(metric="DatabaseConnections", operator="lt", threshold=5.0)
+        cpu_ok = MetricCondition(
+            metric="CPUUtilization_avg", operator="lt", threshold=30.0
+        )
+        conn_ok = MetricCondition(
+            metric="DatabaseConnections", operator="lt", threshold=5.0
+        )
         cond = Condition(metrics=(cpu_ok, conn_ok))
         proposals = evaluate(
-            [_finding(metrics_summary={"CPUUtilization_avg": 10.0, "DatabaseConnections": 2.0})],
+            [_finding(metrics_summary={
+                "CPUUtilization_avg": 10.0, "DatabaseConnections": 2.0
+            })],
             [_policy(conditions=cond)],
         )
         assert len(proposals) == 1

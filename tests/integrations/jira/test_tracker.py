@@ -360,10 +360,11 @@ class TestExtractDescriptionText:
 
 class TestCommentFailureSilent:
     def test_comment_failure_logged_not_raised(self):
-        import logging
         client = _mock_client()
         client.search.return_value = [
-            {"key": "INFRA-7", "fields": {"description": "", "status": {"name": "Open"}}}
+            {"key": "INFRA-7", "fields": {
+                "description": "", "status": {"name": "Open"}
+            }}
         ]
         client.add_comment.side_effect = Exception("network error")
         tracker = _make_tracker(client)

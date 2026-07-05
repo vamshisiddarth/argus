@@ -22,4 +22,7 @@ class TestHandleTransition:
         assert "UNKNOWN" in caplog.text
 
     def test_does_not_raise(self):
-        handle_transition({"issue": {"key": "X-1"}, "transition": {"to": {"name": "Done"}}})
+        handle_transition({
+            "issue": {"key": "X-1"},
+            "transition": {"to": {"name": "Done"}},
+        })

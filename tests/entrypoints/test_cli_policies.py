@@ -302,11 +302,11 @@ class TestPoliciesApply:
         assert "Creating" not in out
 
     def test_apply_with_confirm_attempts_jira(self, tmp_path, capsys):
-        """--confirm triggers Jira ticket creation (fails gracefully when not configured)."""
+        """--confirm triggers Jira (fails gracefully when not configured)."""
         _write_policy(tmp_path)
         report = _write_report(tmp_path)
 
-        rc = _run([
+        _run([
             "policies", "apply",
             "--dir", str(tmp_path),
             "--report", str(report),
@@ -597,9 +597,12 @@ class TestPoliciesStats:
         now = datetime.now(tz=timezone.utc).isoformat()
         log = tmp_path / "audit.jsonl"
         _write_audit(log, [
-            {"ts": now, "policy_id": "rds-resize", "action": "resize", "cloud": "aws", "jira_key": "COST-1"},
-            {"ts": now, "policy_id": "rds-resize", "action": "resize", "cloud": "aws", "jira_key": "COST-2"},
-            {"ts": now, "policy_id": "ec2-stop", "action": "stop", "cloud": "aws", "jira_key": None},
+            {"ts": now, "policy_id": "rds-resize", "action": "resize",
+             "cloud": "aws", "jira_key": "COST-1"},
+            {"ts": now, "policy_id": "rds-resize", "action": "resize",
+             "cloud": "aws", "jira_key": "COST-2"},
+            {"ts": now, "policy_id": "ec2-stop", "action": "stop",
+             "cloud": "aws", "jira_key": None},
         ])
         code, out = self._run_stats(["policies", "stats", "--audit-log", str(log)])
         assert code == 0
@@ -615,14 +618,16 @@ class TestPoliciesStats:
         log = tmp_path / "audit.jsonl"
         # COST-1 appears twice — first is "new", second is "update"
         _write_audit(log, [
-            {"ts": now, "policy_id": "p1", "action": "stop", "cloud": "gcp", "jira_key": "COST-1"},
-            {"ts": now, "policy_id": "p1", "action": "stop", "cloud": "gcp", "jira_key": "COST-1"},
+            {"ts": now, "policy_id": "p1", "action": "stop",
+             "cloud": "gcp", "jira_key": "COST-1"},
+            {"ts": now, "policy_id": "p1", "action": "stop",
+             "cloud": "gcp", "jira_key": "COST-1"},
         ])
         code, out = self._run_stats(["policies", "stats", "--audit-log", str(log)])
         assert code == 0
         assert "p1" in out
         # 1 new ticket, 1 update
-        lines = [l for l in out.splitlines() if "p1" in l and "POLICY" not in l]
+        lines = [ln for ln in out.splitlines() if "p1" in ln and "POLICY" not in ln]
         assert lines, "p1 row not found"
         parts = lines[0].split()
         # parts: policy  total  jira_new  jira_update  clouds

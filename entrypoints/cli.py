@@ -242,7 +242,10 @@ def main(argv: list[str] | None = None) -> None:
         "--audit-log",
         default=None,
         metavar="PATH",
-        help="Path to audit.jsonl (default: ARGUS_AUDIT_LOG env var or ./local_reports/audit.jsonl)",
+        help=(
+            "Path to audit.jsonl "
+            "(default: ARGUS_AUDIT_LOG env var or ./local_reports/audit.jsonl)"
+        ),
     )
     pol_stats.add_argument(
         "--days",
@@ -923,12 +926,14 @@ def _print_plan(
             action_verb = {
                 "delete": "Delete", "resize": "Resize", "stop": "Stop",
                 "snapshot_delete": "Snapshot & delete", "archive": "Archive",
-                "convert_spot": "Convert to Spot", "reduce_replicas": "Reduce replicas for",
+                "convert_spot": "Convert to Spot",
+                "reduce_replicas": "Reduce replicas for",
                 "reduce_nodes": "Reduce nodes for",
             }.get(p.action, p.action.capitalize())
+            cost = f"${proposal.estimated_monthly_cost_usd:.0f}/mo"
             ticket_summary = (
                 f"[Argus] {action_verb} {f.name or f.resource_id} "
-                f"(${proposal.estimated_monthly_cost_usd:.0f}/mo · {f.priority} priority)"
+                f"({cost} · {f.priority} priority)"
             )
             print(f"  · {ticket_summary[:width - 4]}")
         print()
@@ -954,14 +959,20 @@ def _run_policies_stats(args: argparse.Namespace) -> None:
 
     if not audit_path.exists():
         print(_warn(f"Audit log not found: {audit_path}"))
-        print("  Proposals are logged here when 'argus policies apply --confirm' runs.\n")
+        print(
+            "  Proposals are logged here when "
+            "'argus policies apply --confirm' runs.\n"
+        )
         return
 
     cutoff = datetime.now(tz=timezone.utc) - timedelta(days=args.days)
 
     # policy_id → {total, jira_created, jira_updated, actions, clouds}
     stats: dict[str, dict] = defaultdict(
-        lambda: {"total": 0, "jira_created": 0, "jira_updated": 0, "actions": set(), "clouds": set()}
+        lambda: {
+            "total": 0, "jira_created": 0, "jira_updated": 0,
+            "actions": set(), "clouds": set(),
+        }
     )
     total_rows = 0
 
@@ -1006,7 +1017,10 @@ def _run_policies_stats(args: argparse.Namespace) -> None:
     print(f"\n{_bold('Policy Proposal Stats')} — last {args.days} days\n")
     col_w = max((len(pid) for pid in stats), default=30) + 2
 
-    header = f"  {'POLICY':<{col_w}}  {'PROPOSALS':>9}  {'JIRA NEW':>8}  {'JIRA UPDATE':>11}  CLOUDS"
+    header = (
+        f"  {'POLICY':<{col_w}}  {'PROPOSALS':>9}  "
+        f"{'JIRA NEW':>8}  {'JIRA UPDATE':>11}  CLOUDS"
+    )
     print(_bold(header))
     print("  " + "-" * (len(header) - 2))
 

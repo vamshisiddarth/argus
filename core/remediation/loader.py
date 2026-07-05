@@ -178,7 +178,8 @@ def _parse_conditions(raw: dict, fname: str) -> Condition:
             ) from err
         if min_cost < 0:
             raise PolicyLoadError(
-                f"{fname}: 'conditions.min_estimated_monthly_cost_usd' must be >= 0, got {min_cost}"
+                f"{fname}: 'conditions.min_estimated_monthly_cost_usd' "
+                f"must be >= 0, got {min_cost}"
             )
 
     idle_days = raw.get("idle_days_min")

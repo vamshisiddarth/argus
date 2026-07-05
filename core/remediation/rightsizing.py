@@ -19,9 +19,7 @@ _CPU_METRIC_NAMES = {
     "CPUUtilization_max",
     "CPUUtilization",
     # AWS EC2
-    "CPUUtilization_avg",
     # AWS Redshift
-    "CPUUtilization_avg",
     # GCP Cloud SQL
     "database/cpu/utilization",
     # GCP GKE / compute
@@ -153,7 +151,8 @@ def _suggest_nodes(cpu_pct: float | None, metrics: dict) -> str | None:
         return None
 
     if cpu_pct < 15 and node_count and node_count > 1:
-        recommended = max(1, round(node_count * cpu_pct / 100 / 0.6))  # target 60% utilisation
+        # target 60% utilisation
+        recommended = max(1, round(node_count * cpu_pct / 100 / 0.6))
         if recommended < node_count:
             return (
                 f"Observed CPU ~{cpu_pct:.1f}% across {node_count} nodes — "
