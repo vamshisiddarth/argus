@@ -3,48 +3,37 @@ name: Docs
 on:
   push:
     branches:
-      - main           # deploys "dev" alias
+      - main
     tags:
-      - "v*"           # deploys versioned + updates "latest" alias
+      - "v*"
   pull_request:
     branches:
-      - main           # build-only check -- no deploy
-
-# Only one docs deploy at a time; PRs never cancel a running deploy
-concurrency:
-  group: docs-${{ github.ref }}
-  cancel-in-progress: false
+      - main
+  workflow_dispatch:
 
 permissions:
-  contents: write      # mike needs push access to gh-pages branch
+  contents: write
 
 jobs:
-  # ------------------------------------------------------------------
-  # Job 1: Build (all triggers) -- catches doc errors before merge
-  # ------------------------------------------------------------------
   build:
     name: Build docs
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0   # mike needs full history to read gh-pages branch
+          fetch-depth: 0
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
           cache: pip
 
-      - name: Install docs dependencies
+      - name: Install deps
         run: pip install mkdocs-material mkdocs-minify-plugin mike
 
-      - name: Build (strict -- fails on warnings)
+      - name: Build
         run: mkdocs build --strict
 
-  # ------------------------------------------------------------------
-  # Job 2: Deploy "dev" -- only on push to main (not feature branches, not PRs)
-  # ------------------------------------------------------------------
   deploy-dev:
     name: Deploy dev docs
     needs: build
@@ -55,26 +44,22 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
           cache: pip
 
-      - name: Install docs dependencies
+      - name: Install deps
         run: pip install mkdocs-material mkdocs-minify-plugin mike
 
-      - name: Configure git for mike
+      - name: Configure git
         run: |
-          git config user.name  "github-actions[bot]"
+          git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Deploy dev alias
-        run: mike deploy dev --push --message "docs: update dev from main@${{ github.sha }}"
+        run: mike deploy dev --push
 
-  # ------------------------------------------------------------------
-  # Job 3: Deploy versioned release -- only on v* tags
-  # ------------------------------------------------------------------
   deploy-release:
     name: Deploy versioned docs
     needs: build
@@ -85,30 +70,28 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
           cache: pip
 
-      - name: Install docs dependencies
+      - name: Install deps
         run: pip install mkdocs-material mkdocs-minify-plugin mike
 
-      - name: Configure git for mike
+      - name: Configure git
         run: |
-          git config user.name  "github-actions[bot]"
+          git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Extract version from tag
-        id: version
-        run: echo "version=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+      - name: Extract version
+        id: ver
+        run: echo "v=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
 
-      - name: Deploy versioned docs and update latest alias
+      - name: Deploy versioned docs
         run: |
-          mike deploy "${{ steps.version.outputs.version }}" latest \
+          mike deploy "${{ steps.ver.outputs.v }}" latest \
             --update-aliases \
-            --push \
-            --message "docs: release v${{ steps.version.outputs.version }}"
+            --push
 
-      - name: Set latest as default
+      - name: Set default
         run: mike set-default latest --push

@@ -102,7 +102,7 @@ def _query_batch(
             aggregation={"totalCost": {"name": "PreTaxCost", "function": "Sum"}},  # type: ignore[dict-item]
             grouping=[QueryGrouping(type="Dimension", name="ResourceId")],
             filter=QueryFilter(
-                dimensions=QueryComparisonExpression(
+                dimensions=QueryComparisonExpression(  # type: ignore[call-overload]
                     name="ResourceId",
                     operator="In",
                     values=resource_ids,
