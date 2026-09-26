@@ -48,17 +48,24 @@ Open `.env` and set the minimum required values. Pick the tab for your cloud:
 
     !!! info "Resource Explorer aggregator index"
         Argus uses AWS Resource Explorer to discover all resources.
-        You need an **aggregator index** in `PRIMARY_REGION`.
+        You need an **aggregator index** in `RESOURCE_EXPLORER_REGION`
+        (defaults to `us-east-1`; it does not fall back to `PRIMARY_REGION`).
 
         Check if you have one:
         ```bash
         aws resource-explorer-2 get-index --region us-east-1
         ```
 
-        If not, create one:
+        If not, create one (plus a default view, which Argus's search relies on):
         ```bash
-        aws resource-explorer-2 create-index --type LOCAL --region us-east-1
-        aws resource-explorer-2 update-index-type --type AGGREGATOR --region us-east-1
+        aws resource-explorer-2 create-index --region us-east-1
+        INDEX_ARN=$(aws resource-explorer-2 get-index --region us-east-1 --query Arn --output text)
+        aws resource-explorer-2 update-index-type --arn "$INDEX_ARN" --type AGGREGATOR --region us-east-1
+
+        # Search uses the region's default view; include tags so Argus sees them
+        VIEW_ARN=$(aws resource-explorer-2 create-view --view-name argus-all \
+          --included-properties Name=tags --region us-east-1 --query View.ViewArn --output text)
+        aws resource-explorer-2 associate-default-view --view-arn "$VIEW_ARN" --region us-east-1
         ```
 
     !!! info "AWS Cost Explorer — one-time activation"
@@ -124,7 +131,7 @@ The agent will:
 
 1. Discover all billable resources via the cloud's discovery API
 2. Investigate candidates — metrics, cost data, and last-activity timestamps
-3. Print the notification payload to stdout (because `DRY_RUN=true`)
+3. Log a preview of the notification payload instead of posting it (because `DRY_RUN=true`)
 
 Typical output:
 
@@ -179,7 +186,7 @@ DRY_RUN=false
 argus scan
 ```
 
-Argus posts a **compact digest** — stats, a 2-sentence AI summary, and the top 5 findings as single lines. The full AI reasoning (why each resource is idle, what to do) lives in a separate HTML report.
+Argus posts a **compact digest** — stats, a short (3–5 sentence) AI executive summary, and the top 5 findings as single lines. The full AI reasoning (why each resource is idle, what to do) lives in a separate HTML report.
 
 ### Optional: HTML report with "Full report" button
 
@@ -222,7 +229,7 @@ Based on your AWS account, the three largest idle resources are:
 argus> Tell me more about that NAT Gateway
 ```
 
-Available commands: `/help`, `/scan`, `/cost`, `/clear`, `/quit`
+Available commands: `/help`, `/scan`, `/cost`, `/clear`, `/summary` (compact earlier turns), `/quit` (or `/exit`)
 
 ## :material-console: CLI reference
 
@@ -233,13 +240,15 @@ argus --run-now --cloud aws [options]           # backward-compat alias
 
 Options:
   --cloud CLOUD              Cloud provider (auto-detected from env vars if omitted)
-  --dry-run                  Print notification payload instead of posting
+  --dry-run                  Log a payload preview instead of posting; no Jira calls
   --ignore-regions REGIONS   Comma-separated regions to skip
                              e.g. --ignore-regions ap-east-1,me-south-1
   --ai-provider PROVIDER     anthropic | bedrock | vertexai | azure_openai (default: anthropic)
   --accounts PATH            Path to accounts.yaml for multi-account mode
   --primary-region REGION    AWS region for boto3 session (default: us-east-1)
-  --llm-budget USD           Cost budget per scan/session (default: $2.00 scan, $1.00 chat)
+  --max-resources N          Max resources to analyze per scan (default: 200; scan only)
+  --lookback-days DAYS       Metrics lookback window in days (default: 90; scan only)
+  --llm-budget USD           Cost budget per scan/session (default: $2.00 scan, $1.00 chat; 0 = unlimited)
 ```
 
 ## :material-arrow-right-circle-outline: Next steps

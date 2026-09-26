@@ -11,7 +11,7 @@ Thanks for your interest in contributing to Argus!
 1. Fork the repo and create a branch
 2. Make your changes
 3. Run `pytest tests/ -v` — all tests must pass
-4. Run `black . && ruff check .`
+4. Run `ruff format . && ruff check .` (CI checks both)
 5. Open a PR against `main`
 
 ## PR checklist
@@ -20,4 +20,4 @@ Thanks for your interest in contributing to Argus!
 - [ ] New code has tests
 - [ ] Type hints on all public functions
 - [ ] No real cloud credentials or API keys in any file
-- [ ] `CLAUDE.md` updated if architecture changed
+- [ ] `ARCHITECTURE.md` and the relevant `docs/` pages updated if behavior or architecture changed

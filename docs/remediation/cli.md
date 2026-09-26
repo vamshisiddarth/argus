@@ -14,23 +14,29 @@ argus policies validate --dir config/policies
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--dir` | `config/policies` | Directory containing `*.yaml` policy files |
+| `--dir` | `ARGUS_POLICY_DIR` or `./config/policies` | Directory containing `*.yaml` policy files |
 
 **Exit codes**
 
 | Code | Meaning |
 |------|---------|
 | 0 | All policies valid (warnings printed but not fatal) |
-| 1 | One or more errors (duplicate IDs, invalid actions, negative values, etc.) |
+| 1 | One or more errors (files that fail to load, duplicate IDs, invalid actions, weight conflicts, etc.) |
 
 **Example output**
 
 ```
-✔  13 policies loaded, 0 errors, 2 warnings
+  ✓ aws-ebs-delete-unattached.yaml  weight: 15    resource: AWS::EC2::Volume
+  ✓ aws-ec2-stop-idle.yaml          weight: 10    resource: AWS::EC2::Instance
+  ...
+  ✓ gcp-sql-stop-idle.yaml          weight: 20    resource: sqladmin.googleapis.com/Instance
 
-  ⚠  aws-ec2-stop-idle-14d  weight=30 shadows  aws-ec2-stop-idle-catch-all  weight=10
-     Both match AWS::EC2::Instance — lower-weight policy will never fire
+13 policies loaded — 0 error(s), 0 warning(s).
 ```
+
+A file that fails to load is reported with the reason, e.g.
+`✗ bad.yaml: invalid action 'fly'. Must be one of: [...]`. Warnings (such as a lower-weight
+policy that is fully shadowed by a higher-weight one) are printed but don't fail validation.
 
 ---
 
@@ -39,30 +45,49 @@ argus policies validate --dir config/policies
 Evaluate policies against a scan report and print the proposal table. **Dry run — no tickets created.**
 
 ```bash
-argus policies plan --report local_reports/scan.json
+argus policies plan --report local_reports/aws/2026/09/27/<scan-id>.json
+argus policies plan --live --cloud aws      # run a fresh scan instead (incurs API/AI cost)
 ```
 
 **Options**
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--report` | required | Path to scan report JSON |
-| `--dir` | `config/policies` | Policy directory |
+| `--report` | — | Path to an existing scan report JSON (fast, no cloud calls) |
+| `--live` | off | Run a live scan instead of reading `--report` |
+| `--cloud` | — | `aws` \| `gcp` \| `azure` — required with `--live` |
+| `--dir` | `ARGUS_POLICY_DIR` or `./config/policies` | Policy directory |
+
+One of `--report` or `--live` is required.
 
 **Example output**
 
 ```
-  POLICY                           RESOURCE               COST/MO  ACTION
-  ─────────────────────────────────────────────────────────────────────────
-  ● aws-rds-resize-high-cost-idle  db-analytics-01         $1,240  resize
-    ↳ Recommend db.t3.small (observed CPU ~6.2%)
-  ● aws-ec2-stop-idle-14d          i-0abc123def               $28  stop
-  ● aws-ebs-delete-unattached-30d  vol-orphan-0def8            $8  delete
-  ─────────────────────────────────────────────────────────────────────────
-  Estimated savings: $1,276/mo across 3 proposals
+┌─────────────────────────────────────────────────────────────────────┐
+│             POLICY PLAN — scan.json — 2026-09-27                    │
+│              3 finding(s) · 13 policies · 2 match(es)               │
+└─────────────────────────────────────────────────────────────────────┘
+
+  POLICY                 RESOURCE                COST/MO  ACTION
+  ─────────────────────  ─────────────────────  ────────  ──────────────
+  ● aws-ec2-stop-idle-14d  i-0abc123def                $28  stop
+  ● aws-ebs-delete-unatta  vol-orphan-0def8             $8  snapshot_delete
+
+  – aws-elasticache-delete-idle-30d  (no findings matched)
+  ...
+
+───────────────────────────────────────────────────────────────────────
+  2 match(es)  ·  Potential savings: $36/mo
+
+  Jira ticket preview (2 ticket(s) would be created):
+  · [Argus] Stop i-0abc123def ($28/mo · high priority)
+  · [Argus] Snapshot & delete vol-orphan-0def8 ($8/mo · medium priority)
 
   Next step: Run with --confirm to create Jira tickets.
 ```
+
+For `resize` and `reduce_nodes` matches, a rightsizing hint such as
+`↳ Recommend db.t3.small (observed CPU ~8.0%)` is shown under the row.
 
 Priority dots: 🔴 high · 🟡 medium · ⚪ low
 
@@ -84,9 +109,13 @@ argus policies apply --report local_reports/scan.json --confirm
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--report` | required | Path to scan report JSON |
-| `--dir` | `config/policies` | Policy directory |
+| `--report` | — | Path to an existing scan report JSON |
+| `--live` / `--cloud` | off | Run a live scan instead (same as `plan`) |
+| `--dir` | `ARGUS_POLICY_DIR` or `./config/policies` | Policy directory |
 | `--confirm` | false | Create/update Jira tickets (requires Jira env vars) |
+
+`apply --confirm` works regardless of `REMEDIATION_ENABLED`; that setting only controls
+automatic tickets after scheduled scans.
 
 **Required env vars** (when `--confirm` is set)
 
@@ -100,12 +129,13 @@ ARGUS_INTEGRATIONS_CONFIG=config/integrations.yaml
 **Example output** (with `--confirm`)
 
 ```
-  Creating Jira tickets…
+  ✓ i-0abc123def  →  https://yourorg.atlassian.net/browse/COST-42
+  ✓ vol-orphan-0def8  →  https://yourorg.atlassian.net/browse/COST-38
 
-  ✔  COST-42  db-analytics-01  (new)
-  ✔  COST-43  i-0abc123def     (new)
-  –  COST-38  vol-orphan-0def8 (unchanged — skipped)
+  2 ticket(s) created/updated, 0 failed.
 ```
+
+A resource that already has an open ticket shows that ticket's URL; no duplicate is created.
 
 ---
 
@@ -165,10 +195,21 @@ argus policies docs --cloud gcp
 **Example output**
 
 ```
-AWS::RDS::DBInstance
-  Display name : RDS DB Instance
-  Cloud        : aws
-  Actions      : stop, resize, snapshot_delete
-  Metrics      : CPUUtilization_avg, FreeStorageSpace_avg, DatabaseConnections_avg,
-                 ReadIOPS_avg, WriteIOPS_avg, FreeableMemory_avg
+  ┌──────────────────────────────────────────────────────────────┐
+  │  AWS::RDS::DBInstance                                        │
+  │  RDS Instance                                                │
+  │  cloud: aws                                                  │
+  └──────────────────────────────────────────────────────────────┘
+
+  ▸ Tier 1 Conditions  (universal — all resource types)
+    min_estimated_monthly_cost_usd          float     Min cost (USD/mo) to trigger
+    ai_priority                             list      [high] / [medium] / [low]
+    idle_days_min                           int       Days since last activity
+
+  ▸ Tier 2 Conditions  (metric-based — this type only)
+    CPUUtilization                          float     lt / gt / lte / gte / eq
+    DatabaseConnections                     float     lt / gt / lte / gte / eq
+    NetworkReceiveThroughput                float     lt / gt / lte / gte / eq
+
+  ▸ Valid actions:  [delete]  [resize]  [stop]  [snapshot_delete]
 ```

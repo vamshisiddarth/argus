@@ -22,8 +22,8 @@ ANTHROPIC_API_KEY=sk-ant-...
 ```
 
 **Features:**
-- Prompt caching (`cache_control: ephemeral`) on the system prompt — iterations 2–N pay 10% of normal input cost for the cached portion
-- No retry logic needed (Anthropic SDK handles this)
+- Prompt caching (`cache_control: ephemeral`) on the system prompt — iterations 2–N are billed at the cached-read rate for that portion
+- Exponential backoff on rate-limit and server errors (up to 3 attempts, 1s then 2s)
 
 ## AWS Bedrock
 
@@ -42,7 +42,7 @@ BEDROCK_REGION=us-east-1                        # optional
 - AWS account must have a valid payment method (Bedrock returns `INVALID_PAYMENT_INSTRUMENT` otherwise — see [Troubleshooting](../reference/troubleshooting.md))
 
 **Features:**
-- Exponential backoff on `ThrottlingException` (3 retries, 1s/2s/4s delays)
+- Exponential backoff on `ThrottlingException` (up to 3 attempts, 1s then 2s)
 
 ## Vertex AI (Gemini)
 

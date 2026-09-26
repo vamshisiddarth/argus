@@ -99,21 +99,21 @@ Both `include` and `exclude` support the same fields:
 
 ## Bundled policies
 
-| Policy ID | Cloud | Action | Cost floor | Idle days |
-|-----------|-------|--------|-----------|-----------|
-| `aws-ec2-stop-idle-14d` | AWS | stop | $20/mo | 14 |
-| `aws-rds-resize-high-cost-idle` | AWS | resize | $100/mo | 14 |
-| `aws-ebs-delete-unattached-30d` | AWS | delete | $5/mo | 30 |
-| `aws-elb-delete-idle` | AWS | delete | $20/mo | — |
-| `aws-elasticache-delete-idle-30d` | AWS | delete | $50/mo | 30 |
-| `aws-lambda-delete-unused-30d` | AWS | delete | $0 | 30 |
-| `aws-redshift-snapshot-delete-14d` | AWS | snapshot_delete | $100/mo | 14 |
-| `gcp-compute-stop-idle-7d` | GCP | stop | $20/mo | 7 |
-| `gcp-sql-stop-idle-14d` | GCP | stop | $20/mo | 14 |
-| `gcp-gke-reduce-nodes-underutilised` | GCP | reduce_nodes | $200/mo | — |
-| `azure-vm-stop-idle-14d` | Azure | stop | $20/mo | 14 |
-| `azure-sql-resize-underutilised` | Azure | resize | $50/mo | — |
-| `azure-aks-reduce-nodes-underutilised` | Azure | reduce_nodes | $150/mo | — |
+| Policy ID | Cloud | Action | Weight | Cost floor | Idle days | AI priority | Metric conditions |
+|---|---|---|---|---|---|---|---|
+| `aws-redshift-snapshot-delete-14d` | AWS | snapshot_delete | 25 | $100/mo | 14 | high | `QueriesCompletedPerSecond_avg` < 0.01 |
+| `aws-rds-resize-high-cost-idle` | AWS | resize | 20 | $100/mo | — | high, medium | `CPUUtilization` < 5; `DatabaseConnections` < 10 |
+| `aws-ebs-delete-unattached-30d` | AWS | snapshot_delete | 15 | — | 30 | high, medium | `VolumeReadOps_sum` < 1; `VolumeWriteOps_sum` < 1 |
+| `aws-elasticache-delete-idle-30d` | AWS | delete | 15 | — | 30 | high | `CacheHits_sum` < 1; `CurrConnections_avg` < 1 |
+| `aws-elb-delete-idle` | AWS | delete | 15 | $10/mo | — | high, medium | `RequestCount_sum` < 1 |
+| `aws-ec2-stop-idle-14d` | AWS | stop | 10 | — | 14 | high, medium | `CPUUtilization` < 2; `NetworkOut` < 1048576 (1 MiB) |
+| `aws-lambda-delete-unused-30d` | AWS | delete | 10 | — | 30 | high, medium | `Invocations_sum` < 1; `Errors_sum` < 1 |
+| `gcp-gke-reduce-nodes-underutilised` | GCP | reduce_nodes | 20 | $200/mo | — | high, medium | `kubernetes.io/container/cpu/request_utilization` < 0.2 |
+| `gcp-sql-stop-idle-14d` | GCP | stop | 20 | — | 14 | high, medium | `database/cpu/utilization` < 0.02; `database/network/connections` < 1 |
+| `gcp-compute-stop-idle-7d` | GCP | stop | 10 | — | 7 | high | `compute.googleapis.com/instance/cpu/utilization` < 0.03 |
+| `azure-aks-reduce-nodes-underutilised` | Azure | reduce_nodes | 20 | $150/mo | — | high, medium | `node_cpu_usage_percentage` < 15 |
+| `azure-sql-resize-underutilised` | Azure | resize | 15 | $50/mo | — | high, medium | `dtu_consumption_percent` < 10; `connection_successful` < 10 |
+| `azure-vm-stop-idle-14d` | Azure | stop | 10 | — | 14 | high, medium | `Percentage CPU` < 3; `Network Out Total` < 10485760 (10 MiB) |
 
 ## Writing your own policy
 

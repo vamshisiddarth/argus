@@ -38,15 +38,24 @@ If Jira credentials are set but this is off, the scan logs `remediation_skipped 
 
 Create `config/integrations.yaml` (gitignored — never commit this):
 
+Start from `config/integrations.yaml.example`:
+
 ```yaml
+version: "1"
+
 jira:
-  project_key: COST          # Jira project where tickets are created
-  issue_type: Task           # or Story, Bug, etc.
-  default_assignee: null     # optional: Jira account ID
-  labels:
+  project: COST                 # required — Jira project key where tickets are created
+  issue_type: Task              # optional (default: Task)
+  default_labels:               # optional (default: [argus, cost-optimization])
     - argus
-    - cloud-cost
+    - cost-optimization
+  priority_map:                 # optional — AI priority → Jira priority name
+    high: High
+    medium: Medium
+    low: Low
 ```
+
+Without `jira.project`, ticket creation fails with a clear error (the scan itself still completes).
 
 Set the path via `ARGUS_INTEGRATIONS_CONFIG` if you store it elsewhere:
 
@@ -61,8 +70,8 @@ export ARGUS_INTEGRATIONS_CONFIG=/path/to/config/integrations.yaml
 On first `apply --confirm` for a finding, Argus:
 
 1. Searches for an existing open ticket with label `argus:<resource_id>:<policy_id>`
-2. If none found — creates a new ticket with full ADF description
-3. If found — updates the description (if the snapshot fingerprint changed) and adds a diff-comment
+2. If none found — creates a new ticket with full ADF description and a snapshot fingerprint
+3. If found — compares the fingerprint and adds a comment describing what changed; the description is not rewritten
 
 This makes `apply --confirm` **idempotent** — re-running after a re-scan either does nothing (finding unchanged) or updates the existing ticket (finding changed), never creates duplicates.
 
@@ -70,9 +79,9 @@ This makes `apply --confirm` **idempotent** — re-running after a re-scan eithe
 
 If the same resource appears in a later scan with different metrics or cost:
 
-- Argus detects the change via the **snapshot fingerprint** embedded in the ticket description
-- It updates the description with new data
-- It adds a comment: "Argus re-scan detected a change — description updated"
+- Argus compares against the **snapshot fingerprint** embedded in the ticket description when it was created
+- It adds a comment headed `Argus re-scan update — <date>` listing what changed (cost, priority, AI reasoning)
+- The original description and its fingerprint are left as they were
 
 ### Close
 
@@ -114,11 +123,10 @@ Every Argus ticket gets these labels automatically:
 
 | Label | Purpose |
 |-------|---------|
-| `argus` | Marks all Argus-created tickets |
+| `default_labels` from `integrations.yaml` | `argus`, `cost-optimization` unless you override them |
 | `argus:<resource_id>:<policy_id>` | Dedup key — one open ticket per resource per policy |
 | `argus-priority-<high\|medium\|low>` | AI-assigned priority |
 | `argus-action-<action>` | Proposed action (stop, resize, delete, etc.) |
-| Any labels from `integrations.yaml` | Your custom labels |
 
 !!! warning "Do not remove the dedup label"
     Removing `argus:<resource_id>:<policy_id>` from a ticket will cause Argus to create a duplicate on the next scan.

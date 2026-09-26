@@ -48,6 +48,10 @@ Small, known issues in what has shipped. Not scheduled; contributions welcome.
 - **Slack ticket count wording.** The digest says "N remediation ticket(s) created", but N includes existing tickets that were only updated or left unchanged.
 - **No decision tracing.** There is no trace of the agent's tool calls and reasoning per finding (Langfuse-style). Debugging a wrong "idle" call relies on logs and the report's AI reasoning text.
 - **Logs, not metrics.** Remediation outcomes are structured log lines only; there are no counters exported to CloudWatch / Cloud Monitoring / Azure Monitor.
+- **`SLACK_WEBHOOK_URL` is always required.** Startup validation insists on it (unless `DRY_RUN=true`) even when `NOTIFICATION_PROVIDER` only lists `teams` or `webhook`.
+- **`BEDROCK_MAX_TOKENS` is ignored.** The Bedrock provider always requests up to 4096 output tokens.
+- **AWS template doesn't expose `RESOURCE_EXPLORER_REGION`.** Deployed Lambdas assume the aggregator index is in `us-east-1` unless you add the variable by hand.
+- **GCP deploy script doesn't enable the Vertex AI API** even though Vertex AI is the default provider on Cloud Run.
 
 ---
 
@@ -71,11 +75,12 @@ Small, known issues in what has shipped. Not scheduled; contributions welcome.
 
 ## :material-chart-timeline: Historical Tracking
 
-**The problem:** each scan is a snapshot. There's no way to tell if things are getting better or the same waste keeps coming back.
+**Already shipped:** each report compares against the previous scan — findings are marked `new` or `recurring`, and `scan_diff` counts new, recurring, and resolved findings.
+
+**The problem:** that comparison only looks one scan back and isn't surfaced in the digest, so it's hard to see whether waste is trending down or the same resources keep coming back.
 
 **What changes:**
 
-- Findings compared week-over-week: new, resolved, and recurring clearly distinguished
 - Resources flagged repeatedly surface with a "flagged N times" badge
 - Weekly digest includes "X findings resolved since last week, saving $Y/mo"
 

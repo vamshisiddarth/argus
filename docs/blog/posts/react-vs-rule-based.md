@@ -25,6 +25,12 @@ This post explains what the problem actually is, what a ReAct loop is, and the s
 
 <!-- more -->
 
+!!! note "Updated 2026-09-27 for v0.6.0"
+    A few details below changed since this was written: Argus now discovers and cost-sorts resources
+    before the AI starts (so the AI sees the top 200 by cost, with costs attached), the metrics window
+    defaults to 90 days, and a scan is a multi-turn AI conversation rather than a single call. The text
+    has been corrected where it described those mechanics.
+
 ## What rules look like in practice
 
 Here is a small slice of what a rule-based idle detector needs to handle for just five resource types:
@@ -63,9 +69,9 @@ ReAct stands for Reason and Act. It is a pattern for AI agents where the model a
 
 In Argus, the loop works like this:
 
-1. The AI receives a list of all resources in your account along with their types, regions, and tags.
-2. It picks a resource that looks worth investigating and calls `get_metrics()` to fetch the last 14 days of CloudWatch data.
-3. It reads the metrics, adds them to its context, and decides whether to look further. It might call `get_cost()` to check what the resource is actually spending, or `get_last_activity()` to check CloudTrail for the last time a human or system touched it.
+1. Before the AI starts, Argus discovers every billable resource, fetches costs in one batched call, and keeps the most expensive ones (200 by default). The AI receives that list with types, regions, names, and monthly cost already attached.
+2. It picks a resource that looks worth investigating and calls `get_metrics()` to fetch CloudWatch data (the last 90 days by default).
+3. It reads the metrics, adds them to its context, and decides whether to look further. It might call `get_last_activity()` to check CloudTrail for the last time a human or system touched it.
 4. It keeps going until it has enough information to make a judgment, then writes a finding in plain language with its reasoning, a cost estimate, and a recommendation.
 
 The loop exits when the AI decides it has investigated enough resources. It does not need to check every resource. It reasons about which ones warrant deeper investigation, the same way a senior engineer would skim a list of resources and immediately know which ones to look at first.
@@ -76,9 +82,9 @@ Here is a concrete example of what this looks like for a single resource:
 
 ![Combining signals](../../assets/images/blog/signal-combination.svg)
 
-The AI sees all five signals together. It knows that 847 bytes of network traffic over 14 days is essentially nothing. It knows that 73 days without human activity is a long time. It knows $94.20 per month is real money. It knows the team=backend tag means it should call out the owner. No single signal would have been enough. Together, they add up to a clear finding.
+The AI sees all five signals together. It knows that 847 bytes of network traffic over two weeks is essentially nothing. It knows that 73 days without human activity is a long time. It knows $94.20 per month is real money. It knows the team=backend tag means it should call out the owner. No single signal would have been enough. Together, they add up to a clear finding.
 
-A rule checking bytes transferred would have flagged this correctly, but it would have also flagged the VPN tunnel next to it. The AI can read the routing table context and distinguish the two. A rule cannot.
+A rule checking bytes transferred would have flagged this correctly, but it would have also flagged the VPN tunnel next to it. Argus doesn't read routing tables, but the AI weighs the signals it does have (tags, names, owner, last activity, cost) and can say "low traffic but owned and recently touched, ask the platform team" instead of "delete". A single-metric rule cannot.
 
 ## The actual tradeoffs
 
@@ -88,7 +94,7 @@ This approach is not free. Here is what we gave up:
 
 **Speed.** The agent loop takes longer than a rule check. Rules run in milliseconds. A full Argus scan takes two to four minutes depending on account size. For a weekly report this is fine. For something you want to run on every deployment it is not.
 
-**Cost.** Each scan uses one batched AI API call. On AWS we use Bedrock. A typical scan costs around $0.24 in API usage. Across 52 weeks that is about $12.50 per year per account. For the context: a single overlooked idle NAT Gateway costs $32/month.
+**Cost.** Each scan is a bounded, multi-turn AI conversation, capped by an iteration limit and a per-scan dollar budget (`LLM_BUDGET_USD`, $2 by default). On AWS we use Bedrock. A typical scan costs around $0.24 in API usage. Across 52 weeks that is about $12.50 per year per account. For the context: a single overlooked idle NAT Gateway costs $32/month.
 
 **Debuggability.** When a rule fires, you know exactly why. When the AI flags a resource, you have to read its reasoning. We require the AI to include specific metric values in every finding, so you can verify the logic. But it is more work to audit than a threshold check.
 
@@ -98,7 +104,7 @@ What we got in return: we do not write rules. We do not maintain thresholds per 
 
 The core of Argus is the agent loop in [`core/agent/loop.py`](https://github.com/vamshisiddarth/argus/blob/main/core/agent/loop.py). It calls four methods on a cloud adapter: `list_resources`, `get_metrics`, `get_cost`, and `get_last_activity`. That is the full contract.
 
-If you want to add a new cloud, you implement those four methods. If you want to improve the analysis, you edit the system prompt in [`core/agent/prompts.py`](https://github.com/vamshisiddarth/argus/blob/main/core/agent/prompts.py). Nothing else needs to change.
+If you want to add a new cloud, you implement those four methods, register its resource types, and add a thin entrypoint (see [Adding a Cloud Adapter](../../contributing/new-adapter.md)). If you want to improve the analysis, you edit the system prompt in [`core/agent/prompts.py`](https://github.com/vamshisiddarth/argus/blob/main/core/agent/prompts.py). The agent loop itself doesn't change.
 
 The adapter pattern and the AI reasoning are deliberately separated so that each can be swapped out independently. You could replace Claude with GPT-4o or Gemini by implementing a different AI provider. You could add a new cloud by writing a new adapter. The core loop stays the same either way.
 

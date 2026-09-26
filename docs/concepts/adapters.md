@@ -18,7 +18,7 @@ class CloudAdapter(ABC):
         self,
         resource_id: str,
         resource_type: str,
-        days: int = 14,
+        days: int = 90,
     ) -> MetricSummary:
         """Return usage metrics for the past N days."""
 
@@ -42,16 +42,16 @@ class CloudAdapter(ABC):
 | Method | AWS service | Notes |
 |--------|-------------|-------|
 | `list_resources` | Resource Explorer v2 | Aggregator index, paginated, filters non-billable types |
-| `get_metrics` | CloudWatch GetMetricData | 43 resource types + dynamic `ListMetrics` fallback |
+| `get_metrics` | CloudWatch GetMetricData | 43 registry types + dynamic `ListMetrics` fallback |
 | `get_cost` | Cost Explorer `GetCostAndUsageWithResources` | Single batched call; requires resource-level data enabled |
-| `get_last_activity` | CloudTrail `LookupEvents` | 90-day lookback; filters read-only events |
+| `get_last_activity` | CloudTrail `LookupEvents` | 90-day lookback by resource name; returns the most recent event of any kind |
 
 ## GCP adapter
 
 | Method | GCP service | Notes |
 |--------|-------------|-------|
-| `list_resources` | Cloud Asset Inventory | 22 billable asset types; normalizes zones → regions |
-| `get_metrics` | Cloud Monitoring | 15 resource types + dynamic `ListMetricDescriptors` fallback |
+| `list_resources` | Cloud Asset Inventory | 31 asset types; normalizes zones → regions; drops types whose API isn't enabled |
+| `get_metrics` | Cloud Monitoring | 31 registry types + dynamic `ListMetricDescriptors` fallback |
 | `get_cost` | BigQuery billing export | Parameterized query; falls back to zeros if not configured |
 | `get_last_activity` | Cloud Audit Logs | Filters by resource name and service; 90-day lookback |
 
@@ -60,9 +60,9 @@ class CloudAdapter(ABC):
 | Method | Azure service | Notes |
 |--------|-------------|-------|
 | `list_resources` | Resource Graph (KQL) | Cross-subscription, paginated, excludes non-billable types |
-| `get_metrics` | Azure Monitor `MetricsQueryClient` | 25 resource types + `list_metric_definitions` fallback |
+| `get_metrics` | Azure Monitor `MetricsQueryClient` | 40 registry types + `list_metric_definitions` fallback |
 | `get_cost` | Cost Management `QueryDefinition` | Batched by 50 resource IDs per subscription |
-| `get_last_activity` | Log Analytics KQL → Activity Log REST fallback | Filters out read-only operations |
+| `get_last_activity` | Log Analytics KQL → Activity Log fallback | Filters out read-only (`/read`) operations |
 
 ## Resource and MetricSummary types
 
@@ -73,13 +73,16 @@ class Resource:
     resource_type: str      # e.g. "AWS::EC2::Instance"
     cloud: str              # "aws" | "gcp" | "azure"
     region: str
-    name: str | None        # from Name tag or display name
-    tags: dict[str, str]    # all tags
+    name: str | None = None # from Name tag or display name
+    tags: dict[str, str] = field(default_factory=dict)
 
 @dataclass
 class MetricSummary:
-    has_data: bool                   # False if no CloudWatch/Monitoring data exists
-    metrics: dict[str, float]        # metric_name → 90-day average value
+    resource_id: str
+    resource_type: str
+    period_days: int                 # lookback window used (METRICS_LOOKBACK_DAYS, default 90)
+    metrics: dict[str, Any]          # metric_name → aggregated value over the window
+    has_data: bool = True            # False if no CloudWatch/Monitoring data exists
 ```
 
 ## Non-billable resource filter (AWS)
@@ -90,7 +93,7 @@ class MetricSummary:
 - EC2 primitives: subnets, route tables, network ACLs, DHCP options, internet gateways
 - CloudFormation stacks and stacksets
 - SSM parameters, documents, patch baselines
-- Config rules, Lambda event source mappings, SNS subscriptions, CloudWatch alarms
+- Config rules and recorders, Lambda event source mappings and layer versions, SNS subscriptions, CloudWatch alarms
 - And more — see `adapters/aws/resource_explorer.py`
 
 This cuts 60–70% of the resource list before the AI sees it.

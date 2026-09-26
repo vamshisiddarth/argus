@@ -6,9 +6,11 @@ Argus runs as a Cloud Run Job triggered by Cloud Scheduler on a weekly schedule.
 
 - `gcloud` CLI installed and authenticated
 - Application Default Credentials: `gcloud auth application-default login`
-- APIs enabled (the deploy script enables them automatically):
-    - Cloud Run, Cloud Scheduler, Artifact Registry
-    - Cloud Asset Inventory, Cloud Monitoring, Cloud Logging, BigQuery
+- APIs enabled. The deploy script enables Cloud Run, Cloud Scheduler, Artifact Registry,
+  Cloud Asset Inventory, Cloud Monitoring, Cloud Logging, and BigQuery (plus Cloud Storage when
+  `REPORT_GCS_BUCKET` is set). It does **not** enable these, so enable them yourself if needed:
+    - **Vertex AI** (`aiplatform.googleapis.com`) — required for the default `AI_PROVIDER=vertexai`
+    - **Cloud Build** (`cloudbuild.googleapis.com`) — used by the script to build the image
 
 ## Deploy
 
@@ -26,6 +28,8 @@ export REGION=us-central1              # default: us-central1
 export BILLING_BQ_TABLE=my-project.billing.gcp_billing_export_v1_XXX
 export SCHEDULE="0 9 * * 1"           # default: Mondays 9am UTC (cron)
 export DRY_RUN=true                   # skip Slack post
+export AI_PROVIDER=anthropic           # default: vertexai
+export ANTHROPIC_API_KEY=sk-ant-...    # passed through only when AI_PROVIDER=anthropic
 
 # HTML report storage (optional — enables "Full report" button in Slack)
 export REPORT_GCS_BUCKET=my-argus-reports-bucket
@@ -47,6 +51,9 @@ When `REPORT_GCS_BUCKET` is set, the deploy script **automatically**:
 | Cloud Scheduler job | Triggers the job weekly |
 | Service account | `argus-sa@<project>.iam.gserviceaccount.com` |
 | IAM bindings | See [IAM permissions](#iam-permissions) below |
+
+The job runs `argus scan --cloud gcp` with 512 MiB memory, 1 CPU, a 1-hour task timeout, and 1 retry.
+The container image is built with Cloud Build and pushed to `gcr.io/<project>/argus:latest`.
 
 ## Trigger a manual scan
 
@@ -71,7 +78,8 @@ gcloud logging read \
 ## IAM permissions
 
 The deploy script creates `argus-sa@<project>.iam.gserviceaccount.com` and binds these roles
-automatically. All permissions are **read-only** — Argus never writes to any cloud resource.
+automatically. It always grants the BigQuery and Vertex AI roles, even when they aren't needed; remove
+them afterwards if you want the minimum surface. All permissions are **read-only** — Argus never writes to any cloud resource.
 
 ### Minimum required roles
 
@@ -244,7 +252,8 @@ Without this, cost fields show `$0.00` — the agent still finds idle resources 
 
 ### Enable required APIs
 
-The deploy script runs this automatically. To enable manually:
+The deploy script enables all of these except `aiplatform.googleapis.com` (and it also needs
+`cloudbuild.googleapis.com` to build the image). To enable manually:
 
 ```bash
 gcloud services enable \
@@ -255,5 +264,6 @@ gcloud services enable \
   aiplatform.googleapis.com \
   run.googleapis.com \
   cloudscheduler.googleapis.com \
+  cloudbuild.googleapis.com \
   --project=my-project-id
 ```

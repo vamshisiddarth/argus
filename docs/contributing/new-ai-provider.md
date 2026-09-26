@@ -124,6 +124,8 @@ def _parse_response(self, response: Any) -> AIResponse:
         stop_reason=stop_reason,
         text=text,
         tool_calls=tool_calls,
+        input_tokens=usage.input_tokens,    # report usage — LLM_BUDGET_USD depends on it
+        output_tokens=usage.output_tokens,
     )
 ```
 
@@ -147,7 +149,9 @@ def _call_with_retry(self, kwargs: dict) -> Any:
 
 ## 5. Wire it up
 
-Add the new provider to `entrypoints/aws_lambda.py` (and `cli.py`, `gcp_cloudrun.py`, `azure_function.py`):
+Each runtime builds its provider in a `_build_ai_provider()` function. Add a branch to each one you
+want to support: `entrypoints/aws_lambda.py`, `gcp_cloudrun.py`, `azure_function.py`, and
+`cli_chat.py` (chat mode). `argus scan` goes through the runtime entrypoints, so it picks this up.
 
 ```python
 def _build_ai_provider():
@@ -157,6 +161,13 @@ def _build_ai_provider():
         return MyProvider()
     # ... existing providers
 ```
+
+Then register the name in the places that validate it:
+
+- `entrypoints/cli.py` — the `--ai-provider` `choices` lists
+- `core/validation.py` — the `known` provider set (and any required env vars)
+- `core/token_tracker.py` — per-million-token pricing, so budget tracking and cost estimates work
+- `core/config.py` — any new settings, and the model default in `AISettings.resolved_model()`
 
 Add to `.env.example`:
 
