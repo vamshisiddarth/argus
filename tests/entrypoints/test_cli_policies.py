@@ -754,3 +754,19 @@ class TestPoliciesStats:
         assert total == 2
         assert new == 1
         assert update == 1
+
+
+class TestPoliciesDirEnv:
+    """CLI must read the same env var as the post-scan runner."""
+
+    @pytest.mark.parametrize("var", ["ARGUS_POLICY_DIR", "ARGUS_POLICIES_DIR"])
+    def test_validate_uses_env_dir(self, tmp_path, capsys, monkeypatch, var):
+        monkeypatch.delenv("ARGUS_POLICY_DIR", raising=False)
+        monkeypatch.delenv("ARGUS_POLICIES_DIR", raising=False)
+        _write_policy(tmp_path)
+        monkeypatch.setenv(var, str(tmp_path))
+
+        rc = _run(["policies", "validate"])
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "1 policy loaded" in out or "1 policies loaded" in out

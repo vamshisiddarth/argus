@@ -410,3 +410,54 @@ class TestConditionEdgeCases:
         _write(tmp_path, "p.yaml", _minimal(weight=-1))
         with pytest.raises(PolicyLoadError, match="weight.*>= 0"):
             load_policies(tmp_path)
+
+
+class TestResolvePolicyDir:
+    """ARGUS_POLICY_DIR is canonical; ARGUS_POLICIES_DIR is an accepted alias."""
+
+    @pytest.fixture(autouse=True)
+    def _clean_env(self, monkeypatch):
+        monkeypatch.delenv("ARGUS_POLICY_DIR", raising=False)
+        monkeypatch.delenv("ARGUS_POLICIES_DIR", raising=False)
+
+    def test_default_when_unset(self):
+        from core.remediation.loader import resolve_policy_dir
+
+        assert resolve_policy_dir() == "./config/policies"
+
+    def test_primary_name(self, monkeypatch):
+        from core.remediation.loader import resolve_policy_dir
+
+        monkeypatch.setenv("ARGUS_POLICY_DIR", "/a")
+        assert resolve_policy_dir() == "/a"
+
+    def test_alias_name(self, monkeypatch):
+        from core.remediation.loader import resolve_policy_dir
+
+        monkeypatch.setenv("ARGUS_POLICIES_DIR", "/b")
+        assert resolve_policy_dir() == "/b"
+
+    def test_primary_wins_and_conflict_warns(self, monkeypatch, caplog):
+        from core.remediation.loader import resolve_policy_dir
+
+        monkeypatch.setenv("ARGUS_POLICY_DIR", "/a")
+        monkeypatch.setenv("ARGUS_POLICIES_DIR", "/b")
+        with caplog.at_level("WARNING", logger="core.remediation.loader"):
+            assert resolve_policy_dir() == "/a"
+        assert any("policy_dir_env_conflict" in m for m in caplog.messages)
+
+    def test_same_value_in_both_does_not_warn(self, monkeypatch, caplog):
+        from core.remediation.loader import resolve_policy_dir
+
+        monkeypatch.setenv("ARGUS_POLICY_DIR", "/a")
+        monkeypatch.setenv("ARGUS_POLICIES_DIR", "/a")
+        with caplog.at_level("WARNING", logger="core.remediation.loader"):
+            resolve_policy_dir()
+        assert not caplog.messages
+
+    def test_blank_primary_falls_back_to_alias(self, monkeypatch):
+        from core.remediation.loader import resolve_policy_dir
+
+        monkeypatch.setenv("ARGUS_POLICY_DIR", "  ")
+        monkeypatch.setenv("ARGUS_POLICIES_DIR", "/b")
+        assert resolve_policy_dir() == "/b"

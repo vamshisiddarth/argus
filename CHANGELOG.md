@@ -11,6 +11,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- **CLI and scheduled scans read different policy-folder variables** — `argus policies validate/plan/apply` read `ARGUS_POLICIES_DIR` while the post-scan runner read `ARGUS_POLICY_DIR`, so `plan` could preview one set of policies and the scan use another. Both now resolve the folder the same way: `ARGUS_POLICY_DIR`, then `ARGUS_POLICIES_DIR` (still accepted), then `./config/policies`. A warning is logged if both are set to different values.
 - **Remediation ignored `DRY_RUN`** — `argus scan --dry-run` and `DRY_RUN=true` skipped Slack delivery but still created and commented on real Jira tickets when Jira credentials were set. Dry runs now evaluate policies and log a `remediation_would_track` line per proposal, with no Jira calls.
 
 ### Changed

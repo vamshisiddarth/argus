@@ -347,3 +347,22 @@ class TestRunRemediationOptIn:
         with caplog.at_level("INFO", logger="entrypoints._remediation"):
             run_remediation([_finding()])
         assert not [m for m in caplog.messages if "remediation_skipped" in m]
+
+
+class TestRunRemediationPolicyDirAlias:
+    def test_runner_honors_alias(self, tmp_path, monkeypatch):
+        from entrypoints._remediation import run_remediation
+
+        TestRunRemediationSuccess()._setup(tmp_path, monkeypatch)
+        policy_dir = tmp_path / "policies"
+        monkeypatch.delenv("ARGUS_POLICY_DIR", raising=False)
+        monkeypatch.setenv("ARGUS_POLICIES_DIR", str(policy_dir))
+        mock_tracker = MagicMock()
+        mock_tracker.create.return_value = "https://jira.example.com/browse/INFRA-1"
+        with patch(
+            "integrations.jira.tracker.JiraTracker.from_env",
+            return_value=mock_tracker,
+        ):
+            assert run_remediation([_finding()]) == [
+                "https://jira.example.com/browse/INFRA-1"
+            ]
