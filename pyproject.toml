@@ -88,7 +88,7 @@ build-backend = "setuptools.build_meta"
 version = {attr = "core.__version__.__version__"}
 
 [tool.setuptools.packages.find]
-include = ["core*", "adapters*", "ai*", "entrypoints*"]
+include = ["core*", "adapters*", "ai*", "entrypoints*", "integrations*"]
 
 [tool.setuptools.package-data]
 core = ["py.typed"]

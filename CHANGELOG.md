@@ -3,6 +3,12 @@
 All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## v0.6.1 (2026-09-27)
+
+### Fixed
+
+- **`argus scan` crashed for `pip install` users** — the PyPI package didn't include the `integrations/` package, and v0.6.0 imports it (via `entrypoints/_remediation.py`) at the end of every scan. The scan ran the full AI analysis, then failed with `ModuleNotFoundError: No module named 'integrations'` before sending notifications. Lambda, Cloud Run, and Azure Function deploys were not affected (they ship the whole repository). The same missing package also broke `argus policies apply --confirm` for pip users since v0.5.0. `integrations` is now packaged, and a test fails if any top-level package is left out of the wheel.
+
 ## v0.6.0 (2026-09-27)
 
 ### Breaking
