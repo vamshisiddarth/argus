@@ -475,7 +475,18 @@ picks it up automatically.
 ## Remediation Flow — Policy Engine
 
 Argus never executes changes. Instead it generates a prioritised work-order
-(Jira ticket) for a human to review and action. The full pipeline is:
+(Jira ticket) for a human to review and action. Tickets are created on one of
+two paths, which share everything from `load_policies()` down:
+
+- **On demand:** `argus policies apply --report scan.json --confirm`
+- **After every scheduled scan:** `entrypoints/_remediation.py`, only when
+  `REMEDIATION_ENABLED=true` (off by default since v0.6.0). It never raises, so a
+  Jira outage can't block the Slack digest, and it logs one `remediation_summary`
+  line per run. With `DRY_RUN=true` it stops after `engine.evaluate()` and only
+  logs what it would track.
+
+Both paths read the policy folder via `resolve_policy_dir()` (`ARGUS_POLICY_DIR`,
+alias `ARGUS_POLICIES_DIR`). The pipeline:
 
 ```
   Scan report (JSON)
@@ -492,7 +503,7 @@ Argus never executes changes. Instead it generates a prioritised work-order
   ChangeProposal[]         ← finding + matching policy + CLI runbook + resize_recommendation
         │  └── rightsizing.suggest() computes specific target tier/node count from CPU%
         │
-        ▼  (only with --confirm)
+        ▼  (CLI: only with --confirm · scan: only if REMEDIATION_ENABLED and not DRY_RUN)
   JiraTracker.create()     ← dedup via label, diff-comment on re-scan
         │  └── audit.log_proposal() → appends line to local_reports/audit.jsonl
         ▼
@@ -514,6 +525,9 @@ Argus never executes changes. Instead it generates a prioritised work-order
 | IAM            | Read-only roles — write APIs unavailable even with creds                       |
 | Code           | No cloud SDK write calls anywhere in the codebase                              |
 | CLI gate       | `apply` is dry-run by default; `--confirm` is required to create tickets       |
+| Scan opt-in    | Scheduled scans create tickets only with `REMEDIATION_ENABLED=true` (default off) |
+| Dry run        | `DRY_RUN=true` evaluates policies but makes no Jira calls                      |
+| Isolation      | Post-scan runner never raises; Jira failures are logged, digest still sends    |
 | Jira dedup     | Deterministic label `argus:<resource_id>:<policy_id>` — one open ticket per resource per policy |
 | Human gate     | Runbook printed in ticket; Argus never executes it                             |
 | Audit log      | Append-only JSONL — every create/update event is recorded; never overwritten   |

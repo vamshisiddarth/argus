@@ -37,7 +37,17 @@ Top findings
 
 ---
 
-## 🆕 What's new in v0.5.0
+## 🆕 What's new in v0.6.0
+
+> **Breaking:** scheduled scans now create Jira tickets only when `REMEDIATION_ENABLED=true` (default `false`). If you ran v0.5.0 with Jira configured, set it to keep tickets flowing. `argus policies apply --confirm` is unaffected.
+
+- **Dry runs never touch Jira** — `DRY_RUN=true` / `--dry-run` previously still created real tickets when Jira was configured.
+- **One summary log line per remediation run**, with `error_type` on failures.
+- **`ARGUS_POLICY_DIR`** is read by both the CLI and scheduled scans (`ARGUS_POLICIES_DIR` still accepted).
+
+[Full changelog →](CHANGELOG.md) · [Project status →](docs/roadmap.md)
+
+### v0.5.0
 
 > **Remediation is now first-class.** Argus goes beyond reporting — it generates Jira tickets, suggests exact resize targets, and tracks acceptance rates.
 
@@ -177,7 +187,7 @@ docker run --rm \
 
 ```bash
 pip install argus-cloud-optimizer
-argus --version   # argus 0.5.0
+argus --version   # argus 0.6.0
 argus --help
 ```
 
@@ -242,7 +252,7 @@ argus chat                                       # auto-detects cloud
 ```
 
 ```
-Argus v0.5.0 — AI Cloud Detective
+Argus v0.6.0 — AI Cloud Detective
 Cloud: AWS  |  Accounts: prod (123456789012)  |  Budget: $1.00/session
 Tip: end a line with \ to continue on the next line.
 Type your question, or /help for commands.

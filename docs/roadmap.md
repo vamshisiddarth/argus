@@ -1,13 +1,24 @@
 ---
 title: Roadmap
-description: What's coming next in Argus
+description: Argus project status — what has shipped, known gaps, and what's next
 ---
 
 # Roadmap
 
-v0.5.0 ships policy-driven remediation and Jira integration. Here's what's coming next. No dates are promised; items ship when they're ready and well-tested.
+This page is the current status of Argus as of **v0.6.0**: what has shipped, what is known to be incomplete, and what is planned next. It is the single source of truth for project status; older planning documents have been retired. No dates are promised; items ship when they're ready and well-tested.
 
 Have a feature request? [Open an issue](https://github.com/vamshisiddarth/argus/issues) — community input shapes what gets built next.
+
+---
+
+## :material-check-circle-outline: Shipped in v0.6.0
+
+A safety release for the remediation path. **Contains a breaking change**; see the [changelog](https://github.com/vamshisiddarth/argus/blob/main/CHANGELOG.md).
+
+- **Automatic tickets are opt-in.** Scheduled scans create Jira tickets only when `REMEDIATION_ENABLED=true` (default `false`). `argus policies apply --confirm` is unchanged.
+- **Dry runs never touch Jira.** `DRY_RUN=true` / `argus scan --dry-run` previously still created real tickets when Jira was configured. Dry runs now only log what would be tracked.
+- **One summary line per run.** `remediation_summary findings=… proposals=… tracked=… failed=… dry_run=…`, plus `error_type` on every failure so a Jira outage can be told apart from a bug.
+- **One policy-folder setting.** The CLI and scheduled scans now both read `ARGUS_POLICY_DIR` (the older `ARGUS_POLICIES_DIR` still works).
 
 ---
 
@@ -20,7 +31,7 @@ Each of the 114 supported resource types is now declared once — discovery quer
 Argus finds waste and now also creates Jira tickets for matched findings automatically.
 
 - Write a YAML policy file per resource type (see `config/policies.example/`)
-- Argus evaluates findings against your policies after every scan
+- Argus evaluates findings against your policies after every scan (opt-in since v0.6.0 via `REMEDIATION_ENABLED=true`)
 - A Jira ticket is opened for each match — deduplication prevents re-creating tickets for the same resource on the next scan
 - If the AI's analysis changes (cost drifts, priority changes), Argus adds a comment to the existing ticket rather than opening a duplicate
 - Ticket URLs are posted to Slack alongside the waste digest so nothing gets lost
@@ -30,9 +41,21 @@ Argus finds waste and now also creates Jira tickets for matched findings automat
 
 ---
 
+## :material-alert-circle-outline: Known gaps
+
+Small, known issues in what has shipped. Not scheduled; contributions welcome.
+
+- **Slack ticket count wording.** The digest says "N remediation ticket(s) created", but N includes existing tickets that were only updated or left unchanged.
+- **No decision tracing.** There is no trace of the agent's tool calls and reasoning per finding (Langfuse-style). Debugging a wrong "idle" call relies on logs and the report's AI reasoning text.
+- **Logs, not metrics.** Remediation outcomes are structured log lines only; there are no counters exported to CloudWatch / Cloud Monitoring / Azure Monitor.
+
+---
+
 ## :material-wrench-outline: Remediation v2 — Auto-execution
 
-**The problem:** Remediation v1 creates tickets. Acting on them still requires manual work.
+**Status: planned, not started.** Everything below this line is future work; none of it is in v0.6.0.
+
+**The problem:** Remediation v1 (shipped in v0.5.0, made opt-in in v0.6.0) creates tickets. Acting on them still requires manual work.
 
 **What changes:**
 
