@@ -24,7 +24,17 @@ export JIRA_USER_EMAIL=you@yourorg.com
 export JIRA_API_TOKEN=your-token-here
 ```
 
-### 3 — Integrations config
+### 3 — Turn on automatic tickets (optional)
+
+`argus policies apply --confirm` creates tickets on demand with just the steps above. To have every scheduled scan create tickets as well, opt in:
+
+```bash
+export REMEDIATION_ENABLED=true   # default: false
+```
+
+If Jira credentials are set but this is off, the scan logs `remediation_skipped reason=disabled` with a hint, and still delivers the Slack digest. With `DRY_RUN=true`, an enabled scan logs what it would track and makes no Jira calls.
+
+### 4 — Integrations config
 
 Create `config/integrations.yaml` (gitignored — never commit this):
 
