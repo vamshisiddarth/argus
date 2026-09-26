@@ -372,8 +372,6 @@ def _discover_metrics(
     credential: Any = None,
 ) -> list[tuple[str, str]]:
     """Auto-discover available metrics for unknown Azure resource types."""
-    from azure.monitor.query import MetricsQueryClient
-
     cred = credential or DefaultAzureCredential()
     client = MetricsQueryClient(cred, connection_timeout=10, read_timeout=60)
     discovered: list[tuple[str, str]] = []
