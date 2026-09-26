@@ -6,7 +6,8 @@ Jira tickets. Returns ticket URLs for inclusion in the Slack message.
 Never raises — all errors are logged so scan delivery is never blocked.
 
 Log events (key=value, one summary line per run):
-  remediation_skipped        debug, reason=<why nothing ran>
+  remediation_skipped        debug, reason=<why nothing ran>; info when
+                             disabled while Jira env is set
   remediation_would_track    dry-run only, one per proposal
   remediation_ticket_failed  one per proposal the tracker rejected (error_type)
   remediation_aborted        whole run failed (error_type); traceback if not
@@ -41,8 +42,11 @@ def run_remediation(
     """
     Evaluate findings against policies and create Jira tickets for matches.
 
-    Returns ticket URLs (empty if Jira is not configured, no policies found,
-    no findings matched, or DRY_RUN is set). Env-vars checked:
+    Returns ticket URLs (empty if remediation is disabled, Jira is not
+    configured, no policies found, no findings matched, or DRY_RUN is set).
+    Env-vars checked:
+      REMEDIATION_ENABLED — must be "true" for this runner to do anything
+                          (default: false, opt-in)
       ARGUS_POLICY_DIR  — directory containing *.yaml policy files
                           (default: ./config/policies)
       DRY_RUN           — "true" evaluates policies and logs what would be
@@ -50,6 +54,20 @@ def run_remediation(
       JIRA_BASE_URL, JIRA_USER_EMAIL, JIRA_API_TOKEN  — Jira credentials
       ARGUS_INTEGRATIONS_CONFIG  — integrations.yaml path
     """
+    from core.config import get_settings
+
+    if not get_settings().remediation.enabled:
+        if os.environ.get("JIRA_BASE_URL", "").strip():
+            # Jira is configured but the gate is off. Say so at INFO so
+            # upgraders from v0.5.0 aren't left wondering where tickets went.
+            logger.info(
+                "remediation_skipped reason=disabled "
+                "hint=set REMEDIATION_ENABLED=true to create Jira tickets"
+            )
+        else:
+            logger.debug("remediation_skipped reason=disabled")
+        return []
+
     policy_dir = os.environ.get("ARGUS_POLICY_DIR", "./config/policies")
     if not Path(policy_dir).is_dir():
         logger.debug(

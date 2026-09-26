@@ -160,6 +160,19 @@ class ReportSettings(BaseSettings):
 
 
 # ---------------------------------------------------------------------------
+# Remediation
+# ---------------------------------------------------------------------------
+
+
+class RemediationSettings(BaseSettings):
+    model_config = SettingsConfigDict(env_prefix="", env_file=".env", extra="ignore")
+
+    # Opt-in: the post-scan runner creates Jira tickets only when this is true.
+    # `argus policies apply --confirm` is already explicit and is not gated.
+    enabled: bool = Field(False, alias="REMEDIATION_ENABLED")
+
+
+# ---------------------------------------------------------------------------
 # Scan tuning
 # ---------------------------------------------------------------------------
 
@@ -212,6 +225,9 @@ class Settings(BaseSettings):
     report: ReportSettings = Field(default_factory=ReportSettings)  # type: ignore[arg-type]
     scan: ScanSettings = Field(default_factory=ScanSettings)  # type: ignore[arg-type]
     log: LogSettings = Field(default_factory=LogSettings)  # type: ignore[arg-type]
+    remediation: RemediationSettings = Field(
+        default_factory=RemediationSettings  # type: ignore[arg-type]
+    )
 
 
 @lru_cache(maxsize=1)

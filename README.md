@@ -95,6 +95,8 @@ argus policies apply --report scan_report.json --confirm
 argus policies stats   # acceptance rate per policy from audit log
 ```
 
+To create tickets automatically after every scheduled scan (Lambda, Cloud Run, Azure Function), set `REMEDIATION_ENABLED=true`. It is off by default; `apply --confirm` above works without it.
+
 ### Bundled policies (13)
 
 | Policy | Cloud | Action | Cost threshold |
