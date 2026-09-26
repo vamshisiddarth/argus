@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 
 import yaml
@@ -29,6 +30,32 @@ _VALID_ACTIONS = frozenset(
 )
 
 _SUPPORTED_VERSIONS = frozenset({"1"})
+
+DEFAULT_POLICY_DIR = "./config/policies"
+POLICY_DIR_ENV = "ARGUS_POLICY_DIR"
+# Older name used by the CLI and .env.example before v0.6.0. Still honored.
+POLICY_DIR_ENV_ALIAS = "ARGUS_POLICIES_DIR"
+
+
+def resolve_policy_dir() -> str:
+    """
+    Return the policy directory from the environment.
+
+    Precedence: ARGUS_POLICY_DIR, then ARGUS_POLICIES_DIR, then
+    ./config/policies. Used by both the CLI and the post-scan runner so
+    `argus policies plan` and a scheduled scan always read the same folder.
+    """
+    primary = os.environ.get(POLICY_DIR_ENV, "").strip()
+    alias = os.environ.get(POLICY_DIR_ENV_ALIAS, "").strip()
+    if primary and alias and primary != alias:
+        logger.warning(
+            "policy_dir_env_conflict using=%s=%s ignored=%s=%s",
+            POLICY_DIR_ENV,
+            primary,
+            POLICY_DIR_ENV_ALIAS,
+            alias,
+        )
+    return primary or alias or DEFAULT_POLICY_DIR
 
 
 def load_policies(policies_dir: str | Path) -> list[Policy]:

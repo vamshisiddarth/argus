@@ -153,6 +153,10 @@ def main(argv: list[str] | None = None) -> None:
     )
     policies_sub = policies_parser.add_subparsers(dest="policies_command")
 
+    # Same resolution as the post-scan runner (ARGUS_POLICY_DIR, then the
+    # older ARGUS_POLICIES_DIR alias) so plan/apply and scans agree.
+    from core.remediation.loader import resolve_policy_dir
+
     # argus policies validate
     pol_validate = policies_sub.add_parser(
         "validate",
@@ -160,7 +164,7 @@ def main(argv: list[str] | None = None) -> None:
     )
     pol_validate.add_argument(
         "--dir",
-        default=os.environ.get("ARGUS_POLICIES_DIR", "./config/policies"),
+        default=resolve_policy_dir(),
         dest="policies_dir",
         metavar="DIR",
         help="Directory containing policy YAML files (default: ./config/policies)",
@@ -173,7 +177,7 @@ def main(argv: list[str] | None = None) -> None:
     )
     pol_plan.add_argument(
         "--dir",
-        default=os.environ.get("ARGUS_POLICIES_DIR", "./config/policies"),
+        default=resolve_policy_dir(),
         dest="policies_dir",
         metavar="DIR",
         help="Directory containing policy YAML files (default: ./config/policies)",
@@ -204,7 +208,7 @@ def main(argv: list[str] | None = None) -> None:
     )
     pol_apply.add_argument(
         "--dir",
-        default=os.environ.get("ARGUS_POLICIES_DIR", "./config/policies"),
+        default=resolve_policy_dir(),
         dest="policies_dir",
         metavar="DIR",
         help="Directory containing policy YAML files (default: ./config/policies)",

@@ -48,7 +48,7 @@ def run_remediation(
       REMEDIATION_ENABLED — must be "true" for this runner to do anything
                           (default: false, opt-in)
       ARGUS_POLICY_DIR  — directory containing *.yaml policy files
-                          (default: ./config/policies)
+                          (alias ARGUS_POLICIES_DIR; default ./config/policies)
       DRY_RUN           — "true" evaluates policies and logs what would be
                           tracked, but makes no Jira calls
       JIRA_BASE_URL, JIRA_USER_EMAIL, JIRA_API_TOKEN  — Jira credentials
@@ -68,7 +68,9 @@ def run_remediation(
             logger.debug("remediation_skipped reason=disabled")
         return []
 
-    policy_dir = os.environ.get("ARGUS_POLICY_DIR", "./config/policies")
+    from core.remediation.loader import resolve_policy_dir
+
+    policy_dir = resolve_policy_dir()
     if not Path(policy_dir).is_dir():
         logger.debug(
             "remediation_skipped reason=policy_dir_not_found path=%s", policy_dir
