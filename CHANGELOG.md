@@ -11,7 +11,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Changed
 
-- Remediation runner now ends every run with one `remediation_summary` log line (`findings`, `proposals`, `tracked`, `failed`, `dry_run`), and each failed ticket logs its `policy_id` alongside the `resource_id`.
+- Remediation runner now ends every run with one `remediation_summary` log line (`findings`, `proposals`, `tracked`, `failed`, `dry_run`), and each failed ticket logs its `policy_id` and `error_type` alongside the `resource_id`. A run that fails outright logs `remediation_aborted` with `error_type`; a traceback is attached only for unexpected errors, not for Jira/config `TrackerError`s.
 
 ## v0.5.0 (2026-07-05)
 

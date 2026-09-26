@@ -6,9 +6,11 @@ Jira tickets. Returns ticket URLs for inclusion in the Slack message.
 Never raises — all errors are logged so scan delivery is never blocked.
 
 Log events (key=value, one summary line per run):
-  remediation_skipped        reason=<why nothing ran>
+  remediation_skipped        debug, reason=<why nothing ran>
   remediation_would_track    dry-run only, one per proposal
-  remediation_ticket_failed  one per proposal the tracker rejected
+  remediation_ticket_failed  one per proposal the tracker rejected (error_type)
+  remediation_aborted        whole run failed (error_type); traceback if not
+                             a TrackerError
   remediation_summary        findings, proposals, tracked, failed, dry_run
 """
 
@@ -18,6 +20,8 @@ import logging
 import os
 from pathlib import Path
 from typing import TYPE_CHECKING
+
+from integrations.base import TrackerError
 
 if TYPE_CHECKING:
     from core.models.finding import ResourceFinding
@@ -101,9 +105,11 @@ def run_remediation(
             except Exception as exc:  # noqa: BLE001
                 failed += 1
                 logger.warning(
-                    "remediation_ticket_failed resource_id=%s policy_id=%s error=%s",
+                    "remediation_ticket_failed resource_id=%s policy_id=%s "
+                    "error_type=%s error=%s",
                     proposal.finding.resource_id,
                     proposal.policy.policy_id,
+                    type(exc).__name__,
                     exc,
                 )
         logger.info(
@@ -115,6 +121,19 @@ def run_remediation(
             failed,
         )
         return urls
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("remediation_skipped reason=%s", exc)
+    except TrackerError as exc:
+        # Expected operational failure: missing Jira env/config, auth, network.
+        logger.warning(
+            "remediation_aborted error_type=%s error=%s", type(exc).__name__, exc
+        )
+        return []
+    except Exception as exc:  # noqa: BLE001 — must never block scan delivery
+        # Anything else (bad policy file, bug) gets a traceback so it can be
+        # told apart from a Jira outage.
+        logger.warning(
+            "remediation_aborted error_type=%s error=%s",
+            type(exc).__name__,
+            exc,
+            exc_info=True,
+        )
         return []
