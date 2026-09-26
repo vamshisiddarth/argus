@@ -3,6 +3,16 @@
 All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## Unreleased
+
+### Fixed
+
+- **Remediation ignored `DRY_RUN`** — `argus scan --dry-run` and `DRY_RUN=true` skipped Slack delivery but still created and commented on real Jira tickets when Jira credentials were set. Dry runs now evaluate policies and log a `remediation_would_track` line per proposal, with no Jira calls.
+
+### Changed
+
+- Remediation runner now ends every run with one `remediation_summary` log line (`findings`, `proposals`, `tracked`, `failed`, `dry_run`), and each failed ticket logs its `policy_id` and `error_type` alongside the `resource_id`. A run that fails outright logs `remediation_aborted` with `error_type`; a traceback is attached only for unexpected errors, not for Jira/config `TrackerError`s.
+
 ## v0.5.0 (2026-07-05)
 
 ### Added
