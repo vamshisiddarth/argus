@@ -85,7 +85,18 @@ class TestRunRemediationJiraNotConfigured:
 
 
 class TestRunRemediationSuccess:
+    def teardown_method(self):
+        from core.config import clear_settings_cache
+
+        clear_settings_cache()
+
     def _setup(self, tmp_path, monkeypatch):
+        from core.config import clear_settings_cache
+
+        # conftest forces DRY_RUN=true for entrypoint tests; these exercise
+        # the live Jira path, so turn it off explicitly.
+        monkeypatch.setenv("DRY_RUN", "false")
+        clear_settings_cache()
         policy_dir = tmp_path / "policies"
         _write_policy(policy_dir)
         cfg = tmp_path / "integrations.yaml"
@@ -121,3 +132,154 @@ class TestRunRemediationSuccess:
         ):
             result = run_remediation([_finding()])
         assert result == []
+
+
+class TestRunRemediationDryRun:
+    """DRY_RUN must never reach Jira, even with credentials configured."""
+
+    def teardown_method(self):
+        from core.config import clear_settings_cache
+
+        clear_settings_cache()
+
+    def _setup(self, tmp_path, monkeypatch):
+        from core.config import clear_settings_cache
+
+        TestRunRemediationSuccess()._setup(tmp_path, monkeypatch)
+        monkeypatch.setenv("DRY_RUN", "true")
+        clear_settings_cache()
+
+    def test_no_tracker_built_and_no_urls(self, tmp_path, monkeypatch):
+        from entrypoints._remediation import run_remediation
+
+        self._setup(tmp_path, monkeypatch)
+        with patch("integrations.jira.tracker.JiraTracker.from_env") as from_env:
+            result = run_remediation([_finding()])
+        assert result == []
+        from_env.assert_not_called()
+
+    def test_logs_would_track_per_proposal(self, tmp_path, monkeypatch, caplog):
+        from entrypoints._remediation import run_remediation
+
+        self._setup(tmp_path, monkeypatch)
+        with caplog.at_level("INFO", logger="entrypoints._remediation"):
+            run_remediation([_finding(resource_id="i-1"), _finding(resource_id="i-2")])
+        would = [m for m in caplog.messages if m.startswith("remediation_would_track")]
+        assert len(would) == 2
+        assert any("resource_id=i-1" in m and "policy_id=ec2-stop" in m for m in would)
+        assert any(
+            "remediation_summary" in m and "proposals=2" in m and "dry_run=True" in m
+            for m in caplog.messages
+        )
+
+
+class TestRunRemediationPartialFailure:
+    def teardown_method(self):
+        from core.config import clear_settings_cache
+
+        clear_settings_cache()
+
+    def test_one_failure_does_not_stop_the_rest(self, tmp_path, monkeypatch, caplog):
+        from entrypoints._remediation import run_remediation
+        from integrations.base import TrackerError
+
+        TestRunRemediationSuccess()._setup(tmp_path, monkeypatch)
+        mock_tracker = MagicMock()
+        mock_tracker.create.side_effect = [
+            "https://jira.example.com/browse/INFRA-1",
+            "https://jira.example.com/browse/INFRA-2",
+            TrackerError("Jira create_issue failed: 429 Too Many Requests"),
+            "https://jira.example.com/browse/INFRA-4",
+            "https://jira.example.com/browse/INFRA-5",
+        ]
+        findings = [_finding(resource_id=f"i-{n}") for n in range(1, 6)]
+        with (
+            patch(
+                "integrations.jira.tracker.JiraTracker.from_env",
+                return_value=mock_tracker,
+            ),
+            caplog.at_level("INFO", logger="entrypoints._remediation"),
+        ):
+            result = run_remediation(findings)
+
+        assert len(result) == 4
+        assert mock_tracker.create.call_count == 5
+        failed = [m for m in caplog.messages if "remediation_ticket_failed" in m]
+        assert len(failed) == 1 and "429" in failed[0]
+        assert any(
+            "remediation_summary" in m and "tracked=4" in m and "failed=1" in m
+            for m in caplog.messages
+        )
+
+    def test_tracker_init_failure_returns_empty(self, tmp_path, monkeypatch):
+        from entrypoints._remediation import run_remediation
+        from integrations.base import TrackerError
+
+        TestRunRemediationSuccess()._setup(tmp_path, monkeypatch)
+        with patch(
+            "integrations.jira.tracker.JiraTracker.from_env",
+            side_effect=TrackerError("401 Unauthorized"),
+        ):
+            assert run_remediation([_finding()]) == []
+
+
+class TestRunRemediationAbortLogging:
+    """Operators must be able to tell a Jira problem from a bug."""
+
+    def teardown_method(self):
+        from core.config import clear_settings_cache
+
+        clear_settings_cache()
+
+    def test_tracker_error_logged_with_type_no_traceback(
+        self, tmp_path, monkeypatch, caplog
+    ):
+        from entrypoints._remediation import run_remediation
+        from integrations.base import TrackerError
+
+        TestRunRemediationSuccess()._setup(tmp_path, monkeypatch)
+        with (
+            patch(
+                "integrations.jira.tracker.JiraTracker.from_env",
+                side_effect=TrackerError("401 Unauthorized"),
+            ),
+            caplog.at_level("WARNING", logger="entrypoints._remediation"),
+        ):
+            run_remediation([_finding()])
+        [rec] = [r for r in caplog.records if "remediation_aborted" in r.message]
+        assert "error_type=TrackerError" in rec.message
+        assert rec.exc_info is None
+
+    def test_unexpected_error_logged_with_traceback(
+        self, tmp_path, monkeypatch, caplog
+    ):
+        from entrypoints._remediation import run_remediation
+
+        TestRunRemediationSuccess()._setup(tmp_path, monkeypatch)
+        with (
+            patch("core.remediation.engine.evaluate", side_effect=KeyError("priority")),
+            caplog.at_level("WARNING", logger="entrypoints._remediation"),
+        ):
+            assert run_remediation([_finding()]) == []
+        [rec] = [r for r in caplog.records if "remediation_aborted" in r.message]
+        assert "error_type=KeyError" in rec.message
+        assert rec.exc_info is not None
+
+    def test_ticket_failure_includes_error_type(self, tmp_path, monkeypatch, caplog):
+        from entrypoints._remediation import run_remediation
+
+        TestRunRemediationSuccess()._setup(tmp_path, monkeypatch)
+        mock_tracker = MagicMock()
+        mock_tracker.create.side_effect = ConnectionError("reset")
+        with (
+            patch(
+                "integrations.jira.tracker.JiraTracker.from_env",
+                return_value=mock_tracker,
+            ),
+            caplog.at_level("WARNING", logger="entrypoints._remediation"),
+        ):
+            run_remediation([_finding()])
+        assert any(
+            "remediation_ticket_failed" in m and "error_type=ConnectionError" in m
+            for m in caplog.messages
+        )
