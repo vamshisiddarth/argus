@@ -31,6 +31,7 @@ argus policies stats   →   acceptance rate per policy from audit log
 
 | Variable | Purpose | Default |
 |----------|---------|---------|
+| `REMEDIATION_ENABLED` | Set `true` to create tickets automatically after each scan. Not needed for `argus policies apply --confirm` | `false` |
 | `ARGUS_POLICY_DIR` | Directory containing your `*.yaml` policy files | `./config/policies` |
 | `JIRA_BASE_URL` | Your Jira instance URL (e.g. `https://org.atlassian.net`) | — |
 | `JIRA_USER_EMAIL` | Bot account email for ticket creation | — |

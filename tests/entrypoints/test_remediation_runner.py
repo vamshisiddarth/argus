@@ -6,7 +6,19 @@ from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
+
+from core.config import clear_settings_cache
 from core.models.finding import ResourceFinding
+
+
+@pytest.fixture(autouse=True)
+def _remediation_enabled(monkeypatch):
+    """Most tests here exercise the enabled path; the gate is tested explicitly."""
+    monkeypatch.setenv("REMEDIATION_ENABLED", "true")
+    clear_settings_cache()
+    yield
+    clear_settings_cache()
 
 
 def _finding(**kwargs) -> ResourceFinding:
@@ -283,3 +295,55 @@ class TestRunRemediationAbortLogging:
             "remediation_ticket_failed" in m and "error_type=ConnectionError" in m
             for m in caplog.messages
         )
+
+
+class TestRunRemediationOptIn:
+    """REMEDIATION_ENABLED defaults to false; nothing runs until it is set."""
+
+    def _setup_disabled(self, tmp_path, monkeypatch, value):
+        TestRunRemediationSuccess()._setup(tmp_path, monkeypatch)
+        if value is None:
+            monkeypatch.delenv("REMEDIATION_ENABLED", raising=False)
+        else:
+            monkeypatch.setenv("REMEDIATION_ENABLED", value)
+        clear_settings_cache()
+
+    @pytest.mark.parametrize("value", [None, "false", "0"])
+    def test_disabled_makes_no_jira_calls(self, tmp_path, monkeypatch, value):
+        from entrypoints._remediation import run_remediation
+
+        self._setup_disabled(tmp_path, monkeypatch, value)
+        with (
+            patch("integrations.jira.tracker.JiraTracker.from_env") as from_env,
+            patch("core.remediation.loader.load_policies") as load,
+        ):
+            assert run_remediation([_finding()]) == []
+        from_env.assert_not_called()
+        load.assert_not_called()
+
+    def test_default_is_disabled(self, monkeypatch):
+        from core.config import get_settings
+
+        monkeypatch.delenv("REMEDIATION_ENABLED", raising=False)
+        clear_settings_cache()
+        assert get_settings().remediation.enabled is False
+
+    def test_disabled_with_jira_env_logs_hint_at_info(
+        self, tmp_path, monkeypatch, caplog
+    ):
+        from entrypoints._remediation import run_remediation
+
+        self._setup_disabled(tmp_path, monkeypatch, None)
+        with caplog.at_level("INFO", logger="entrypoints._remediation"):
+            run_remediation([_finding()])
+        [msg] = [m for m in caplog.messages if "remediation_skipped" in m]
+        assert "reason=disabled" in msg and "REMEDIATION_ENABLED=true" in msg
+
+    def test_disabled_without_jira_env_is_quiet(self, tmp_path, monkeypatch, caplog):
+        from entrypoints._remediation import run_remediation
+
+        self._setup_disabled(tmp_path, monkeypatch, None)
+        monkeypatch.delenv("JIRA_BASE_URL", raising=False)
+        with caplog.at_level("INFO", logger="entrypoints._remediation"):
+            run_remediation([_finding()])
+        assert not [m for m in caplog.messages if "remediation_skipped" in m]

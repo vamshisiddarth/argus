@@ -111,6 +111,7 @@ The required SDK must be installed for the cloud you reference — `boto3` for A
 
 | Variable | Default | Description |
 |----------|---------|-------------|
+| `REMEDIATION_ENABLED` | `false` | Opt-in. Set `true` to create Jira tickets automatically after each scan. `argus policies apply --confirm` is not affected. |
 | `ARGUS_POLICIES_DIR` | `config/policies` | Directory containing `*.yaml` policy files |
 | `ARGUS_INTEGRATIONS_CONFIG` | `config/integrations.yaml` | Path to integrations config (Jira project key, issue type, labels) |
 | `ARGUS_AUDIT_LOG` | `./local_reports/audit.jsonl` | Path for the append-only proposal audit log |

@@ -5,6 +5,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## Unreleased
 
+### Breaking
+
+- **Automatic remediation is now opt-in.** Scans create Jira tickets only when `REMEDIATION_ENABLED=true` (default `false`). If you run v0.5.0 with Jira configured and want tickets to keep flowing after upgrade, set `REMEDIATION_ENABLED=true`. When Jira env vars are set but the flag is off, each scan logs `remediation_skipped reason=disabled` at INFO with a hint. `argus policies apply --confirm` is unaffected.
+
 ### Fixed
 
 - **Remediation ignored `DRY_RUN`** — `argus scan --dry-run` and `DRY_RUN=true` skipped Slack delivery but still created and commented on real Jira tickets when Jira credentials were set. Dry runs now evaluate policies and log a `remediation_would_track` line per proposal, with no Jira calls.
