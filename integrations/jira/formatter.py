@@ -85,22 +85,32 @@ def build_update_comment(
         lines.append(f"Priority: {stored.get('priority', '?')} → {current['priority']}")
     if stored.get("reason_hash") != current["reason_hash"]:
         lines.append(f'AI reasoning updated: "{f.waste_reason[:160]}"')
-    if stored.get("proposal_id") != current.get("proposal_id"):
-        lines.append(f"Proposal ID: {current.get('proposal_id', 'unknown')}")
+    lines.append(f"Proposal ID: {proposal.proposal_id}")
 
     return _adf_paragraph("\n".join(lines))
 
 
 def fingerprint(proposal: ChangeProposal) -> dict[str, Any]:
-    """Compact snapshot of fields that trigger a comment on change."""
+    """Compact snapshot of fields that trigger a comment on change.
+
+    Deliberately excludes proposal_id: it is a fresh UUID every scan, so
+    including it made every re-scan look like a change.
+    """
     return {
-        "proposal_id": proposal.proposal_id,
         "cost": round(proposal.estimated_monthly_cost_usd, 0),
         "priority": proposal.finding.priority,
         "reason_hash": hashlib.md5(
             proposal.finding.waste_reason[:120].encode()
         ).hexdigest()[:8],
     }
+
+
+FINGERPRINT_KEYS = ("cost", "priority", "reason_hash")
+
+
+def snapshot_changed(stored: dict[str, Any], current: dict[str, Any]) -> bool:
+    """Compare only the fingerprint keys (ignores legacy keys such as proposal_id)."""
+    return any(stored.get(k) != current.get(k) for k in FINGERPRINT_KEYS)
 
 
 def extract_snapshot(description_text: str) -> dict[str, Any] | None:

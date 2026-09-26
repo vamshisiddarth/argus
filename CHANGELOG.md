@@ -11,11 +11,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- **Policy `exclude` tags required every entry to match** — a resource was only excluded if it carried *all* listed exclude tags at once. With the bundled policies' `environment: [prod, production]` + `argus-exempt: ["true"]` excludes, prod resources without `argus-exempt`, and `argus-exempt` resources outside prod, still got tickets. Matching any one exclude entry now excludes the resource (`include` still requires every entry). Regression tests cover the shipped policies.
+- **`accounts` scope filters never matched** — findings didn't carry an account ID, so `include: accounts` matched nothing and `exclude: accounts` excluded nothing. Findings now record `account_id` / `account_name` (from the scanned account, or the Azure subscription in the resource ID), and runbooks get the real account ID.
+- **Every re-scan commented on every open Jira ticket** — the snapshot fingerprint included the per-scan `proposal_id`, so nothing ever looked unchanged. The fingerprint now covers only cost, priority, and AI reasoning; tickets created by v0.5.0 are handled too.
+- **`aws-rds-resize-high-cost-idle` lacked the `argus-exempt` exclude** that every other bundled policy has.
 - **CLI and scheduled scans read different policy-folder variables** — `argus policies validate/plan/apply` read `ARGUS_POLICIES_DIR` while the post-scan runner read `ARGUS_POLICY_DIR`, so `plan` could preview one set of policies and the scan use another. Both now resolve the folder the same way: `ARGUS_POLICY_DIR`, then `ARGUS_POLICIES_DIR` (still accepted), then `./config/policies`. A warning is logged if both are set to different values.
 - **Remediation ignored `DRY_RUN`** — `argus scan --dry-run` and `DRY_RUN=true` skipped Slack delivery but still created and commented on real Jira tickets when Jira credentials were set. Dry runs now evaluate policies and log a `remediation_would_track` line per proposal, with no Jira calls.
 
 ### Changed
 
+- Report schema is now **1.0.1**: findings include optional `account_id` and `account_name`.
 - Remediation runner now ends every run with one `remediation_summary` log line (`findings`, `proposals`, `tracked`, `failed`, `dry_run`), and each failed ticket logs its `policy_id` and `error_type` alongside the `resource_id`. A run that fails outright logs `remediation_aborted` with `error_type`; a traceback is attached only for unexpected errors, not for Jira/config `TrackerError`s.
 
 ## v0.5.0 (2026-07-05)

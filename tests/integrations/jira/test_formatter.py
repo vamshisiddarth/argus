@@ -209,7 +209,7 @@ class TestBuildIssueFields:
 class TestFingerprint:
     def test_returns_expected_keys(self):
         fp = fingerprint(_proposal())
-        assert set(fp.keys()) == {"proposal_id", "cost", "priority", "reason_hash"}
+        assert set(fp.keys()) == {"cost", "priority", "reason_hash"}
 
     def test_cost_rounded(self):
         fp = fingerprint(_proposal())
@@ -223,10 +223,15 @@ class TestFingerprint:
         fp = fingerprint(_proposal())
         assert len(fp["reason_hash"]) == 8
 
-    def test_proposal_id_present(self):
-        proposal = _proposal()
-        fp = fingerprint(proposal)
-        assert fp["proposal_id"] == proposal.proposal_id
+    def test_proposal_id_not_in_fingerprint(self):
+        # proposal_id is a fresh UUID per scan; including it made every re-scan
+        # look like a change. It stays in the description and the audit log.
+        assert "proposal_id" not in fingerprint(_proposal())
+
+    def test_two_scans_of_same_finding_have_equal_fingerprints(self):
+        a, b = _proposal(), _proposal()
+        assert a.proposal_id != b.proposal_id
+        assert fingerprint(a) == fingerprint(b)
 
     def test_same_proposal_same_fingerprint(self):
         p = _proposal()
@@ -268,7 +273,7 @@ class TestExtractSnapshot:
         extracted = extract_snapshot(text)
         assert extracted is not None
         assert extracted["priority"] == "high"
-        assert extracted["proposal_id"] == proposal.proposal_id
+        assert "proposal_id" not in extracted
 
 
 # ---------------------------------------------------------------------------

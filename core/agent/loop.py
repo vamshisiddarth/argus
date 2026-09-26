@@ -164,7 +164,8 @@ class AgentLoop:
                             findings_count=len(tc.arguments.get("findings", [])),
                             **self.tracker.summary(),
                         )
-                        return _parse_findings(tc.arguments, cloud=cloud)
+                        findings, summary = _parse_findings(tc.arguments, cloud=cloud)
+                        return _attach_accounts(findings, accounts), summary
 
                 # Persist the assistant turn before executing tools
                 messages.append(
@@ -469,6 +470,42 @@ def _compress_resource(r: dict) -> dict:
         out["tags"] = r["tags"]
     # cloud field is redundant (the AI already knows the cloud from system prompt)
     return out
+
+
+def _attach_accounts(
+    findings: list[ResourceFinding], accounts: list[dict[str, Any]]
+) -> list[ResourceFinding]:
+    """
+    Stamp each finding with the account/project/subscription it came from.
+
+    One account per run (AWS, GCP, single-subscription Azure): every finding
+    belongs to it. Several accounts in one run (multi-subscription Azure):
+    match on the ``/subscriptions/<id>/`` segment of the resource ID.
+    Findings that can't be attributed keep ``account_id=None``.
+    """
+    if not accounts:
+        return findings
+    names = {str(a.get("id")): a.get("name") for a in accounts if a.get("id")}
+    only = next(iter(names)) if len(names) == 1 else None
+    for f in findings:
+        acct = only or _subscription_from_resource_id(f.resource_id, names)
+        if acct:
+            f.account_id = acct
+            f.account_name = names.get(acct) or acct
+    return findings
+
+
+def _subscription_from_resource_id(
+    resource_id: str, known: dict[str, Any]
+) -> str | None:
+    parts = resource_id.split("/")
+    for i, part in enumerate(parts[:-1]):
+        if part.lower() == "subscriptions":
+            sub = parts[i + 1].lower()
+            for acct in known:
+                if acct.lower() == sub:
+                    return acct
+    return None
 
 
 def _parse_findings(

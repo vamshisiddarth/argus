@@ -31,6 +31,10 @@ class ResourceFinding:
     name: str | None = None
     last_activity: datetime | None = None
     status: FindingStatus = "new"
+    # Set by the agent loop from the scanned account/project/subscription.
+    # Used by remediation `accounts` scope filters and runbook templates.
+    account_id: str | None = None
+    account_name: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -50,6 +54,8 @@ class ResourceFinding:
             ),
             "scan_time": self.scan_time.isoformat(),
             "status": self.status,
+            "account_id": self.account_id,
+            "account_name": self.account_name,
         }
 
     @classmethod
@@ -73,4 +79,6 @@ class ResourceFinding:
             last_activity=last_activity,
             scan_time=scan_time,
             status=data.get("status", "new"),
+            account_id=data.get("account_id"),
+            account_name=data.get("account_name"),
         )

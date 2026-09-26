@@ -26,6 +26,7 @@ from integrations.jira.formatter import (
     build_update_comment,
     extract_snapshot,
     fingerprint,
+    snapshot_changed,
 )
 
 logger = logging.getLogger(__name__)
@@ -99,7 +100,7 @@ class JiraTracker(ChangeTracker):
         stored = extract_snapshot(description_text)
         current = fingerprint(proposal)
 
-        if stored is None or stored != current:
+        if stored is None or snapshot_changed(stored, current):
             comment = build_update_comment(proposal, stored or {})
             try:
                 self._client.add_comment(key, comment)

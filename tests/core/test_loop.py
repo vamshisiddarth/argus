@@ -576,3 +576,85 @@ class TestReadOnlyGuardrail:
                         f"mutating keyword '{keyword}'. "
                         f"CloudAdapter implementations must be read-only."
                     )
+
+
+class TestAttachAccounts:
+    def _f(self, rid: str):
+        from datetime import datetime, timezone
+
+        from core.models.finding import ResourceFinding
+
+        return ResourceFinding(
+            resource_id=rid,
+            resource_type="x",
+            cloud="azure",
+            region="eastus",
+            estimated_monthly_cost=1.0,
+            waste_reason="",
+            recommendation="",
+            priority="low",
+            metrics_summary={},
+            tags={},
+            scan_time=datetime.now(tz=timezone.utc),
+        )
+
+    def test_single_account_stamps_every_finding(self):
+        from core.agent.loop import _attach_accounts
+
+        out = _attach_accounts(
+            [self._f("i-1"), self._f("i-2")], [{"id": "111", "name": "dev"}]
+        )
+        assert [(f.account_id, f.account_name) for f in out] == [
+            ("111", "dev"),
+            ("111", "dev"),
+        ]
+
+    def test_multi_subscription_matches_resource_id(self):
+        from core.agent.loop import _attach_accounts
+
+        rid = "/subscriptions/AAA-1/resourceGroups/rg/providers/x/vm1"
+        out = _attach_accounts(
+            [self._f(rid), self._f("/subscriptions/zzz/rg/x")],
+            [{"id": "aaa-1", "name": "prod"}, {"id": "bbb-2", "name": "dev"}],
+        )
+        assert (out[0].account_id, out[0].account_name) == ("aaa-1", "prod")
+        assert out[1].account_id is None
+
+    def test_run_stamps_account_on_findings(self):
+        """End to end: AgentLoop.run returns findings carrying the scanned account."""
+        from unittest.mock import MagicMock
+
+        from ai.base import AIResponse, ToolCall
+        from core.agent.loop import AgentLoop
+
+        ai = MagicMock()
+        ai.chat.return_value = AIResponse(
+            stop_reason="tool_use",
+            text=None,
+            tool_calls=[
+                ToolCall(
+                    id="t1",
+                    name="submit_findings",
+                    arguments={
+                        "findings": [
+                            {
+                                "resource_id": "i-1",
+                                "resource_type": "AWS::EC2::Instance",
+                                "region": "us-east-1",
+                                "estimated_monthly_cost": 10.0,
+                                "waste_reason": "idle",
+                                "recommendation": "stop",
+                                "priority": "high",
+                            }
+                        ],
+                        "executive_summary": "s",
+                    },
+                )
+            ],
+        )
+        adapter = MagicMock()
+        adapter.list_resources.return_value = []
+        findings, _ = AgentLoop(ai_provider=ai, cloud_adapter=adapter).run(
+            cloud="aws", ignore_regions=[], accounts=[{"id": "123", "name": "prod"}]
+        )
+        assert [(f.account_id, f.account_name) for f in findings] == [("123", "prod")]

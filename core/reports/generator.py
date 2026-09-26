@@ -17,6 +17,10 @@ def _registry() -> ResourceRegistry:
     return get_registry()
 
 
+# Report JSON schema version (see docs/reference/report-schema.md).
+# 1.0.1: findings gained optional account_id / account_name.
+SCHEMA_VERSION = "1.0.1"
+
 # Maximum findings shown as individual rows in the Slack digest
 SLACK_DIGEST_LIMIT = 5
 
@@ -48,7 +52,7 @@ def build_report(
     total_waste = sum(f.estimated_monthly_cost for f in sorted_findings)
 
     return {
-        "schema_version": "1.0",
+        "schema_version": SCHEMA_VERSION,
         "scan_id": str(uuid.uuid4()),
         "generated_at": datetime.now(tz=timezone.utc).isoformat(),
         "cloud": cloud,

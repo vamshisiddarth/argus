@@ -143,9 +143,10 @@ class TestBuildReport:
         assert report["agent_output_tokens"] == 0
         assert report["estimated_agent_cost_usd"] == 0.0
 
-    def test_schema_version_is_1_0(self):
+    def test_schema_version_is_1_0_1(self):
+        # 1.0.1: findings gained optional account_id / account_name
         report = build_report([], cloud="aws", executive_summary="x")
-        assert report["schema_version"] == "1.0"
+        assert report["schema_version"] == "1.0.1"
 
     def test_scan_id_is_unique_per_call(self):
         r1 = build_report([], cloud="aws", executive_summary="x")

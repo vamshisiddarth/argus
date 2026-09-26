@@ -91,8 +91,7 @@ def _scope_includes(finding: ResourceFinding, scope: ScopeFilter) -> bool:
     if scope.cloud_platforms and finding.cloud not in scope.cloud_platforms:
         return False
 
-    account = getattr(finding, "account_id", None) or getattr(finding, "cloud", "")
-    if scope.accounts and account not in scope.accounts:
+    if scope.accounts and finding.account_id not in scope.accounts:
         return False
 
     if scope.regions and finding.region not in scope.regions:
@@ -108,30 +107,37 @@ def _scope_excludes(finding: ResourceFinding, scope: ScopeFilter) -> bool:
     if scope.cloud_platforms and finding.cloud in scope.cloud_platforms:
         return True
 
-    account = getattr(finding, "account_id", None) or getattr(finding, "cloud", "")
-    if scope.accounts and account in scope.accounts:
+    if scope.accounts and finding.account_id in scope.accounts:
         return True
 
     if scope.regions and finding.region in scope.regions:
         return True
 
-    if scope.tags and _tags_match(finding.tags, scope.tags):
+    if scope.tags and _any_tag_entry_matches(finding.tags, scope.tags):
         return True
 
     return False
+
+
+def _tag_entry_matches(resource_tags: dict, tag_entry: dict[str, list[str]]) -> bool:
+    """True if the resource satisfies every key in one tag entry."""
+    return all(resource_tags.get(key) in allowed for key, allowed in tag_entry.items())
 
 
 def _tags_match(
     resource_tags: dict,
     scope_tags: tuple[dict[str, list[str]], ...],
 ) -> bool:
-    """Return True if the resource has ALL tag conditions in scope_tags."""
-    for tag_entry in scope_tags:
-        for key, allowed_values in tag_entry.items():
-            resource_value = resource_tags.get(key)
-            if resource_value not in allowed_values:
-                return False
-    return True
+    """Include semantics: the resource must satisfy ALL tag entries."""
+    return all(_tag_entry_matches(resource_tags, entry) for entry in scope_tags)
+
+
+def _any_tag_entry_matches(
+    resource_tags: dict,
+    scope_tags: tuple[dict[str, list[str]], ...],
+) -> bool:
+    """Exclude semantics: matching ANY tag entry excludes the resource."""
+    return any(_tag_entry_matches(resource_tags, entry) for entry in scope_tags)
 
 
 def _tier1_matches(finding: ResourceFinding, cond: Condition) -> bool:
@@ -212,7 +218,7 @@ def _build_proposal(finding: ResourceFinding, policy: Policy) -> ChangeProposal:
             action=policy.action,
             resource_id=finding.resource_id,
             region=finding.region,
-            account_id=getattr(finding, "account_id", None) or "",
+            account_id=finding.account_id or "",
         )
         or f"# No CLI template available for {finding.resource_type} / {policy.action}"
     )

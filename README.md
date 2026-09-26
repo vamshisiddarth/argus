@@ -109,23 +109,25 @@ To create tickets automatically after every scheduled scan (Lambda, Cloud Run, A
 
 ### Bundled policies (13)
 
-| Policy | Cloud | Action | Cost threshold |
-|--------|-------|--------|---------------|
-| `aws-ec2-stop-idle-14d` | AWS | stop | $20/mo |
-| `aws-rds-resize-high-cost-idle` | AWS | resize | $100/mo |
-| `aws-ebs-delete-unattached-30d` | AWS | delete | $5/mo |
-| `aws-elb-delete-idle` | AWS | delete | $20/mo |
-| `aws-elasticache-delete-idle-30d` | AWS | delete | $50/mo |
-| `aws-lambda-delete-unused-30d` | AWS | delete | $0 |
-| `aws-redshift-snapshot-delete-14d` | AWS | snapshot_delete | $100/mo |
-| `gcp-compute-stop-idle-7d` | GCP | stop | $20/mo |
-| `gcp-sql-stop-idle-14d` | GCP | stop | $20/mo |
-| `gcp-gke-reduce-nodes-underutilised` | GCP | reduce_nodes | $200/mo |
-| `azure-vm-stop-idle-14d` | Azure | stop | $20/mo |
-| `azure-sql-resize-underutilised` | Azure | resize | $50/mo |
-| `azure-aks-reduce-nodes-underutilised` | Azure | reduce_nodes | $150/mo |
+| Policy | Cloud | Action | Cost floor | Idle days |
+|--------|-------|--------|-----------|-----------|
+| `aws-redshift-snapshot-delete-14d` | AWS | snapshot_delete | $100/mo | 14 |
+| `aws-rds-resize-high-cost-idle` | AWS | resize | $100/mo | — |
+| `aws-ebs-delete-unattached-30d` | AWS | snapshot_delete | — | 30 |
+| `aws-elasticache-delete-idle-30d` | AWS | delete | — | 30 |
+| `aws-elb-delete-idle` | AWS | delete | $10/mo | — |
+| `aws-ec2-stop-idle-14d` | AWS | stop | — | 14 |
+| `aws-lambda-delete-unused-30d` | AWS | delete | — | 30 |
+| `gcp-gke-reduce-nodes-underutilised` | GCP | reduce_nodes | $200/mo | — |
+| `gcp-sql-stop-idle-14d` | GCP | stop | — | 14 |
+| `gcp-compute-stop-idle-7d` | GCP | stop | — | 7 |
+| `azure-aks-reduce-nodes-underutilised` | Azure | reduce_nodes | $150/mo | — |
+| `azure-sql-resize-underutilised` | Azure | resize | $50/mo | — |
+| `azure-vm-stop-idle-14d` | Azure | stop | — | 14 |
 
-All policies exclude `environment: prod` and `argus-exempt: "true"` tags by default. Add your own in `config/policies/` — see [CONTRIBUTING.md](CONTRIBUTING.md).
+Each policy also has AI-priority and metric conditions; see [Policies](https://vamshisiddarth.github.io/argus/remediation/policies/#bundled-policies) for the full table.
+
+All policies skip resources tagged `environment: prod` (or `production`) and resources tagged `argus-exempt: "true"` — either tag on its own is enough. Add your own in `config/policies/` — see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ### Safety guarantees
 

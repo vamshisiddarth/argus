@@ -11,6 +11,8 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
+from core.reports.generator import SCHEMA_VERSION
+
 RESOURCE_TAXONOMY: dict[str, str] = {
     # Compute
     "AWS::EC2::Instance": "Compute Instance",
@@ -110,7 +112,7 @@ def merge_reports(reports: list[dict[str, Any]]) -> dict[str, Any]:
     total_waste = sum(f["estimated_monthly_cost"] for f in all_findings)
 
     return {
-        "schema_version": "1.0",
+        "schema_version": SCHEMA_VERSION,
         "scan_id": str(uuid.uuid4()),
         "generated_at": datetime.now(tz=timezone.utc).isoformat(),
         "cloud": "multi",
@@ -128,7 +130,7 @@ def merge_reports(reports: list[dict[str, Any]]) -> dict[str, Any]:
 
 def _empty_merged_report() -> dict[str, Any]:
     return {
-        "schema_version": "1.0",
+        "schema_version": SCHEMA_VERSION,
         "scan_id": str(uuid.uuid4()),
         "generated_at": datetime.now(tz=timezone.utc).isoformat(),
         "cloud": "multi",
