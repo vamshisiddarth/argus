@@ -11,7 +11,7 @@ Argus runs as an Azure Function with a Timer trigger on a weekly schedule.
   az group create --name Argus-RG --location eastus
   ```
 - The subscription IDs you want to scan — you'll need them for `subscriptionIds` parameter
-- An Azure OpenAI resource with a GPT-4o deployment **or** an Anthropic API key
+- An Azure OpenAI resource with a GPT-4o deployment **or** an Anthropic API key. The template sets `AI_PROVIDER=azure_openai` when `azureOpenAIEndpoint` is given, and `anthropic` otherwise.
 
 ## Deploy
 
@@ -73,10 +73,11 @@ All permissions are **read-only** — Argus never writes to any Azure resource.
 | `Reader` | Each subscription | `*/read` on all resource types | Resource Graph KQL, Monitor metrics, Activity Log fallback | **Yes** |
 | `Cost Management Reader` | Each subscription | `Microsoft.CostManagement/query/action`, `Microsoft.CostManagement/*/read` | Cost Management API for spend data | **Yes** for cost data |
 | `Log Analytics Reader` | Log Analytics workspace | `Microsoft.OperationalInsights/workspaces/read`, `*/query/read` | Activity Log KQL queries via Log Analytics | Optional¹ |
-| `Storage Blob Data Contributor` | Report storage account | `Microsoft.Storage/storageAccounts/blobServices/containers/blobs/*` | Write JSON + HTML reports, generate SAS URLs | Optional² |
+| `Storage Blob Data Contributor` | Report storage account | `Microsoft.Storage/storageAccounts/blobServices/containers/blobs/*` | Write JSON + HTML reports, create the container | Optional² |
+| `Storage Blob Delegator` | Report storage account | `Microsoft.Storage/storageAccounts/blobServices/generateUserDelegationKey/action` | Sign the user-delegation SAS link in the digest | Optional² |
 
 > ¹ Required only when `logAnalyticsWorkspaceId` is set. Without it, Argus falls back to the Activity Log REST API (covered by `Reader`).  
-> ² Required only when `reportStorageAccount` is set.
+> ² Required only when `reportStorageAccount` is set. The Bicep template assigns both storage roles automatically in that case.
 
 ### Custom role (minimum permission surface)
 
@@ -153,12 +154,15 @@ az role assignment create \
   --role "Log Analytics Reader" \
   --scope $LOG_WORKSPACE_ID
 
-# Step 4 (optional): grant Storage Blob Data Contributor for HTML report uploads
+# Step 4 (optional, only if you didn't pass reportStorageAccount to Bicep):
+# storage roles for HTML report uploads and SAS links
 STORAGE_ACCOUNT_ID="/subscriptions/sub-id-1/resourceGroups/my-rg/providers/Microsoft.Storage/storageAccounts/myreportstore"
-az role assignment create \
-  --assignee $PRINCIPAL_ID \
-  --role "Storage Blob Data Contributor" \
-  --scope $STORAGE_ACCOUNT_ID
+for ROLE in "Storage Blob Data Contributor" "Storage Blob Delegator"; do
+  az role assignment create \
+    --assignee $PRINCIPAL_ID \
+    --role "$ROLE" \
+    --scope $STORAGE_ACCOUNT_ID
+done
 ```
 
 ### Verify the assignments
@@ -235,11 +239,11 @@ func azure functionapp publish <function-app-name>
 
 | Resource | Purpose |
 |----------|---------|
-| Function App (Linux, Python 3.11) | Runs the scan |
+| Function App (Linux, Python 3.13) | Runs the scan |
 | App Service Plan (Consumption Y1) | Serverless billing |
 | Storage Account | Required by Function runtime |
 | System-assigned managed identity | Authentication to Azure APIs — no credentials stored |
-| Role assignments | `Reader` + `Cost Management Reader` at resource group level. Cross-subscription access must be granted manually (see above). |
+| Role assignments | `Monitoring Reader` + `Cost Management Reader` at resource group level; `Storage Blob Data Contributor` + `Storage Blob Delegator` on the report storage account when `reportStorageAccount` is set. `Reader` and `Cost Management Reader` on each subscription to scan must be granted manually (see above). |
 
 ## View logs
 
@@ -272,8 +276,9 @@ To scan multiple subscriptions in one run, see the
 | `logAnalyticsWorkspaceId` | No | _(empty)_ | Enables Activity Log KQL queries (richer last-activity data) |
 | `scheduleExpression` | No | `0 0 9 * * 1` | Timer cron expression |
 | `ignoreRegions` | No | _(empty)_ | Comma-separated Azure regions to skip |
-| `dryRun` | No | `false` | `true` to skip Slack post |
-| `reportStorageAccount` | No | _(empty)_ | Storage account name for JSON + HTML reports. When set, the Slack digest includes a "Full report" button with a 7-day SAS URL. The Bicep automatically assigns `Storage Blob Data Contributor` to the managed identity. The storage account must already exist in the same subscription. |
+| `dryRun` | No | `false` | `true` to log a payload preview instead of posting; no Jira calls |
+| `logLevel` | No | `INFO` | `DEBUG` \| `INFO` \| `WARNING` \| `ERROR` |
+| `reportStorageAccount` | No | _(empty)_ | Storage account name for JSON + HTML reports. When set, the Slack digest includes a "Full report" button with a SAS URL (7 days by default). The Bicep automatically assigns `Storage Blob Data Contributor` and `Storage Blob Delegator` to the managed identity. The storage account must already exist in the same subscription. |
 | `reportStorageContainer` | No | `argus-reports` | Blob container name (created automatically if missing) |
 | `reportUrlExpiry` | No | `604800` | SAS URL expiry in seconds (default: 7 days) |
 | `location` | No | resource group location | Azure region for all resources |

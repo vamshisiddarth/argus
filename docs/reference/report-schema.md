@@ -20,14 +20,17 @@ Every Argus scan produces a JSON report with the following top-level fields.
 | `agent_input_tokens` | `integer` | Total input tokens consumed by the AI agent during this scan. |
 | `agent_output_tokens` | `integer` | Total output tokens consumed by the AI agent during this scan. |
 | `estimated_agent_cost_usd` | `number` | Estimated AI cost for this scan in USD. |
-| `scan_diff` | `ScanDiff \| null` | Cross-scan comparison data. `null` on first scan or if no previous report found. |
+| `scan_diff` | `ScanDiff` | Cross-scan comparison data. On the first scan (no previous report found), `previous_scan_id` is `null` and every finding counts as new. |
+| `scan_errors` | `object[]` | Accounts/projects/subscriptions that failed to scan: `{account_id, account_name, error}`. Empty when all succeeded. |
+| `skipped_resource_types` | `string[]` | Resource types that were skipped during the scan (for example, GCP asset types whose API isn't enabled). |
+| `registry_warnings` | `string[]` | Invalid resource-registry entries skipped at load time. Normally empty. |
 
 ## Finding object
 
 | Field | Type | Description |
 |---|---|---|
 | `resource_id` | `string` | Cloud-native resource identifier (ARN, self-link, or resource ID). |
-| `resource_type` | `string` | Resource type label (e.g. `"EC2"`, `"CloudSQL"`, `"VirtualMachine"`). |
+| `resource_type` | `string` | Registry type ID (e.g. `"AWS::EC2::Instance"`, `"sqladmin.googleapis.com/Instance"`, `"microsoft.compute/virtualmachines"`). See [Resource Types](resource-types.md). |
 | `cloud` | `string` | Cloud provider. |
 | `region` | `string` | Region or location where the resource exists. |
 | `name` | `string \| null` | Human-readable name tag, if available. |
@@ -39,7 +42,7 @@ Every Argus scan produces a JSON report with the following top-level fields.
 | `tags` | `object` | Resource tags as key-value pairs. |
 | `last_activity` | `string \| null` | ISO 8601 timestamp of the last detected activity, or `null`. |
 | `scan_time` | `string` | ISO 8601 timestamp of when the resource was scanned. |
-| `status` | `string` | `"new"`, `"recurring"`, or `"resolved"`. Set by cross-scan comparison. |
+| `status` | `string` | `"new"` or `"recurring"`, set by cross-scan comparison. Resolved resources aren't in `findings`; they're listed in `scan_diff.resolved_resource_ids`. |
 
 ## ScanDiff object
 

@@ -26,9 +26,9 @@ Argus takes a different approach: **give the AI the raw signal data and let it r
 
 For each candidate resource, the AI has access to:
 
-- **Cost** — monthly USD from Cost Explorer / BigQuery
-- **Metrics** — 90-day averages: CPU, network bytes, request count, IOPS, connections, etc.
-- **Instance size** — current instance type/class injected alongside metrics (e.g. `instance_type: db.r5.4xlarge`, `memory_mb: 3072`)
+- **Cost** — monthly USD from Cost Explorer / BigQuery / Cost Management, already attached to the resource list
+- **Metrics** — aggregated over `METRICS_LOOKBACK_DAYS` (default 90): CPU, network bytes, request count, IOPS, connections, etc.
+- **Instance size** (AWS) — current instance type/class injected alongside metrics (e.g. `instance_type: db.r5.4xlarge`, `memory_mb: 3072`)
 - **Last activity** — timestamp of the last meaningful CloudTrail / Audit Log event
 - **Tags** — owner, environment, team, purpose
 - **Resource type and region** — context for what the resource is supposed to do
@@ -123,10 +123,11 @@ The system prompt is built once per scan in `core/agent/prompts.py`:
 
 - Identifies the agent role and mission
 - Lists accounts and regions being scanned
-- Provides the investigation workflow (7 steps)
-- Defines what to look for (6 categories of waste)
-- Sets the priority rules
-- Enforces efficiency rules (batch cost calls, don't over-investigate)
+- Provides the investigation workflow (6 steps, starting from the cost-sorted resource list)
+- Defines what to look for (6 categories of waste) and right-sizing rules
+- Sets the priority rules and the valid actions per resource type
+- Enforces efficiency rules (use the `cost_usd` already in the list, focus on expensive candidates, don't over-investigate)
+- Enforces read-only behavior
 
-The prompt is **pinned in Anthropic's cache** — subsequent loop iterations reuse the cached
-version, cutting the cost of the multi-turn conversation significantly.
+With the Anthropic API provider, the prompt is **pinned in Anthropic's prompt cache**, so
+subsequent loop iterations reuse the cached version, cutting the cost of the multi-turn conversation.

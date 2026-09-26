@@ -34,10 +34,10 @@ What to expect from the output and how to interpret findings.
 
 - Python 3.11+
 - Cloud credentials configured for your target cloud:
-    - **AWS**: `~/.aws/credentials` default profile, or `AWS_PROFILE` env var. AWS Resource Explorer must be enabled with an **aggregator index** in your primary region.
+    - **AWS**: `~/.aws/credentials` default profile, or `AWS_PROFILE` env var. AWS Resource Explorer must be enabled with an **aggregator index** in `RESOURCE_EXPLORER_REGION` (default `us-east-1`).
     - **GCP**: `gcloud auth application-default login`
     - **Azure**: `az login`
-- A Slack webhook URL — or set `DRY_RUN=true` to print to stdout instead
+- A Slack, Teams, or generic webhook URL — or set `DRY_RUN=true` to log a preview instead
 - An AI provider (one of):
     - **Anthropic API** (easiest for local dev): set `ANTHROPIC_API_KEY`
     - **AWS Bedrock**: uses your IAM role automatically (AWS only)

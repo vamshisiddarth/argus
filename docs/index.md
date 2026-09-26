@@ -33,8 +33,8 @@ hide:
 
 <div class="hero-stats">
   <div class="hero-stat"><strong data-count="3">3</strong><span>clouds</span></div>
-  <div class="hero-stat"><strong data-count="43" data-suffix="+">43+</strong><span>resource types</span></div>
-  <div class="hero-stat"><strong data-count="565">565</strong><span>tests</span></div>
+  <div class="hero-stat"><strong data-count="114">114</strong><span>resource types</span></div>
+  <div class="hero-stat"><strong data-count="1800" data-suffix="+">1800+</strong><span>tests</span></div>
   <div class="hero-stat"><strong data-count="0.25" data-prefix="~$">~$0.25</strong><span>per scan</span></div>
 </div>
 
@@ -128,7 +128,7 @@ Argus investigates live and answers with costs and recommendations.
   <div class="how-step">
     <div class="how-num">1</div>
     <h3>Discover</h3>
-    <p>One API call to the cloud's asset inventory returns every billable resource across all regions — sorted by cost descending so the most expensive candidates are investigated first.</p>
+    <p>The cloud's asset inventory returns every billable resource across all regions, costs are fetched in one batched call, and the list is sorted by cost so the most expensive candidates are investigated first.</p>
   </div>
   <div class="how-connector">→</div>
   <div class="how-step">
@@ -140,7 +140,7 @@ Argus investigates live and answers with costs and recommendations.
   <div class="how-step">
     <div class="how-num">3</div>
     <h3>Report</h3>
-    <p>Prioritized findings land in Slack with exact dollar amounts and specific actions — delete, right-size, or tag for review. Or skip the batch scan and ask questions live with <code>argus chat</code>.</p>
+    <p>Prioritized findings land in Slack (or Teams, or any webhook) with exact dollar amounts and specific actions — delete, right-size, or tag for review. Or skip the batch scan and ask questions live with <code>argus chat</code>.</p>
   </div>
 </div>
 
@@ -163,7 +163,7 @@ Argus uses a **ReAct agent loop** — the AI decides what to investigate, calls 
           <span class="s-badge">APP</span>
           <span class="s-time">Today at 7:00 AM</span>
         </div>
-        <div class="s-text">☁️ <strong>AWS Waste Report</strong> — weekly scan complete</div>
+        <div class="s-text"><strong>Argus — AWS Waste Report (2026-09-28)</strong></div>
         <div class="s-attach">
           <div class="s-attach-title">💸 $1,432/mo estimated waste · 6 resources</div>
           <div class="s-attach-sub">Six resources identified as idle or over-provisioned. The RDS instance accounts for 87% of waste and should be right-sized immediately.</div>
@@ -205,16 +205,12 @@ Argus uses a **ReAct agent loop** — the AI decides what to investigate, calls 
 === "AWS Lambda"
 
     ```bash
-    aws cloudformation deploy \
-      --template-file deploy/aws/single-account/template.yaml \
-      --stack-name Argus \
-      --capabilities CAPABILITY_IAM \
-      --parameter-overrides \
-          SlackWebhookUrl=https://hooks.slack.com/services/... \
-          PrimaryRegion=us-east-1
+    cd deploy/aws/single-account
+    sam build
+    sam deploy --guided   # prompts for SlackWebhookUrl, AiProvider, Schedule, ...
     ```
 
-    Deploys a Lambda + EventBridge rule (weekly scan) + IAM role. See [AWS deployment guide](deployment/aws.md) for multi-account setup.
+    Deploys a Lambda + EventBridge rule (weekly scan) + read-only IAM role + report bucket. See [AWS deployment guide](deployment/aws.md) for prerequisites and multi-account setup.
 
 === "GCP"
 
@@ -244,14 +240,15 @@ Argus uses a **ReAct agent loop** — the AI decides what to investigate, calls 
 | :material-brain: | **Same brain, different hands** | `core/` is pure Python — zero cloud imports. Adapters are the only place SDKs live. |
 | :material-robot-outline: | **AI drives the analysis** | No hardcoded idle thresholds. Claude reasons about each resource in context. |
 | :material-lock-outline: | **Least privilege always** | Read-only IAM roles. No write permissions ever requested. |
-| :material-lightning-bolt-outline: | **Batch everything** | One Cost Explorer call per scan. One Bedrock call per scan. Cost control by design. |
-| :material-alert-circle-outline: | **Fail loudly** | Typed exceptions from adapters. No silent swallowing of errors. |
+| :material-lightning-bolt-outline: | **Batch everything** | Costs fetched in one batched call before the AI starts; the AI conversation is capped by `MAX_AGENT_ITERATIONS` and `LLM_BUDGET_USD`. Cost control by design. |
+| :material-alert-circle-outline: | **Fail loudly** | Typed exceptions from adapters. Failed accounts are logged and listed in the report's `scan_errors`; a failed delivery exits non-zero. |
 
 ---
 
 !!! tip "Total cost of a weekly scan"
-    A full AWS scan across 100 resources costs roughly **$0.25–0.50** using the Anthropic API
-    (direct key) or **~$0.10** via AWS Bedrock. A single right-sizing recommendation
+    A full AWS scan typically costs **$0.10–0.30** in AI tokens with the Anthropic API or AWS Bedrock
+    (same model, same price) and less with Vertex AI — see [typical scan cost](getting-started/first-scan.md#typical-scan-cost).
+    A single right-sizing recommendation
     (e.g. `db.r5.4xlarge → db.r5.xlarge`) typically saves **100–1,000× the scan cost** per month.
 
 <div class="cta-strip">
@@ -268,19 +265,11 @@ Argus uses a **ReAct agent loop** — the AI decides what to investigate, calls 
 <div class="feature-grid" markdown>
 
 <div class="feature-card" markdown>
-<div class="icon" markdown>:material-database-outline:</div>
-
-**Resource Registry**
-
-A single declarative source of truth for every resource type — makes adding new types and clouds a one-file change.
-</div>
-
-<div class="feature-card" markdown>
 <div class="icon" markdown>:material-wrench-outline:</div>
 
-**Remediation v1**
+**Remediation v2 — auto-execution**
 
-Act on findings directly from Slack — approve a deletion, stop an idle instance, release an unassociated IP.
+Today Argus opens Jira tickets with runbooks (opt-in). Next: an approval gate and a separate, write-scoped executor. Argus itself stays read-only.
 </div>
 
 <div class="feature-card" markdown>
@@ -288,7 +277,15 @@ Act on findings directly from Slack — approve a deletion, stop an idle instanc
 
 **Historical Tracking**
 
-Week-over-week comparison of findings — see what's new, what's resolved, and what keeps coming back.
+Every report already marks findings as new or recurring. Next: "flagged N times" badges and resolved-savings totals in the weekly digest.
+</div>
+
+<div class="feature-card" markdown>
+<div class="icon" markdown>:material-account-arrow-right-outline:</div>
+
+**Owner Routing**
+
+Send findings to per-team channels based on resource tags instead of one shared channel.
 </div>
 
 </div>

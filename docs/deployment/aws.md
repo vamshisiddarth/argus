@@ -8,16 +8,22 @@ which packages and uploads the code automatically — no manual S3 setup needed.
 
 - [AWS SAM CLI](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html) installed
 - AWS credentials configured (`aws configure` or environment variables)
-- AWS Resource Explorer enabled with an **aggregator index** in your primary region
+- AWS Resource Explorer enabled with an **aggregator index** in `us-east-1`. The Lambda reads the aggregator region from `RESOURCE_EXPLORER_REGION`, which the template doesn't set, so it defaults to `us-east-1`. If your aggregator is elsewhere, add `RESOURCE_EXPLORER_REGION` to the function's environment after deploying.
 
     Check if you have one:
     ```bash
     aws resource-explorer-2 get-index --region us-east-1
     ```
-    If not, create one:
+    If not, create one (plus a default view, which Argus's search relies on):
     ```bash
-    aws resource-explorer-2 create-index --type LOCAL --region us-east-1
-    aws resource-explorer-2 update-index-type --type AGGREGATOR --region us-east-1
+    aws resource-explorer-2 create-index --region us-east-1
+    INDEX_ARN=$(aws resource-explorer-2 get-index --region us-east-1 --query Arn --output text)
+    aws resource-explorer-2 update-index-type --arn "$INDEX_ARN" --type AGGREGATOR --region us-east-1
+
+    # Search uses the region's default view; include tags so Argus sees them
+    VIEW_ARN=$(aws resource-explorer-2 create-view --view-name argus-all \
+      --included-properties Name=tags --region us-east-1 --query View.ViewArn --output text)
+    aws resource-explorer-2 associate-default-view --view-arn "$VIEW_ARN" --region us-east-1
     ```
 
 !!! tip "Cost Explorer activation (recommended)"
@@ -52,15 +58,18 @@ make deploy-aws
 | Parameter | Required | Default | Description |
 |-----------|----------|---------|-------------|
 | `SlackWebhookUrl` | Yes | — | Slack incoming webhook URL |
-| `PrimaryRegion` | No | `us-east-1` | Must match your Resource Explorer aggregator region |
+| `PrimaryRegion` | No | `us-east-1` | Region for the boto3 session. Does not change the Resource Explorer aggregator region (see Prerequisites) |
 | `IgnoreRegions` | No | _(empty)_ | Comma-separated regions to skip |
 | `AiProvider` | No | `bedrock` | `bedrock` \| `anthropic` |
 | `AnthropicApiKey` | When `AiProvider=anthropic` | — | Anthropic API key |
 | `BedrockModelId` | No | `anthropic.claude-sonnet-4-6` | Bedrock model ID |
+| `BedrockRegion` | No | `us-east-1` | Region where Bedrock model access is enabled |
 | `Schedule` | No | `cron(0 9 ? * MON *)` | EventBridge schedule (default: Mondays 9am UTC) |
-| `DryRun` | No | `false` | `true` logs the Slack payload instead of posting |
-| `ReportUrlExpiry` | No | `604800` | Pre-signed URL expiry in seconds (default: 7 days) |
-| `LambdaMemoryMB` | No | `512` | Increase for large accounts that time out |
+| `DryRun` | No | `false` | `true` logs a payload preview instead of posting; no Jira calls |
+| `LambdaMemoryMB` | No | `512` | `256` / `512` / `1024` / `2048`. Increase for large accounts |
+| `LambdaTimeoutSeconds` | No | `900` | Lambda timeout (15 minutes max) |
+
+The report link's expiry (`REPORT_URL_EXPIRY`, default 7 days) and remediation settings (`REMEDIATION_ENABLED`, `JIRA_*`) aren't template parameters. Add them to the function's environment variables if you need them.
 
 ### What gets created
 
@@ -89,7 +98,7 @@ Or:
 make deploy-aws-multi
 ```
 
-Note the `HubRoleArn` output — you'll need it for the spoke deployments.
+Note the `HubRoleArn` output — you'll need it for the spoke deployments. The hub template also takes `AccountsConfig` (JSON list of accounts) and `SpokeRoleName` (default `ArgusSpokeRole`).
 
 ### Spoke accounts (one per target account)
 
@@ -99,8 +108,8 @@ No SAM needed — spoke accounts only get an IAM role:
 aws cloudformation deploy \
   --template-file deploy/aws/multi-account/spoke-role.yaml \
   --stack-name Argus-Spoke \
-  --capabilities CAPABILITY_IAM \
-  --parameter-overrides HubAccountId=<hub-account-id>
+  --capabilities CAPABILITY_NAMED_IAM \
+  --parameter-overrides HubRoleArn=<HubRoleArn output from the hub stack>
 ```
 
 The spoke role is read-only and only trusts the hub Lambda role to assume it.

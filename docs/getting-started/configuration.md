@@ -7,7 +7,7 @@ In Lambda / Cloud Run / Azure Function, set these as environment variables in th
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `AI_PROVIDER` | No | `bedrock` (Lambda) / `anthropic` (CLI) | `anthropic` \| `bedrock` \| `vertexai` \| `azure_openai` |
+| `AI_PROVIDER` | No | `anthropic` (CLI) / `bedrock` (Lambda) / `vertexai` (Cloud Run) / `azure_openai` (Azure Function) | `anthropic` \| `bedrock` \| `vertexai` \| `azure_openai` |
 | `AI_MODEL` | No | _(per-provider default)_ | Override model for any provider |
 | `AI_TEMPERATURE` | No | `0.0` | Model temperature (0.0–1.0). Ignored for Azure OpenAI reasoning models (o1/o3/o4-mini). |
 | `ANTHROPIC_API_KEY` | When `AI_PROVIDER=anthropic` | — | Anthropic direct API key |
@@ -84,15 +84,16 @@ You can pass accounts as a JSON env var or via a YAML file:
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `SLACK_WEBHOOK_URL` | No | — | Slack incoming webhook URL |
+| `NOTIFICATION_PROVIDER` | No | `slack` | Comma-separated channels to send to: `slack`, `teams`, `webhook` (e.g. `slack,teams`). A URL alone does not enable a channel. |
+| `SLACK_WEBHOOK_URL` | See note | — | Slack incoming webhook URL |
 | `TEAMS_WEBHOOK_URL` | No | — | Microsoft Teams incoming webhook URL |
 | `WEBHOOK_URL` | No | — | Generic webhook — receives full JSON report as POST |
 | `REPORT_FORMAT` | No | `json,html` | Export formats: `json`, `html`, `pdf`, `pptx` |
-| `DRY_RUN` | No | `false` | `true` = log payload to stdout, skip notifications |
+| `DRY_RUN` | No | `false` | `true` = log a payload preview instead of notifying; remediation makes no Jira calls |
 | `REPORT_URL_EXPIRY` | No | `604800` | Pre-signed / SAS URL expiry in seconds (default: 7 days) |
 | `ADAPTER_CONCURRENCY` | No | `10` | Max parallel metric/activity fetch threads |
 
-At least one notification channel (`SLACK_WEBHOOK_URL`, `TEAMS_WEBHOOK_URL`, or `WEBHOOK_URL`) is required unless `DRY_RUN=true`.
+Only the channels listed in `NOTIFICATION_PROVIDER` are used, and each needs its URL set. Every scan (`argus scan` and the deployed Lambda / Cloud Run / Azure Function) also validates at startup that `SLACK_WEBHOOK_URL` is set unless `DRY_RUN=true`, even when Slack isn't one of the channels. `argus chat` doesn't run this check.
 
 ### HTML report storage (optional)
 
@@ -101,8 +102,8 @@ When a report bucket is configured, Argus uploads a self-contained HTML report a
 | Cloud | Variable | Description |
 |-------|----------|-------------|
 | AWS | `REPORT_S3_BUCKET` | S3 bucket name. The Lambda execution role needs `s3:PutObject` and `s3:GetObject` on this bucket. |
-| GCP | `REPORT_GCS_BUCKET` | GCS bucket name. The Cloud Run service account needs `storage.objectCreator` and `storage.objectViewer`. |
-| Azure | `REPORT_STORAGE_ACCOUNT` | Storage account name. The managed identity needs `Storage Blob Data Contributor` on the container. Set `REPORT_STORAGE_CONTAINER` to override the default container name (`argus-reports`). |
+| GCP | `REPORT_GCS_BUCKET` | GCS bucket name. The Cloud Run service account needs `storage.objectCreator`, `storage.objectViewer`, and `iam.serviceAccountTokenCreator` (to sign the report URL). `deploy/gcp/deploy.sh` grants all three. |
+| Azure | `REPORT_STORAGE_ACCOUNT` | Storage account name. The managed identity needs `Storage Blob Data Contributor` and `Storage Blob Delegator` (for the user-delegation SAS link); the Bicep template grants both. Set `REPORT_STORAGE_CONTAINER` to override the default container name (`argus-reports`). |
 
 The HTML file is self-contained (no external CDN), works offline, and includes a filterable/sortable findings table with expandable AI reasoning rows.
 
@@ -115,6 +116,14 @@ The HTML file is self-contained (no external CDN), works offline, and includes a
 | `MAX_AGENT_ITERATIONS` | No | `50` | ReAct loop iteration cap. Increase only if the agent consistently hits the limit on very large accounts. |
 | `LLM_BUDGET_USD` | No | `2.00` | Hard spend cap per scan in USD. Set to `0` to disable. |
 | `ADAPTER_CONCURRENCY` | No | `10` | Max parallel threads for metric and activity fetches. |
+
+## Remediation (Jira tickets)
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `REMEDIATION_ENABLED` | No | `false` | Set `true` to create Jira tickets automatically after each scheduled scan. Not needed for `argus policies apply --confirm`. |
+| `ARGUS_POLICY_DIR` | No | `./config/policies` | Policy folder for the CLI and scheduled scans (older name `ARGUS_POLICIES_DIR` still accepted). |
+| `JIRA_BASE_URL`, `JIRA_USER_EMAIL`, `JIRA_API_TOKEN` | For tickets | — | Jira credentials. See [Jira integration](../remediation/jira.md). |
 
 ## Logging
 

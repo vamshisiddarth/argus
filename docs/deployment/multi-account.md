@@ -115,22 +115,20 @@ Minimum roles summary:
 | `roles/bigquery.jobUser` | Run BigQuery queries | Only for cost data |
 | `roles/aiplatform.user` | Invoke Vertex AI models | Only if `AI_PROVIDER=vertexai` |
 
-### Step 3 — Allow Cloud Run Job to impersonate the service account
+### Step 3 — Run the Cloud Run Job as this service account
 
-If Argus runs as a Cloud Run Job, grant the Compute default SA (or Cloud Run SA) permission
-to act as the Argus SA:
+Argus authenticates with whatever identity it runs as (Application Default Credentials);
+it does not impersonate another service account. `deploy/gcp/deploy.sh` already creates
+`argus-sa` in the project you deploy to and runs the job as it (`--service-account`), so if
+you use the script with `HUB_PROJECT` as `GOOGLE_CLOUD_PROJECT`, there's nothing more to do.
+
+If you deployed the job yourself, point it at the service account:
 
 ```bash
-# Get the Cloud Run Job's service account
-export CLOUD_RUN_SA=$(gcloud run jobs describe argus \
+gcloud run jobs update argus \
   --region=us-central1 \
   --project=$HUB_PROJECT \
-  --format='value(spec.template.spec.serviceAccountName)')
-
-gcloud iam service-accounts add-iam-policy-binding ${SA_EMAIL} \
-  --member="serviceAccount:${CLOUD_RUN_SA}" \
-  --role="roles/iam.serviceAccountTokenCreator" \
-  --project=$HUB_PROJECT
+  --service-account=$SA_EMAIL
 ```
 
 For **local dev**, authenticate as the SA directly:

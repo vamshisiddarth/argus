@@ -51,10 +51,11 @@ class MyCloudAdapter(CloudAdapter):
         self,
         resource_id: str,
         resource_type: str,
-        days: int = 14,
+        days: int = 90,
     ) -> MetricSummary:
-        # Fetch usage metrics for the past N days
-        # Return MetricSummary(has_data=bool, metrics={"MetricName": float_avg})
+        # Fetch usage metrics for the past N days (METRICS_LOOKBACK_DAYS, default 90)
+        # Return MetricSummary(resource_id=..., resource_type=..., period_days=days,
+        #                      metrics={"MetricName": value}, has_data=bool)
         ...
 
     def get_cost(
@@ -83,30 +84,46 @@ class MyCloudAdapter(CloudAdapter):
     Let the AI decide what counts as idle.
 
 !!! warning "Always batch `get_cost`"
-    The agent calls `get_cost` with a list of all candidate IDs at once.
+    Phase 0 calls `get_cost` once with **every** discovered resource ID, before the AI runs.
     Never make per-resource cost API calls — they are expensive and slow.
 
+!!! warning "Read-only only"
+    The adapter contract has four read methods. CI scans adapter method names for mutating
+    keywords, and the agent loop only allows its five read-only tools.
+
 !!! tip "Handle errors gracefully"
-    - Raise `PermissionError` for auth failures (agent loop handles this)
-    - Return zeros for cost/metrics on non-fatal errors (log a warning)
-    - Never raise from `get_cost` or `get_metrics` — return safe defaults
+    - An exception from `list_resources` aborts the scan for that account/project
+    - If `get_cost` raises in Phase 0, the scan continues with no cost data (all resources $0)
+    - An exception from `get_metrics` / `get_last_activity` is returned to the AI as a tool error
+    - Prefer logging a warning and returning safe defaults (zero cost, `has_data=False`, `None`) for non-fatal errors
 
-## 4. Wire it up
+## 4. Register its resource types
 
-Add the new cloud to `entrypoints/cli.py`:
+Add a `core/registry/mycloud.py` listing a `ResourceTypeSpec` per type (display name, metrics,
+valid remediation actions), and load it in `core/registry/factory.py`. The agent prompt, reports,
+`argus policies docs`, and the policy validator all read from the registry.
 
-```python title="entrypoints/cli.py"
-parser.add_argument("--cloud", choices=["aws", "gcp", "azure", "mycloud"], ...)
+## 5. Wire it up
 
-# ...
-if args.cloud == "mycloud":
-    from adapters.mycloud.adapter import MyCloudAdapter
+The CLI doesn't build adapters itself; `argus scan --cloud <x>` dispatches to the runtime entrypoint
+for that cloud (`entrypoints/aws_lambda.py`, `gcp_cloudrun.py`, `azure_function.py`). For a new cloud:
+
+1. Create `entrypoints/mycloud_<runtime>.py` that builds the AI provider and adapter and runs the loop:
+
+    ```python
+    from core.agent.loop import AgentLoop
+
     adapter = MyCloudAdapter.from_env()
     loop = AgentLoop(ai_provider=ai_provider, cloud_adapter=adapter)
-    findings, summary = loop.run(cloud="mycloud", ...)
-```
+    findings, summary = loop.run(cloud="mycloud", ignore_regions=ignore_regions, accounts=accounts)
+    ```
 
-## 5. Write tests
+    Follow an existing entrypoint for the rest: `resolve_secrets()`, `validate_environment()`,
+    `compare_scans()`, `build_report()`, report storage, `run_remediation()`, and `notify_all()`.
+
+2. Add `"mycloud"` to the `--cloud` choices and to `_run_scan()` in `entrypoints/cli.py`.
+
+## 6. Write tests
 
 Create `tests/adapters/mycloud/` with `unittest.mock` tests.
 Never make real cloud calls in tests.
@@ -125,6 +142,7 @@ def test_returns_billable_resources():
 
 Aim for the same coverage level as the AWS/GCP/Azure adapters (~8-10 tests per module).
 
-## 6. Update `CLAUDE.md`
+## 7. Update the docs
 
-Add the new adapter to the Build Phases section and project structure.
+Add the new cloud to `ARCHITECTURE.md`, `docs/concepts/adapters.md`, `docs/reference/resource-types.md`,
+`docs/reference/iam-permissions.md`, and `docs/roadmap.md`.

@@ -6,14 +6,14 @@ Complete reference for all Argus environment variables.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `AI_PROVIDER` | `bedrock` (Lambda) · `anthropic` (CLI) | `anthropic` \| `bedrock` \| `vertexai` \| `azure_openai` |
+| `AI_PROVIDER` | `anthropic` (CLI) · `bedrock` (Lambda) · `vertexai` (Cloud Run) · `azure_openai` (Azure Function) | `anthropic` \| `bedrock` \| `vertexai` \| `azure_openai` |
 | `AI_MODEL` | _(per-provider default)_ | Override the model for any provider. Takes precedence over provider-specific model vars. |
 | `AI_TEMPERATURE` | `0.0` | Model temperature (0.0 = deterministic, 1.0 = creative). Ignored for Azure OpenAI reasoning model deployments (o1/o3/o4-mini) — Argus drops it automatically on retry. |
 | `ANTHROPIC_API_KEY` | — | Required when `AI_PROVIDER=anthropic` |
 | `ANTHROPIC_MODEL` | `claude-sonnet-4-6` | Model name when using Anthropic API directly |
 | `BEDROCK_MODEL_ID` | `anthropic.claude-sonnet-4-6` | Bedrock model ID |
 | `BEDROCK_REGION` | `us-east-1` | Region where Bedrock is enabled |
-| `BEDROCK_MAX_TOKENS` | `2048` | Maximum tokens in Bedrock response |
+| `BEDROCK_MAX_TOKENS` | `2048` | Currently **not used**: the Bedrock provider always requests up to 4096 output tokens |
 | `VERTEXAI_PROJECT` | — | Required when `AI_PROVIDER=vertexai` |
 | `VERTEXAI_LOCATION` | `us-central1` | Vertex AI region |
 | `VERTEXAI_MODEL` | `google/gemini-1.5-pro-002` | Vertex AI model name |
@@ -37,7 +37,8 @@ Complete reference for all Argus environment variables.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `GCP_PROJECT_ID` | — | Required for GCP scans |
+| `GCP_PROJECT_ID` | — | Required for GCP scans (single project) |
+| `GCP_PROJECT_IDS` | — | Comma-separated project IDs to scan in one run; overrides `GCP_PROJECT_ID`. See [Multi-account](../deployment/multi-account.md). |
 | `BILLING_BQ_TABLE` | — | BigQuery billing export table for cost data |
 
 ## :material-microsoft-azure: Azure
@@ -51,12 +52,14 @@ Complete reference for all Argus environment variables.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `SLACK_WEBHOOK_URL` | — | Slack incoming webhook URL |
+| `NOTIFICATION_PROVIDER` | `slack` | Comma-separated channels to send to: `slack`, `teams`, `webhook`. A URL alone does not enable a channel. |
+| `SLACK_WEBHOOK_URL` | — | Slack incoming webhook URL. Checked at startup by every scan unless `DRY_RUN=true`, even if Slack isn't in `NOTIFICATION_PROVIDER`. |
 | `TEAMS_WEBHOOK_URL` | — | Microsoft Teams incoming webhook URL |
 | `WEBHOOK_URL` | — | Generic webhook URL — receives the full JSON report as a POST body |
 | `REPORT_FORMAT` | `json,html` | Comma-separated export formats: `json`, `html`, `pdf`, `pptx`. PDF requires `weasyprint`; PPTX requires `python-pptx` (`pip install argus-cloud-optimizer[export]`). |
-| `DRY_RUN` | `false` | `true` = log notification payload to stdout, skip posting |
+| `DRY_RUN` | `false` | `true` = log a preview of the notification payload instead of posting; remediation makes no Jira calls |
 | `REPORT_URL_EXPIRY` | `604800` | Pre-signed / SAS URL expiry in seconds (default: 7 days) |
+| `LOCAL_REPORT_DIR` | `local_reports` | Where reports are saved locally (`<dir>/<cloud>/YYYY/MM/DD/<scan-id>.*`) |
 
 ### AWS report storage
 
@@ -91,11 +94,13 @@ Complete reference for all Argus environment variables.
 | `METRICS_LOOKBACK_DAYS` | `90` | CloudWatch / Cloud Monitoring / Azure Monitor lookback window. 90 days covers quarterly usage patterns and aligns with the CloudTrail lookback. Set to `14` for faster local dev runs — **not recommended in production** as short windows produce false-positive idle findings. |
 | `ADAPTER_CONCURRENCY` | `10` | Maximum parallel threads for metric and activity fetches during a scan. Increase for large accounts with many resources; decrease if you hit API rate limits. |
 | `MAX_AGENT_ITERATIONS` | `50` | Maximum ReAct loop iterations before the agent is forced to stop. Increase only if the agent is consistently hitting the limit on very large accounts. |
-| `LLM_BUDGET_USD` | `2.00` | Hard budget for LLM cost per scan in USD. The scan aborts gracefully if this limit is exceeded and returns partial results. Set to `0` to disable the budget check. |
+| `LLM_BUDGET_USD` | `2.00` | Hard budget for LLM cost per scan in USD. The scan aborts gracefully if this limit is exceeded, returns partial results, and exits with code 2. Set to `0` to disable the budget check. |
+| `EXCLUDE_TAGS` | _(empty)_ | JSON object of tags; resources carrying any matching tag are dropped before the AI sees them, e.g. `{"argus-exempt": "true"}` |
+| `EXCLUDE_RESOURCE_TYPES` | _(empty)_ | Comma-separated resource types to drop before the AI sees them, e.g. `AWS::EC2::Snapshot` |
 
 ## :material-key-variant: Secret manager integration
 
-Instead of storing sensitive values directly in environment variables, you can point them to a cloud secret manager. Argus resolves secret references at startup before any other processing.
+Instead of storing sensitive values directly in environment variables, you can point them to a cloud secret manager. Every `argus scan` (local or deployed) resolves secret references at startup before any other processing. `argus chat` does not.
 
 **Supported variables:** `ANTHROPIC_API_KEY`, `SLACK_WEBHOOK_URL`, `TEAMS_WEBHOOK_URL`, `WEBHOOK_URL`, `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_ENDPOINT`
 
@@ -121,4 +126,6 @@ The required SDK must be installed for the cloud you reference — `boto3` for A
 
 !!! note
     `config/integrations.yaml` is gitignored — never commit Jira credentials.
-    Store the API token in a secret manager (see [Secret manager integration](#material-key-variant-secret-manager-integration) above) for production deployments.
+    `JIRA_API_TOKEN` is **not** one of the variables resolved from secret-manager references above;
+    inject it with your platform's own secret mechanism (e.g. Lambda environment encryption,
+    Cloud Run `--set-secrets`, or an Azure Key Vault app-setting reference).

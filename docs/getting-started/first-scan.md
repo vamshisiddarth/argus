@@ -30,11 +30,12 @@ Two stopped EC2 instances and a forgotten NAT Gateway account for 72% of
 total waste. Four RDS databases have had zero connections in over 30 days.
 
 Top findings
-🔴  prod-api-server (i-0abc123def)  ·  EC2 t3.xlarge    ·  $142.70/mo
-🔴  nat-0def456abc                  ·  NAT Gateway       ·  $104.80/mo
-🟡  staging-rds-cluster             ·  RDS db.r6g.large  ·  $48.20/mo
-🟡  3 unattached volumes            ·  EBS gp3           ·  $24.00/mo
-🟢  + 8 more findings in full report                     ·  $20.80/mo
+🔴  `prod-api-server` · EC2 Instance · $142.70/mo
+🔴  `nat-0def456abc` · NAT Gateway · $104.80/mo
+🟡  `staging-rds-cluster` · RDS Instance · $48.20/mo
+🟡  `vol-0aa11bb22` · EBS Volume · $8.00/mo
+🟢  `vol-0cc33dd44` · EBS Volume · $4.00/mo
+⚪  +7 more findings in the full report
 
 [ 📄 Full report (HTML) ]   [ vamshisiddarth/argus ]
 ```
@@ -72,7 +73,7 @@ The HTML file is filterable by priority and resource type, sortable by cost, and
     1. Cost Explorer **activated** for your account (first activation takes up to 24 hours)
     2. **Resource-level data** enabled: AWS Console → Cost Management → Preferences → Resource-level data
 
-    If not set up, cost fields show `$0.00` and Argus logs a warning with the setup URL.
+    If not set up, cost fields show `$0.00` and Argus logs a warning pointing to the Preferences setting above.
     The agent will still flag idle resources based on metrics and activity signals alone.
 
 ## What Argus does NOT do

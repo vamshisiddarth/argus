@@ -4,17 +4,25 @@ Common issues and their solutions.
 
 ## AWS
 
-### Resource Explorer: "No aggregator index found"
+### Resource Explorer: "No aggregator index found" or 401 Unauthorized on Search
 
-Argus requires an aggregator index in your primary region. Create one:
+Argus needs an aggregator index **and a default view** in `RESOURCE_EXPLORER_REGION`
+(default `us-east-1`). Search fails with `401 Unauthorized` if the region has no default view.
+Create both:
 
 ```bash
-aws resource-explorer-2 create-index \
-  --type AGGREGATOR \
-  --region us-east-1
+aws resource-explorer-2 create-index --region us-east-1
+INDEX_ARN=$(aws resource-explorer-2 get-index --region us-east-1 --query Arn --output text)
+aws resource-explorer-2 update-index-type --arn "$INDEX_ARN" --type AGGREGATOR --region us-east-1
+
+# Search uses the region's default view; include tags so Argus sees them
+VIEW_ARN=$(aws resource-explorer-2 create-view --view-name argus-all \
+  --included-properties Name=tags --region us-east-1 --query View.ViewArn --output text)
+aws resource-explorer-2 associate-default-view --view-arn "$VIEW_ARN" --region us-east-1
 ```
 
-The aggregator index takes 5-10 minutes to populate across all regions.
+The aggregator index can take a while to replicate resources from all regions after it's created.
+If resources show no tags, the default view is missing the `tags` property.
 
 ### Cost Explorer: "OptInRequired" or all costs show $0
 
@@ -62,7 +70,7 @@ The Lambda role needs both `s3:PutObject` and `s3:GetObject` on the report bucke
 
 ### "Cloud Asset API has not been enabled"
 
-The deploy script enables required APIs automatically. If running manually:
+The deploy script enables these APIs automatically (but not Vertex AI). If running manually:
 
 ```bash
 gcloud services enable \
@@ -72,6 +80,8 @@ gcloud services enable \
   bigquery.googleapis.com \
   --project=$GOOGLE_CLOUD_PROJECT
 ```
+
+For the default `AI_PROVIDER=vertexai`, also enable `aiplatform.googleapis.com`.
 
 ### Billing data shows $0 for all resources
 
@@ -96,7 +106,7 @@ gcloud iam service-accounts add-iam-policy-binding \
 
 ### "AuthorizationFailed" on subscription scan
 
-The managed identity needs **Reader** role at the subscription level. The Bicep template only assigns roles at the resource group level — you must grant subscription-level Reader manually:
+The managed identity needs **Reader** (and **Cost Management Reader** for cost data) at the subscription level. The Bicep template only assigns roles at the resource group level — you must grant subscription-level roles manually:
 
 ```bash
 az role assignment create \
@@ -143,12 +153,15 @@ Slack rate-limits incoming webhooks to ~1 message per second. Argus sends one me
 
 ### "SLACK_WEBHOOK_URL is not set"
 
-Set the `SLACK_WEBHOOK_URL` environment variable. For local dev, add it to your `.env` file. For cloud deploys, it's set via the CloudFormation/Bicep/deploy.sh parameters.
+Every `argus scan` (local or deployed) checks for `SLACK_WEBHOOK_URL` at startup, even if you only
+send to Teams or a generic webhook via `NOTIFICATION_PROVIDER`. For local dev, add it to your `.env`
+file. For cloud deploys, it's set via the CloudFormation/Bicep/deploy.sh parameters.
 
-To skip Slack delivery during development, set `DRY_RUN=true`.
+To skip delivery during development, set `DRY_RUN=true`.
 
 ### Scan finds zero resources
 
-- **AWS**: Verify Resource Explorer has an aggregator index and has finished indexing
+- **AWS**: Verify Resource Explorer has an aggregator index and a default view in `RESOURCE_EXPLORER_REGION`, and has finished indexing
+- **All clouds**: Check `EXCLUDE_TAGS` / `EXCLUDE_RESOURCE_TYPES` / `IGNORE_REGIONS` aren't filtering everything out
 - **GCP**: Verify `GCP_PROJECT_ID` is set and the service account has `roles/cloudasset.viewer`
 - **Azure**: Verify `AZURE_SUBSCRIPTION_IDS` lists valid subscription IDs and Reader is granted
