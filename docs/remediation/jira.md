@@ -73,7 +73,7 @@ On first `apply --confirm` for a finding, Argus:
 2. If none found — creates a new ticket with full ADF description and a snapshot fingerprint
 3. If found — compares the fingerprint and adds a comment describing what changed; the description is not rewritten
 
-This makes `apply --confirm` **idempotent** — re-running after a re-scan either does nothing (finding unchanged) or updates the existing ticket (finding changed), never creates duplicates.
+This makes `apply --confirm` **idempotent** — re-running after a re-scan either does nothing (finding unchanged) or adds one comment to the existing ticket (cost, priority, or AI reasoning changed), and never creates duplicates.
 
 ### Update on re-scan
 

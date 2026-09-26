@@ -19,6 +19,9 @@ A safety release for the remediation path. **Contains a breaking change**; see t
 - **Dry runs never touch Jira.** `DRY_RUN=true` / `argus scan --dry-run` previously still created real tickets when Jira was configured. Dry runs now only log what would be tracked.
 - **One summary line per run.** `remediation_summary findings=… proposals=… tracked=… failed=… dry_run=…`, plus `error_type` on every failure so a Jira outage can be told apart from a bug.
 - **One policy-folder setting.** The CLI and scheduled scans now both read `ARGUS_POLICY_DIR` (the older `ARGUS_POLICIES_DIR` still works).
+- **Policy excludes work as documented.** Matching any `exclude` tag entry now skips the resource, so the bundled `environment: prod` and `argus-exempt: "true"` excludes each work on their own (before, a resource needed both tags to be skipped).
+- **`accounts` scope filters work.** Findings now record the account/project/subscription they came from.
+- **No repeat Jira comments.** An unchanged finding no longer adds a comment to its ticket on every re-scan.
 
 ---
 

@@ -88,11 +88,23 @@ Both `include` and `exclude` support the same fields:
 | Field | Type | Description |
 |-------|------|-------------|
 | `cloud_platforms` | list | `aws`, `gcp`, `azure` |
-| `accounts` | list | Account IDs / project IDs / subscription IDs |
+| `accounts` | list | Account IDs / project IDs / subscription IDs (matched against the finding's `account_id`) |
 | `regions` | list | Region names (e.g. `us-east-1`, `europe-west1`) |
-| `tags` | list of dicts | Each entry is `{key: [values]}` — resource must have ALL matching tags |
+| `tags` | list of dicts | Each entry is `{key: [values]}`; the resource's tag value must be one of the values |
+
+How `tags` entries combine differs on purpose:
+
+- **`include`** — the resource must match **every** entry (narrowing the scope).
+- **`exclude`** — matching **any one** entry excludes the resource. So
+  `exclude: tags: [{environment: [prod]}, {argus-exempt: ["true"]}]` skips prod resources *and*
+  anything tagged `argus-exempt=true`.
 
 `exclude` takes precedence — a resource that matches both `include` and `exclude` is excluded.
+
+!!! note "Account IDs in older reports"
+    Findings carry `account_id` since v0.6.0 (report schema 1.0.1). When running `plan` / `apply`
+    against a report from an earlier version, findings have no account, so an `include: accounts`
+    filter matches nothing and an `exclude: accounts` filter excludes nothing.
 
 !!! warning "Always exclude production"
     All bundled policies exclude `environment: [prod, production]` and `argus-exempt: ["true"]`. Follow the same pattern in your own policies.

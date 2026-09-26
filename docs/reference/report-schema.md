@@ -1,6 +1,6 @@
 # Report JSON Schema
 
-Version: **1.0**
+Version: **1.0.1**
 
 Every Argus scan produces a JSON report with the following top-level fields.
 
@@ -8,7 +8,7 @@ Every Argus scan produces a JSON report with the following top-level fields.
 
 | Field | Type | Description |
 |---|---|---|
-| `schema_version` | `string` | Schema version identifier. Currently `"1.0"`. |
+| `schema_version` | `string` | Schema version identifier. Currently `"1.0.1"`. |
 | `scan_id` | `string` | UUID v4 unique to this scan. |
 | `generated_at` | `string` | ISO 8601 timestamp (UTC) when the report was generated. |
 | `cloud` | `string` | Cloud provider: `"aws"`, `"gcp"`, or `"azure"`. |
@@ -42,6 +42,8 @@ Every Argus scan produces a JSON report with the following top-level fields.
 | `tags` | `object` | Resource tags as key-value pairs. |
 | `last_activity` | `string \| null` | ISO 8601 timestamp of the last detected activity, or `null`. |
 | `scan_time` | `string` | ISO 8601 timestamp of when the resource was scanned. |
+| `account_id` | `string \| null` | Account / project / subscription the resource belongs to. Added in 1.0.1; `null` if it couldn't be attributed. |
+| `account_name` | `string \| null` | Display name for `account_id` (from `accounts.yaml` / `ACCOUNTS_CONFIG`, else the ID). Added in 1.0.1. |
 | `status` | `string` | `"new"` or `"recurring"`, set by cross-scan comparison. Resolved resources aren't in `findings`; they're listed in `scan_diff.resolved_resource_ids`. |
 
 ## ScanDiff object
@@ -63,3 +65,8 @@ The `schema_version` field uses semantic versioning:
 - **Major** (x.0.0): fields removed or renamed. Consumers must update.
 
 Consumers should check `schema_version` before parsing and handle unknown versions gracefully.
+
+| Version | Change |
+|---|---|
+| 1.0.1 (v0.6.0) | Findings gained optional `account_id` and `account_name`. |
+| 1.0 | Initial schema. |

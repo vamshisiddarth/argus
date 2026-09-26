@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
+import pytest
+
 from core.models.finding import ResourceFinding
 from core.remediation.engine import evaluate
 from core.remediation.models import Condition, MetricCondition, Policy, ScopeFilter
@@ -410,3 +412,98 @@ class TestProposalContents:
         assert d["action"] == "resize"
         assert "estimated_monthly_cost_usd" in d
         assert "runbook" in d
+
+
+class TestExcludeTagsMatchAny:
+    """Exclude tag entries are alternatives: matching any one excludes the resource."""
+
+    _EXC = ScopeFilter(
+        tags=({"environment": ["prod", "production"]}, {"argus-exempt": ["true"]})
+    )
+
+    def test_first_entry_alone_excludes(self):
+        f = _finding(tags={"environment": "prod"})
+        assert evaluate([f], [_policy(exclude=self._EXC)]) == []
+
+    def test_second_entry_alone_excludes(self):
+        f = _finding(tags={"argus-exempt": "true"})
+        assert evaluate([f], [_policy(exclude=self._EXC)]) == []
+
+    def test_neither_entry_is_proposed(self):
+        f = _finding(tags={"environment": "dev"})
+        assert len(evaluate([f], [_policy(exclude=self._EXC)])) == 1
+
+    def test_include_tags_still_require_all_entries(self):
+        inc = ScopeFilter(tags=({"team": ["platform"]}, {"environment": ["dev"]}))
+        only_one = _finding(tags={"team": "platform"})
+        both = _finding(tags={"team": "platform", "environment": "dev"})
+        assert evaluate([only_one], [_policy(include=inc)]) == []
+        assert len(evaluate([both], [_policy(include=inc)])) == 1
+
+
+class TestBundledPoliciesRespectExcludes:
+    """Regression: shipped policies must never ticket prod or argus-exempt resources."""
+
+    @pytest.mark.parametrize(
+        "tags",
+        [
+            {"environment": "prod"},
+            {"environment": "production"},
+            {"argus-exempt": "true"},
+        ],
+    )
+    def test_ec2_stop_policy_skips_tagged_resource(self, tags):
+        from datetime import timedelta
+        from pathlib import Path
+
+        from core.remediation.loader import load_policies
+
+        root = Path(__file__).resolve().parents[3]
+        policies = [
+            p
+            for p in load_policies(root / "config" / "policies")
+            if p.policy_id == "aws-ec2-stop-idle-14d"
+        ]
+        old = datetime.now(tz=timezone.utc) - timedelta(days=60)
+        f = _finding(
+            resource_type="AWS::EC2::Instance",
+            cost=300.0,
+            last_activity=old,
+            metrics_summary={"CPUUtilization": 0.5, "NetworkOut": 10},
+            tags=tags,
+        )
+        assert evaluate([f], policies) == []
+
+
+class TestAccountIdIsARealField:
+    def test_account_scope_uses_finding_field(self):
+        f = ResourceFinding(
+            resource_id="db-1",
+            resource_type="AWS::RDS::DBInstance",
+            cloud="aws",
+            region="us-east-1",
+            estimated_monthly_cost=200.0,
+            waste_reason="Idle",
+            recommendation="Resize",
+            priority="high",
+            metrics_summary={},
+            tags={},
+            scan_time=datetime.now(tz=timezone.utc),
+            account_id="111122223333",
+        )
+        inc = ScopeFilter(accounts=("111122223333",))
+        exc = ScopeFilter(accounts=("111122223333",))
+        assert len(evaluate([f], [_policy(include=inc)])) == 1
+        assert evaluate([f], [_policy(exclude=exc)]) == []
+
+
+def test_every_bundled_policy_excludes_prod_and_argus_exempt():
+    from pathlib import Path
+
+    from core.remediation.loader import load_policies
+
+    root = Path(__file__).resolve().parents[3]
+    for p in load_policies(root / "config" / "policies"):
+        tag_entries = [dict(e) for e in p.exclude.tags]
+        assert {"argus-exempt": ["true"]} in tag_entries, p.policy_id
+        assert any("prod" in e.get("environment", []) for e in tag_entries), p.policy_id

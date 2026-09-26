@@ -33,3 +33,4 @@ conditions:
 exclude:
   tags:
     - environment: [prod, production]
+    - argus-exempt: ["true"]

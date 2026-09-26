@@ -376,3 +376,45 @@ class TestCommentFailureSilent:
         # Should not raise — failure is logged as warning
         url = tracker.create(_proposal())
         assert "INFRA-7" in url
+
+
+class TestRescanWithNewProposal:
+    """A re-scan creates a fresh ChangeProposal (new proposal_id) per finding."""
+
+    def test_identical_finding_next_scan_adds_no_comment(self):
+        first = _proposal()
+        client = _mock_client()
+        client.search.return_value = [_issue_with_snapshot("INFRA-5", first)]
+        tracker = _make_tracker(client)
+
+        rescan = _proposal()  # same finding, new proposal_id
+        assert rescan.proposal_id != first.proposal_id
+        tracker.create(rescan)
+        client.add_comment.assert_not_called()
+
+    def test_legacy_snapshot_with_proposal_id_adds_no_comment(self):
+        # Tickets created by v0.5.0 stored proposal_id in the snapshot.
+        first = _proposal()
+        legacy = {**fingerprint(first), "proposal_id": first.proposal_id}
+        issue = {
+            "key": "INFRA-5",
+            "fields": {
+                "description": f"desc\n<!-- argus-snapshot: {json.dumps(legacy)} -->"
+            },
+        }
+        client = _mock_client()
+        client.search.return_value = [issue]
+        _make_tracker(client).create(_proposal())
+        client.add_comment.assert_not_called()
+
+    def test_cost_change_next_scan_adds_comment(self):
+        first = _proposal()
+        client = _mock_client()
+        client.search.return_value = [_issue_with_snapshot("INFRA-5", first)]
+        tracker = _make_tracker(client)
+
+        tracker.create(_proposal(estimated_monthly_cost_usd=80.0))
+        client.add_comment.assert_called_once()
+
+    def test_fingerprint_excludes_proposal_id(self):
+        assert "proposal_id" not in fingerprint(_proposal())

@@ -60,8 +60,26 @@ class TestToDict:
             "last_activity",
             "scan_time",
             "status",
+            "account_id",
+            "account_name",
         }
         assert expected_keys == set(result.keys())
+
+    def test_account_fields_roundtrip(self):
+        from datetime import datetime, timezone
+
+        f = make_finding()
+        f.account_id, f.account_name = "123", "prod"
+        back = ResourceFinding.from_dict(f.to_dict(), datetime.now(tz=timezone.utc))
+        assert (back.account_id, back.account_name) == ("123", "prod")
+
+    def test_old_report_without_account_fields_loads(self):
+        from datetime import datetime, timezone
+
+        d = make_finding().to_dict()
+        del d["account_id"], d["account_name"]
+        back = ResourceFinding.from_dict(d, datetime.now(tz=timezone.utc))
+        assert back.account_id is None
 
     def test_scan_time_is_iso_string(self):
         result = make_finding().to_dict()
