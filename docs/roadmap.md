@@ -55,6 +55,7 @@ Small, known issues in what has shipped. Not scheduled; contributions welcome.
 - **`BEDROCK_MAX_TOKENS` is ignored.** The Bedrock provider always requests up to 4096 output tokens.
 - **AWS template doesn't expose `RESOURCE_EXPLORER_REGION`.** Deployed Lambdas assume the aggregator index is in `us-east-1` unless you add the variable by hand.
 - **GCP deploy script doesn't enable the Vertex AI API** even though Vertex AI is the default provider on Cloud Run.
+- **Bundled policies aren't in the PyPI package.** `pip install` users don't get `config/policies/`; copy it from the repository (or write your own) and point `ARGUS_POLICY_DIR` at it.
 - **Docs deploys can race.** The docs workflow has no `concurrency` group, so merges landing seconds apart start parallel `mike deploy --push` runs to `gh-pages` and all but the first fail. Re-running the latest failed run fixes the site; adding a concurrency group to `.github/workflows/docs.yml` would prevent it.
 
 ---
