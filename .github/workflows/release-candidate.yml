@@ -1,0 +1,109 @@
+name: Release candidate
+
+# Stage 5 of the release flow (docs/contributing/releasing.md).
+# Builds the distribution ONCE, smoke-tests it, and attaches it to a GitHub
+# pre-release. Nothing goes to PyPI here. After the live test passes, promoting
+# the pre-release to a full release triggers publish.yml, which uploads these
+# exact files.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release, without the v (must equal core/__version__.py)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-candidate
+  cancel-in-progress: false
+
+jobs:
+  candidate:
+    name: Build and attach release candidate
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ inputs.version }}
+      TAG: v${{ inputs.version }}
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Check version matches the code
+        run: |
+          CODE=$(python -c "import core.__version__ as v; print(v.__version__)")
+          if [ "$CODE" != "$VERSION" ]; then
+            echo "::error::core/__version__.py is $CODE, but you asked for $VERSION"
+            exit 1
+          fi
+          grep -q "^## v$VERSION " CHANGELOG.md || {
+            echo "::error::CHANGELOG.md has no '## v$VERSION' section"; exit 1; }
+
+      - name: Check version is not already on PyPI
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' \
+            "https://pypi.org/pypi/argus-cloud-optimizer/$VERSION/json")
+          if [ "$code" = "200" ]; then
+            echo "::error::$VERSION is already on PyPI. Bump the version."
+            exit 1
+          fi
+
+      - name: Build sdist and wheel
+        run: |
+          pip install build
+          python -m build
+
+      - name: Smoke-test the wheel
+        run: python scripts/package_smoke.py dist/*.whl --expect-version "$VERSION"
+
+      - name: Replace an earlier candidate for this version
+        run: |
+          if gh release view "$TAG" --json isPrerelease -q .isPrerelease 2>/dev/null \
+              | grep -q true; then
+            echo "Replacing previous candidate $TAG"
+            gh release delete "$TAG" --cleanup-tag --yes
+          elif gh release view "$TAG" >/dev/null 2>&1; then
+            echo "::error::$TAG exists and is a full release. Bump the version."
+            exit 1
+          fi
+
+      - name: Create pre-release with the built files
+        run: |
+          awk -v v="## v$VERSION " 'index($0, v)==1{f=1; next} /^## v/{f=0} f' \
+            CHANGELOG.md > notes.md
+          {
+            echo "<!-- rc-banner -->"
+            echo "> **Release candidate — not on PyPI yet.**"
+            echo "> Live-test this exact wheel, then promote this pre-release to a"
+            echo "> full release to publish it. See docs/contributing/releasing.md."
+            echo "<!-- /rc-banner -->"
+            echo
+            cat notes.md
+          } > body.md
+          gh release create "$TAG" dist/* \
+            --prerelease \
+            --target "$GITHUB_SHA" \
+            --title "$TAG (release candidate)" \
+            --notes-file body.md
+
+      - name: Summary
+        run: |
+          {
+            echo "### $TAG release candidate ready"
+            echo
+            echo "Wheel for live testing:"
+            echo
+            echo '```'
+            echo "pip install https://github.com/${GITHUB_REPOSITORY}/releases/download/$TAG/argus_cloud_optimizer-$VERSION-py3-none-any.whl"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

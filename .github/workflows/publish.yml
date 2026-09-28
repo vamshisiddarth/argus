@@ -1,37 +1,56 @@
 name: Publish to PyPI
 
+# Stage 7 of the release flow (docs/contributing/releasing.md).
+# Runs when a release-candidate pre-release is promoted to a full release.
+# Uploads the SAME files that were live-tested (attached by
+# release-candidate.yml) — nothing is rebuilt here.
+#
+# Keep this file name and the `pypi` environment: the PyPI trusted publisher
+# is configured against both.
+
 on:
   release:
-    types: [published]
+    # "released" fires when a pre-release is promoted (or a release is
+    # published directly). Pre-releases themselves do not trigger it.
+    types: [released]
 
-# Minimal permissions — only request id-token for OIDC publish
 permissions:
   contents: read
-  id-token: write
 
 jobs:
-  build:
-    name: Build distribution
+  verify:
+    name: Verify the live-tested files
     runs-on: ubuntu-latest
+    env:
+      TAG: ${{ github.event.release.tag_name }}
+      GH_TOKEN: ${{ github.token }}
+
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Install build tools
-        run: pip install build
-
-      - name: Build sdist and wheel
-        run: python -m build
-
-      - name: Verify wheel installs and CLI works
+      - name: Download the release candidate's files
         run: |
-          pip install dist/argus_cloud_optimizer-*.whl
-          argus --version
-          argus --help
+          mkdir dist
+          gh release download "$TAG" --dir dist \
+            --pattern '*.whl' --pattern '*.tar.gz'
+          ls -l dist
+          VERSION="${TAG#v}"
+          test -f "dist/argus_cloud_optimizer-$VERSION-py3-none-any.whl" || {
+            echo "::error::No wheel for $VERSION attached to $TAG. Releases must be"
+            echo "::error::created by the 'Release candidate' workflow and live-tested first."
+            exit 1; }
+          test -f "dist/argus_cloud_optimizer-$VERSION.tar.gz" || {
+            echo "::error::No sdist for $VERSION attached to $TAG."; exit 1; }
+
+      - name: Smoke-test the wheel again
+        run: python scripts/package_smoke.py dist/*.whl --expect-version "${TAG#v}"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -43,9 +62,11 @@ jobs:
 
   publish:
     name: Publish to PyPI
-    needs: build
+    needs: verify
     runs-on: ubuntu-latest
     environment: pypi   # must match the environment name on PyPI trusted publisher config
+    permissions:
+      id-token: write
     steps:
       - name: Download artifacts
         uses: actions/download-artifact@v4
@@ -58,3 +79,20 @@ jobs:
         with:
           print-hash: true      # logs SHA256 of uploaded files for audit trail
           skip-existing: true   # idempotent — re-runs won't fail if file already uploaded
+
+  tidy-release:
+    name: Drop the release-candidate labels
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ github.event.release.tag_name }}
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+    steps:
+      - name: Retitle and remove the candidate banner
+        run: |
+          gh release view "$TAG" --repo "$REPO" --json body -q .body \
+            | sed '/<!-- rc-banner -->/,/<!-- \/rc-banner -->/d' > body.md
+          gh release edit "$TAG" --repo "$REPO" --title "$TAG" --notes-file body.md

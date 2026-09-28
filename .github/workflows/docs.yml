@@ -4,8 +4,10 @@ on:
   push:
     branches:
       - main
-    tags:
-      - "v*"
+  release:
+    # Versioned docs deploy when a release is published (a promoted release
+    # candidate), not when a candidate tag is created.
+    types: [released]
   pull_request:
     branches:
       - main
@@ -38,6 +40,10 @@ jobs:
     name: Deploy dev docs
     needs: build
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Only the latest main matters: newer dev deploys replace queued ones.
+    concurrency:
+      group: gh-pages-dev
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -58,12 +64,19 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Deploy dev alias
-        run: mike deploy dev --push
+        run: |
+          # Retry if another deploy pushed to gh-pages first.
+          for i in 1 2 3; do
+            git fetch origin +gh-pages:gh-pages 2>/dev/null || true
+            mike deploy dev --push && exit 0
+            sleep $((i * 10))
+          done
+          exit 1
 
   deploy-release:
     name: Deploy versioned docs
     needs: build
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    if: github.event_name == 'release'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -85,13 +98,17 @@ jobs:
 
       - name: Extract version
         id: ver
-        run: echo "v=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: echo "v=${TAG#v}" >> "$GITHUB_OUTPUT"
 
       - name: Deploy versioned docs
         run: |
-          mike deploy "${{ steps.ver.outputs.v }}" latest \
-            --update-aliases \
-            --push
-
-      - name: Set default
-        run: mike set-default latest --push
+          # Retry if a dev-docs deploy pushed to gh-pages first.
+          for i in 1 2 3; do
+            git fetch origin +gh-pages:gh-pages 2>/dev/null || true
+            mike deploy "${{ steps.ver.outputs.v }}" latest --update-aliases --push \
+              && mike set-default latest --push && exit 0
+            sleep $((i * 10))
+          done
+          exit 1
