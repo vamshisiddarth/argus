@@ -5,6 +5,7 @@ Thanks for your interest in contributing to Argus!
 - :material-laptop: [Development Setup](development.md) — local environment, running tests, code style
 - :material-cloud-plus: [Adding a Cloud Adapter](new-adapter.md) — how to add a new cloud (IBM Cloud, OCI, etc.)
 - :material-robot-excited: [Adding an AI Provider](new-ai-provider.md) — how to add a new model or provider
+- :material-rocket-launch-outline: [Releasing](releasing.md) — design → plan → build → test → release candidate → live test → publish
 
 ## Quick contribution guide
 

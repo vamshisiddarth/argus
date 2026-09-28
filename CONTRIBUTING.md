@@ -14,6 +14,7 @@ Thanks for your interest in contributing. This document explains how to set up a
 - [Adding a new AI provider](#adding-a-new-ai-provider)
 - [Adding a remediation policy](#adding-a-remediation-policy)
 - [Submitting a pull request](#submitting-a-pull-request)
+- [Releasing](#releasing)
 
 ---
 
@@ -370,11 +371,26 @@ exclude:
 2. Make your changes
 3. Run the full test suite: `pytest tests/ -v` — all tests must pass
 4. Run the linter: `ruff format . && ruff check .`
-5. Open a PR against `main`
+5. If you changed packaging or anything users install, run the package smoke test:
+   `python -m build && python scripts/package_smoke.py dist/*.whl`
+6. Open a PR against `main`
 
 **PR checklist:**
 - [ ] All existing tests pass
 - [ ] New code has tests (aim for the same coverage level as existing adapters)
 - [ ] Type hints on all public functions
 - [ ] No real cloud credentials or API keys in any file
-- [ ] `CLAUDE.md` updated if you added a new adapter or changed the architecture
+- [ ] `ARCHITECTURE.md` and the relevant `docs/` pages updated if behavior or architecture changed
+- [ ] `CHANGELOG.md` updated under the next version
+- [ ] Live-test cases listed in the PR description if the change touches cloud APIs, deploys, notifications, Jira, or packaging
+
+---
+
+## Releasing
+
+Releases follow **design → plan → build → test → release candidate → live test → publish**.
+Nothing is published to PyPI until the exact wheel has been live-tested on real accounts:
+the **Release candidate** workflow attaches the built files to a GitHub pre-release, and
+promoting that pre-release uploads those same files to PyPI.
+
+Full steps and gates: [docs/contributing/releasing.md](docs/contributing/releasing.md).

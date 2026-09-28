@@ -60,6 +60,29 @@ jobs:
       - name: Type check (mypy)
         run: mypy core/ adapters/ ai/ entrypoints/ --ignore-missing-imports --no-warn-unused-ignores
 
+  package:
+    name: Package smoke test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Build sdist and wheel
+        run: |
+          pip install build
+          python -m build
+
+      # Tests what users actually install, not the source tree: clean venv,
+      # import every shipped module, validate bundled policies, stubbed scan.
+      - name: Smoke-test the wheel
+        run: python scripts/package_smoke.py dist/*.whl
+
   trivy:
     name: Trivy vulnerability scan
     runs-on: ubuntu-latest

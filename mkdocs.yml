@@ -140,6 +140,7 @@ nav:
     - Development Setup: contributing/development.md
     - Adding a Cloud Adapter: contributing/new-adapter.md
     - Adding an AI Provider: contributing/new-ai-provider.md
+    - Releasing: contributing/releasing.md
 
 # ---------------------------------------------------------------------------
 # Extra
