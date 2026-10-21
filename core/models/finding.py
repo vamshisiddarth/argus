@@ -38,6 +38,9 @@ class ResourceFinding:
     # "billed" when the cost came from the cloud's cost API, "estimated" otherwise.
     # Set by the agent loop, never trusted from the model.
     cost_basis: str | None = None
+    # "low" | "medium" | "high". Forced to "low" by the agent loop when the
+    # metrics behind the finding were unavailable.
+    confidence: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -60,6 +63,7 @@ class ResourceFinding:
             "account_id": self.account_id,
             "account_name": self.account_name,
             "cost_basis": self.cost_basis,
+            "confidence": self.confidence,
         }
 
     @classmethod
@@ -86,4 +90,5 @@ class ResourceFinding:
             account_id=data.get("account_id"),
             account_name=data.get("account_name"),
             cost_basis=data.get("cost_basis"),
+            confidence=data.get("confidence"),
         )

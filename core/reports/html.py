@@ -276,6 +276,12 @@ def _build_rows(findings: list[dict[str, Any]]) -> str:
 
         display_name = name or resource_id
         cost_class = f"cost-{priority}"
+        confidence = html.escape(f.get("confidence") or "")
+        confidence_html = (
+            f'<br><span class="muted" style="font-size:11px">confidence: {confidence}</span>'
+            if confidence
+            else ""
+        )
         est_label = (
             ' <span class="muted" title="Estimated from list price, not billed">'
             "est.</span>"
@@ -287,7 +293,7 @@ def _build_rows(findings: list[dict[str, Any]]) -> str:
         parts.append(
             f"""<tr data-priority="{priority}" data-rtype="{rtype}" data-cost="{cost}" data-name="{display_name}">
   <td><button class="expand-btn" onclick="toggle(this)" aria-label="expand">›</button></td>
-  <td><span class="pill {pill_class}">{priority.upper()}</span></td>
+  <td><span class="pill {pill_class}">{priority.upper()}</span>{confidence_html}</td>
   <td><span class="mono">{display_name}</span>{"<br><span class='mono muted'>" + resource_id + "</span>" if name else ""}</td>
   <td class="muted">{rtype_label}</td>
   <td class="muted">{region}</td>

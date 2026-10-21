@@ -91,6 +91,14 @@ def _window_section(lookback_days: int) -> str:
     return text
 
 
+_NO_DATA_RULE = """METRIC DATA STATUS
+──────────────────
+Every get_metrics result has a `status`: ok, no_data or error. When it is not ok
+the metrics are unavailable, which is NOT zero usage. For those resources write
+"no metric data" in waste_reason (never "zero" or "idle for N days"), set
+confidence to low, and lower the priority. Set confidence on every finding."""
+
+
 def build_system_prompt(
     cloud: str,
     ignore_regions: list[str],
@@ -139,6 +147,8 @@ WHAT TO LOOK FOR
 - Duplicate or redundant resources (multiple similar resources, one unused)
 
 {_window_section(lookback_days)}
+
+{_NO_DATA_RULE}
 
 {_RIGHT_SIZING_RULES}
 
@@ -405,6 +415,14 @@ def build_tool_schemas(lookback_days: int = 90) -> list[dict]:
                                 "priority": {
                                     "type": "string",
                                     "enum": ["high", "medium", "low"],
+                                },
+                                "confidence": {
+                                    "type": "string",
+                                    "enum": ["low", "medium", "high"],
+                                    "description": (
+                                        "How sure you are the resource is wasted. Use "
+                                        "low when metrics were unavailable."
+                                    ),
                                 },
                                 "metrics_summary": {
                                     "type": "object",

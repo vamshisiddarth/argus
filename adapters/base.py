@@ -37,15 +37,34 @@ class MetricSummary:
     period_days: int
     metrics: dict[str, Any]  # {"avg_cpu_pct": 1.2, "network_bytes_total": 847, ...}
     has_data: bool = True  # False if CloudWatch has no data points
+    # "ok" | "no_data" (query worked, nothing returned) | "error" (query failed).
+    # Derived from has_data when an adapter does not set it.
+    status: str | None = None
+    error: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.status is None:
+            self.status = "ok" if self.has_data else "no_data"
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        out: dict[str, Any] = {
             "resource_id": self.resource_id,
             "resource_type": self.resource_type,
             "period_days": self.period_days,
             "metrics": self.metrics,
             "has_data": self.has_data,
+            "status": self.status,
         }
+        if self.status != "ok":
+            reason = (
+                f"error: {self.error}" if self.status == "error" else "no data points"
+            )
+            out["error"] = self.error
+            out["data_note"] = (
+                f"metrics unavailable ({reason}); this is NOT zero usage, "
+                "do not report it as idle"
+            )
+        return out
 
 
 class CloudAdapter(ABC):

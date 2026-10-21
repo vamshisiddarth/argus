@@ -96,6 +96,7 @@ class AgentLoop:
         self.coverage: Coverage | None = None
         self.scan_window: dict[str, Any] | None = None
         self._costs: dict[str, float] = {}
+        self._no_data_ids: set[str] = set()
         self._tools: list[Tool] = [
             Tool(
                 name=t["name"],
@@ -174,7 +175,12 @@ class AgentLoop:
                             findings_count=len(tc.arguments.get("findings", [])),
                             **self.tracker.summary(),
                         )
-                        findings, summary = _parse_findings(tc.arguments, cloud=cloud)
+                        findings, summary = _parse_findings(
+                            tc.arguments,
+                            cloud=cloud,
+                            no_data_ids=self._no_data_ids,
+                            window_days=_lookback_days(),
+                        )
                         findings = _attach_cost_basis(findings, self._costs)
                         return _attach_accounts(findings, accounts), summary
 
@@ -374,6 +380,8 @@ class AgentLoop:
                     # The scan's window is authoritative, whatever the model asks for.
                     args = {**tc.arguments, "days": _lookback_days()}
                     summary = self._adapter.get_metrics(**args)
+                    if summary.status != "ok":
+                        self._no_data_ids.add(summary.resource_id)
                     return (
                         json.dumps(
                             summary.to_dict(), default=str, separators=(",", ":")
@@ -592,9 +600,27 @@ def _subscription_from_resource_id(
     return None
 
 
+_CONFIDENCE_RANK = {"low": 0, "medium": 1, "high": 2}
+
+
+def _resolve_confidence(
+    raw: Any, resource_id: str, no_data_ids: Any, window_days: int
+) -> str:
+    """Model-reported confidence, overridden by what we know about the evidence."""
+    value = str(raw or "").strip().lower()
+    confidence = value if value in _CONFIDENCE_RANK else "medium"
+    if resource_id in no_data_ids:
+        return "low"
+    if window_days < 90 and _CONFIDENCE_RANK[confidence] > 1:
+        return "medium"
+    return confidence
+
+
 def _parse_findings(
     args: dict[str, Any],
     cloud: str,
+    no_data_ids: Any = frozenset(),
+    window_days: int = 90,
 ) -> tuple[list[ResourceFinding], str]:
     """Convert the AI's submit_findings arguments into ResourceFinding objects."""
     scan_time = datetime.now(tz=timezone.utc)
@@ -605,6 +631,11 @@ def _parse_findings(
         ResourceFinding.from_dict({**f, "cloud": f.get("cloud", cloud)}, scan_time)
         for f in raw_findings
     ]
+
+    for f in findings:
+        f.confidence = _resolve_confidence(
+            f.confidence, f.resource_id, no_data_ids, window_days
+        )
 
     # Ensure descending cost order regardless of what the AI returned
     findings.sort(key=lambda f: f.estimated_monthly_cost, reverse=True)
