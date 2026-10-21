@@ -8,7 +8,7 @@ which packages and uploads the code automatically — no manual S3 setup needed.
 
 - [AWS SAM CLI](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html) installed
 - AWS credentials configured (`aws configure` or environment variables)
-- AWS Resource Explorer enabled with an **aggregator index** in `us-east-1`. The Lambda reads the aggregator region from `RESOURCE_EXPLORER_REGION`, which the template doesn't set, so it defaults to `us-east-1`. If your aggregator is elsewhere, add `RESOURCE_EXPLORER_REGION` to the function's environment after deploying.
+- AWS Resource Explorer enabled with an **aggregator index** in `us-east-1`. The template's `ResourceExplorerRegion` parameter (default `us-east-1`) sets `RESOURCE_EXPLORER_REGION` for the Lambda. Change it if your aggregator is elsewhere.
 
     Check if you have one:
     ```bash

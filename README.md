@@ -475,6 +475,10 @@ Argus needs **read-only** access. The Lambda execution role requires:
 ```
 resource-explorer-2:Search
 resource-explorer-2:GetView
+resource-explorer-2:GetDefaultView
+resource-explorer-2:ListViews
+resource-explorer-2:ListIndexes
+resource-explorer-2:GetIndex
 cloudwatch:GetMetricData
 ce:GetCostAndUsage
 ce:GetCostAndUsageWithResources

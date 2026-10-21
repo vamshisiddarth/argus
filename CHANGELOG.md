@@ -3,6 +3,37 @@
 All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## v0.7.0 (2026-10-22)
+
+A trust release. Argus now tells you what it covered, fails loudly when it could not do its job, and stops presenting missing data as evidence. Prompted by a real-user run on v0.6.1; see the upgrade notes for behaviour that changes.
+
+### Behaviour changes
+
+- **A scan whose model never submits findings now fails** with exit code 3 instead of exiting 0 with zero findings. Argus reminds the model once to call `submit_findings`; a second miss raises `AgentDidNotSubmitError`. An explicit empty submission is still a valid clean scan.
+- **AWS preflight can stop a scan** with exit code 4 before any LLM budget is spent: no Resource Explorer aggregator index (a local-only index silently searched one region), no default view, no Search permission. `--skip-preflight` / `ARGUS_SKIP_PREFLIGHT=true` bypasses it and is recorded in the report. In multi-account runs one failing account is recorded in `scan_errors` and the others continue.
+- **`--lookback-days` is now actually applied.** The prompt and tool schema used to tell the model never to use less than 90 days, so the model asked for 90 whatever you set. The configured window now overrides every metrics query.
+- **The resource cap no longer drops whole resource types.** With no cost data the old selection was arbitrary; selection is now a deterministic round-robin across types (cost order with a per-type floor when costs exist).
+
+### Added
+
+- **Report schema 1.1.0** (additive): `coverage` (discovered / analysed / dropped / truncated, per-type and regions), `scan_window` (the lookback window used and whether costs are billed), `preflight` (per-account check results). Findings gain `confidence` (low / medium / high) and `cost_basis` (billed / estimated).
+- **Coverage in every output:** the HTML report header, a stderr summary line from `argus scan`, and the scan result. `--strict-coverage` / `STRICT_COVERAGE=true` makes truncation a failure (exit 1).
+- **Preflight checks P1 to P7** (identity and admin-role warning, Resource Explorer reachability, aggregator index, index state, default view, `tags` in the view, Search permission). Each failure names the fix.
+- **No data is not zero:** metric results carry `status` (`ok` / `no_data` / `error`) and an explicit "unavailable, not zero" note; the AWS adapter no longer reports a permission error as "no data". Findings backed by unavailable metrics are forced to `confidence: low`, and windows under 90 days cap confidence at `medium`.
+- Exit codes documented in a new reference page. `docs/reference/troubleshooting.md` explains each preflight code.
+- IAM: `GetDefaultView`, `ListViews`, `GetIndex` added to the CloudFormation templates and docs; Terraform read-only scan role in `deploy/aws/terraform/`; the AWS template exposes `ResourceExplorerRegion`.
+
+### Fixed
+
+- The AWS template did not expose `RESOURCE_EXPLORER_REGION`.
+- The prefilter log field `dropped_zero_cost` was wrong whenever dropped resources had a cost; it is now `dropped`.
+
+### Upgrade notes
+
+- Automations that treated exit code 0 as "scan ran" will now see 3 or 4 on the failures above. Handle them or investigate the underlying setup.
+- Preflight is AWS-only in this release; GCP and Azure get coverage, window and no-data handling but no preflight.
+- Scans with `--lookback-days` below 90 now really use that window; expect lower confidence on idle findings.
+
 ## v0.6.1 (2026-09-27)
 
 ### Fixed

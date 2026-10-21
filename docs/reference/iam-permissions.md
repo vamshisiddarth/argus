@@ -21,6 +21,9 @@ the templates creates them for you.
         "resource-explorer-2:Search",
         "resource-explorer-2:GetView",
         "resource-explorer-2:ListIndexes",
+        "resource-explorer-2:GetIndex",
+        "resource-explorer-2:GetDefaultView",
+        "resource-explorer-2:ListViews",
         "cloudwatch:GetMetricData",
         "cloudwatch:ListMetrics",
         "ce:GetCostAndUsage",
@@ -52,6 +55,22 @@ the templates creates them for you.
   ]
 }
 ```
+
+!!! info "Why the extra Resource Explorer permissions?"
+    Before every scan Argus runs a preflight that checks the aggregator index
+    (`ListIndexes`, `GetIndex`), the default view and its `tags` property
+    (`GetDefaultView`, `GetView`), and that `Search` works. Without them the
+    scan stops with exit code 4 and a message naming what is missing. See
+    [Troubleshooting](troubleshooting.md#preflight-checks).
+
+### Dedicated read-only scan role
+
+Do not scan with an administrator role. A copy-paste Terraform role with exactly
+the permissions above is in
+[`deploy/aws/terraform/read-only-scan-role.tf`](https://github.com/vamshisiddarth/argus/blob/main/deploy/aws/terraform/read-only-scan-role.tf);
+the CloudFormation templates in `deploy/aws/` create the same set. Argus prints
+the identity it runs as at the start of every scan and warns when the name
+looks like `Administrator*` or `*FullAccess`.
 
 !!! info "Why the describe permissions?"
     Argus uses these read-only `Describe*` calls to fetch the **current instance size**

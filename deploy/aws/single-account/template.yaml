@@ -16,6 +16,14 @@ Parameters:
     NoEcho: true
     Description: Slack incoming webhook URL. Create one at api.slack.com/apps.
 
+  ResourceExplorerRegion:
+    Type: String
+    Default: us-east-1
+    Description: >
+      Region that holds your Resource Explorer aggregator index. Argus checks
+      this at the start of every scan and fails with a clear message if the
+      index, default view or Search permission is missing.
+
   IgnoreRegions:
     Type: String
     Default: ""
@@ -144,6 +152,9 @@ Resources:
                   - resource-explorer-2:Search
                   - resource-explorer-2:GetView
                   - resource-explorer-2:ListIndexes
+                  - resource-explorer-2:GetIndex
+                  - resource-explorer-2:GetDefaultView
+                  - resource-explorer-2:ListViews
                 Resource: "*"
 
               - Sid: CloudWatchMetrics
@@ -221,6 +232,7 @@ Resources:
         Variables:
           IGNORE_REGIONS: !Ref IgnoreRegions
           PRIMARY_REGION: !Ref PrimaryRegion
+          RESOURCE_EXPLORER_REGION: !Ref ResourceExplorerRegion
           DRY_RUN: !Ref DryRun
           AI_PROVIDER: !Ref AiProvider
           BEDROCK_MODEL_ID: !Ref BedrockModelId

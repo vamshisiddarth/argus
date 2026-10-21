@@ -165,3 +165,51 @@ To skip delivery during development, set `DRY_RUN=true`.
 - **All clouds**: Check `EXCLUDE_TAGS` / `EXCLUDE_RESOURCE_TYPES` / `IGNORE_REGIONS` aren't filtering everything out
 - **GCP**: Verify `GCP_PROJECT_ID` is set and the service account has `roles/cloudasset.viewer`
 - **Azure**: Verify `AZURE_SUBSCRIPTION_IDS` lists valid subscription IDs and Reader is granted
+
+## Preflight checks
+
+Before every AWS scan Argus checks the environment and stops (exit code 4) when
+a result would be silently partial. Each failure prints the fix; this page
+explains the codes. `--skip-preflight` (or `ARGUS_SKIP_PREFLIGHT=true`) bypasses
+the checks, which is recorded in the report.
+
+### P1_IDENTITY
+
+Information, or a warning when the caller's name looks like `Administrator*` or
+`*FullAccess` (a name-based check only; Argus makes no IAM calls to inspect
+policies). Scan with a dedicated read-only role: see
+[IAM Permissions](iam-permissions.md).
+
+### P2_RE_REACHABLE
+
+Argus cannot list Resource Explorer indexes. Grant
+`resource-explorer-2:ListIndexes` (the full set is in
+[IAM Permissions](iam-permissions.md)).
+
+### P3_AGGREGATOR_INDEX
+
+Only local indexes exist (a search then covers one region and silently misses
+the rest), none exist, or the aggregator is in another region. Create an
+aggregator index in `RESOURCE_EXPLORER_REGION`, or set that variable to the
+region that has one. Commands are in the first section of this page.
+
+### P4_INDEX_STATE
+
+Warning: the index is `CREATING` or `UPDATING`, so results may be partial. Wait
+until it is `ACTIVE`, then re-run.
+
+### P5_DEFAULT_VIEW
+
+There is no default view in the aggregator region, or it cannot be read. Create
+one and associate it as the default (first section of this page).
+
+### P6_VIEW_TAGS
+
+Warning: the default view does not include the `tags` property. Every resource
+looks untagged, so policy excludes such as `environment: prod` and
+`argus-exempt` cannot work. Add `Name=tags` to the view's included properties.
+
+### P7_SEARCH_PERMISSION
+
+`Search` was denied or failed. The scan role needs `resource-explorer-2:Search`,
+`GetView`, `GetDefaultView`, `ListViews`, `ListIndexes` and `GetIndex`.

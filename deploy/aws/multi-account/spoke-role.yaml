@@ -59,6 +59,9 @@ Resources:
                   - resource-explorer-2:Search
                   - resource-explorer-2:GetView
                   - resource-explorer-2:ListIndexes
+                  - resource-explorer-2:GetIndex
+                  - resource-explorer-2:GetDefaultView
+                  - resource-explorer-2:ListViews
                 Resource: "*"
 
               # CloudWatch — read metrics for discovered resources
