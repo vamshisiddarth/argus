@@ -57,3 +57,49 @@ class TestScanExitCodes:
             _scan()
 
         assert exc.value.code == 2
+
+
+class TestCoverageCli:
+    @patch("entrypoints.aws_lambda.handler")
+    def test_prints_coverage_summary_line(self, mock_handler, capsys):
+        mock_handler.return_value = {
+            "statusCode": 200,
+            "coverage": {
+                "discovered": 880,
+                "analysed": 200,
+                "dropped": 680,
+                "truncated": True,
+                "selection": "stratified_by_type",
+            },
+        }
+
+        _scan()
+
+        err = capsys.readouterr().err
+        assert "analysed 200 of 880" in err
+        assert "680 not analysed" in err
+        assert "stratified_by_type" in err
+
+    @patch("entrypoints.aws_lambda.handler")
+    def test_strict_coverage_flag_sets_env(self, mock_handler, monkeypatch):
+        import os
+
+        monkeypatch.delenv("STRICT_COVERAGE", raising=False)
+        mock_handler.return_value = {"statusCode": 200}
+
+        _scan(["--cloud", "aws", "--run-now", "--strict-coverage"])
+
+        assert os.environ["STRICT_COVERAGE"] == "true"
+        monkeypatch.delenv("STRICT_COVERAGE", raising=False)
+
+    @patch("entrypoints.aws_lambda.handler")
+    def test_strict_coverage_failure_exits_1_with_message(self, mock_handler, capsys):
+        from core.errors import StrictCoverageError
+
+        mock_handler.side_effect = StrictCoverageError("analysed 1 of 9")
+
+        with pytest.raises(SystemExit) as exc:
+            _scan()
+
+        assert exc.value.code == 1
+        assert "analysed 1 of 9" in capsys.readouterr().err

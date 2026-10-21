@@ -448,3 +448,55 @@ class TestHandlerSlackDeliveryFailureRaises:
 
         with pytest.raises(RuntimeError, match="Slack delivery failed"):
             handler({}, None)
+
+
+class TestHandlerCoverage:
+    def _run(self, monkeypatch, strict: bool, coverage):
+        from unittest.mock import patch
+
+        monkeypatch.setenv("ACCOUNTS_MODE", "single")
+        monkeypatch.setenv("SLACK_WEBHOOK_URL", "https://hooks.slack.com/test")
+        if strict:
+            monkeypatch.setenv("STRICT_COVERAGE", "true")
+        with (
+            patch("entrypoints.aws_lambda.notify_all"),
+            patch("entrypoints.aws_lambda.build_slack_payload", return_value={"b": []}),
+            patch(
+                "entrypoints.aws_lambda.build_report", return_value=_fake_report()
+            ) as mock_build,
+            patch("entrypoints.aws_lambda.AgentLoop") as mock_loop_cls,
+            patch("entrypoints.aws_lambda.AWSAdapter"),
+            patch(
+                "entrypoints.aws_lambda._get_current_account_id",
+                return_value="123456789012",
+            ),
+            patch("entrypoints.aws_lambda._build_ai_provider"),
+        ):
+            loop = mock_loop_cls.return_value
+            loop.run.return_value = ([], "ok")
+            loop.coverage = coverage
+            from entrypoints.aws_lambda import handler
+
+            result = handler({}, None)
+        return result, mock_build
+
+    def _truncated(self):
+        from core.models.coverage import Coverage, TypeCoverage
+
+        return Coverage(
+            880, 200, "cost_desc", True, ["us-east-1"], {"T": TypeCoverage(880, 200)}
+        )
+
+    def test_coverage_passed_to_report_and_result(self, monkeypatch):
+        result, mock_build = self._run(monkeypatch, False, self._truncated())
+
+        assert mock_build.call_args.kwargs["coverage"]["dropped"] == 680
+        assert result["coverage"]["truncated"] is True
+
+    def test_strict_coverage_fails_when_truncated(self, monkeypatch):
+        import pytest
+
+        from core.errors import StrictCoverageError
+
+        with pytest.raises(StrictCoverageError):
+            self._run(monkeypatch, True, self._truncated())

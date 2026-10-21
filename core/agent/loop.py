@@ -13,6 +13,7 @@ from core.agent.prompts import build_system_prompt, build_tool_schemas
 from core.agent.selection import select_candidates
 from core.config import get_settings
 from core.errors import AgentDidNotSubmitError
+from core.models.coverage import Coverage, TypeCoverage
 from core.models.finding import ResourceFinding
 from core.token_tracker import BudgetExceededError, TokenTracker
 
@@ -92,6 +93,7 @@ class AgentLoop:
     def __init__(self, ai_provider: AIProvider, cloud_adapter: CloudAdapter) -> None:
         self._ai = ai_provider
         self._adapter = cloud_adapter
+        self.coverage: Coverage | None = None
         self._tools: list[Tool] = [
             Tool(
                 name=t["name"],
@@ -279,6 +281,7 @@ class AgentLoop:
 
         if not resources:
             self._prefiltered_payload = []
+            self.coverage = Coverage.empty()
             logger.info("prefilter_complete", discovered=0, sent_to_ai=0)
             return []
 
@@ -295,6 +298,9 @@ class AgentLoop:
         chosen, selection_rule = select_candidates(resources, costs, cap)
         capped = [(r, costs.get(r.resource_id, 0.0)) for r in chosen]
         dropped = total_discovered - len(capped)
+        self.coverage = _build_coverage(
+            resources, chosen, costs, selection_rule, total_discovered
+        )
 
         if dropped > 0:
             logger.warning(
@@ -464,6 +470,29 @@ def _tags_match(resource_tags: dict[str, str], exclude_tags: dict[str, str]) -> 
         if resource_tags.get(key) == value:
             return True
     return False
+
+
+def _build_coverage(
+    discovered: list[Any],
+    chosen: list[Any],
+    costs: dict[str, float],
+    selection_rule: str,
+    total: int,
+) -> Coverage:
+    types: dict[str, TypeCoverage] = {}
+    for rtype in {r.resource_type for r in discovered}:
+        types[rtype] = TypeCoverage(
+            discovered=sum(1 for r in discovered if r.resource_type == rtype),
+            analysed=sum(1 for r in chosen if r.resource_type == rtype),
+        )
+    return Coverage(
+        discovered=total,
+        analysed=len(chosen),
+        selection=selection_rule,
+        cost_data_available=any(v > 0 for v in costs.values()),
+        regions_covered=sorted({r.region for r in discovered if r.region}),
+        types=types,
+    )
 
 
 def _compress_resource(r: dict) -> dict:

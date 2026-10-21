@@ -143,10 +143,10 @@ class TestBuildReport:
         assert report["agent_output_tokens"] == 0
         assert report["estimated_agent_cost_usd"] == 0.0
 
-    def test_schema_version_is_1_0_1(self):
-        # 1.0.1: findings gained optional account_id / account_name
+    def test_schema_version_is_1_1_0(self):
+        # 1.1.0: coverage, scan_window, preflight (all optional)
         report = build_report([], cloud="aws", executive_summary="x")
-        assert report["schema_version"] == "1.0.1"
+        assert report["schema_version"] == "1.1.0"
 
     def test_scan_id_is_unique_per_call(self):
         r1 = build_report([], cloud="aws", executive_summary="x")
@@ -785,3 +785,90 @@ class TestNotifyAll:
             result = notify_all(SAMPLE_PAYLOAD, dry_run=False)
 
         assert result is True  # second provider succeeded
+
+
+# ---------------------------------------------------------------------------
+# Schema 1.1.0 additions: coverage / scan_window / preflight
+# ---------------------------------------------------------------------------
+
+_COVERAGE = {
+    "discovered": 880,
+    "analysed": 200,
+    "dropped": 680,
+    "truncated": True,
+    "selection": "stratified_by_type",
+    "cost_data_available": False,
+    "regions_covered": ["us-east-1"],
+    "types": {"AWS::EC2::Volume": {"discovered": 880, "analysed": 200}},
+}
+
+
+class TestReportCoverageFields:
+    def test_new_keys_present_and_none_by_default(self):
+        report = build_report([], cloud="aws", executive_summary="x")
+        assert report["coverage"] is None
+        assert report["scan_window"] is None
+        assert report["preflight"] is None
+
+    def test_new_keys_carry_what_was_passed(self):
+        window = {"metrics_lookback_days": 14, "cost_basis": "unavailable"}
+        pre = {"skipped": False, "checks": []}
+        report = build_report(
+            [],
+            cloud="aws",
+            executive_summary="x",
+            coverage=_COVERAGE,
+            scan_window=window,
+            preflight=pre,
+        )
+        assert report["coverage"] == _COVERAGE
+        assert report["scan_window"] == window
+        assert report["preflight"] == pre
+
+    def test_old_report_still_diffs_against_new_report(self):
+        from core.reports.comparison import compare_scans
+
+        old = build_report(_sample_findings(), cloud="aws", executive_summary="x")
+        old["schema_version"] = "1.0.1"
+        for key in ("coverage", "scan_window", "preflight"):
+            old.pop(key, None)
+
+        labelled, diff = compare_scans(_sample_findings(), old)
+
+        assert len(labelled) == len(_sample_findings())
+        assert all(f.status == "recurring" for f in labelled)
+
+
+class TestHtmlCoverage:
+    def _html(self, **kw):
+        report = build_report(
+            _sample_findings(), cloud="aws", executive_summary="x", **kw
+        )
+        return build_html_report(report)
+
+    def test_truncation_warning_shows_numbers(self):
+        out = self._html(coverage=_COVERAGE)
+        assert "Analysed 200 of 880" in out
+        assert 'class="coverage coverage-warning"' in out
+        assert "MAX_RESOURCES_PER_SCAN" in out
+
+    def test_full_coverage_has_no_warning(self):
+        full = {**_COVERAGE, "discovered": 5, "analysed": 5, "dropped": 0}
+        full["truncated"] = False
+        out = self._html(coverage=full)
+        assert "Analysed 5 of 5" in out
+        assert 'class="coverage coverage-warning"' not in out
+
+    def test_zero_resources_renders(self):
+        empty = {**_COVERAGE, "discovered": 0, "analysed": 0, "dropped": 0}
+        empty["truncated"] = False
+        empty["types"] = {}
+        assert "Analysed 0 of 0" in self._html(coverage=empty)
+
+    def test_no_coverage_renders_unchanged(self):
+        out = self._html()
+        assert "Analysed" not in out
+
+    def test_window_is_shown_when_present(self):
+        out = self._html(scan_window={"metrics_lookback_days": 14})
+        assert "14-day" in out

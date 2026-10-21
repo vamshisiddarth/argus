@@ -29,6 +29,7 @@ from botocore.exceptions import ClientError
 
 from adapters.aws.adapter import AWSAdapter
 from core.agent.loop import AgentLoop
+from core.config import get_settings
 from core.log import configure_logging
 from core.models.finding import ResourceFinding
 from core.registry import get_registry
@@ -45,6 +46,7 @@ from core.reports.generator import (
 from core.reports.html import build_html_report
 from core.secrets import resolve_secrets
 from core.validation import ConfigurationError, validate_environment
+from entrypoints._meta import ScanMeta
 
 configure_logging()
 logger = structlog.get_logger(__name__)
@@ -77,14 +79,18 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     ai_provider = _build_ai_provider()
 
     scan_errors: list[dict[str, str]] = []
+    meta = ScanMeta()
     if accounts_mode == "multi":
         all_findings, executive_summary, account_ids, token_summary, scan_errors = (
-            _run_multi_account(ai_provider, ignore_regions, primary_region, cloud)
+            _run_multi_account(ai_provider, ignore_regions, primary_region, cloud, meta)
         )
     else:
         all_findings, executive_summary, account_ids, token_summary = (
-            _run_single_account(ai_provider, ignore_regions, primary_region, cloud)
+            _run_single_account(
+                ai_provider, ignore_regions, primary_region, cloud, meta
+            )
         )
+    meta.enforce_strict(get_settings().scan.strict_coverage)
 
     s3_bucket = os.environ.get("REPORT_S3_BUCKET", "").strip()
     previous_report = _load_previous_report(cloud, s3_bucket)
@@ -100,6 +106,9 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         scan_diff=scan_diff,
         scan_errors=scan_errors,
         registry_warnings=get_registry().load_warnings,
+        coverage=meta.coverage_dict(),
+        scan_window=meta.scan_window,
+        preflight=meta.preflight,
     )
     report_url: str | None = None
     if s3_bucket:
@@ -143,6 +152,7 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         "findings_count": report["findings_count"],
         "total_estimated_waste_usd": report["total_estimated_waste_usd"],
         "budget_exceeded": budget_exceeded,
+        "coverage": meta.summary(),
     }
 
 
@@ -156,6 +166,7 @@ def _run_single_account(
     ignore_regions: list[str],
     primary_region: str,
     cloud: str,
+    meta: ScanMeta | None = None,
 ) -> tuple[list[ResourceFinding], str, list[str], dict]:
     account_id = _get_current_account_id()
     adapter = AWSAdapter.for_account(account=None, region=primary_region)
@@ -163,6 +174,8 @@ def _run_single_account(
     findings, summary = loop.run(
         cloud=cloud, ignore_regions=ignore_regions, accounts=[{"id": account_id}]
     )
+    if meta is not None:
+        meta.add_loop(loop)
     return findings, summary, [account_id], loop.tracker.summary()
 
 
@@ -171,6 +184,7 @@ def _run_multi_account(
     ignore_regions: list[str],
     primary_region: str,
     cloud: str,
+    meta: ScanMeta | None = None,
 ) -> tuple[list[ResourceFinding], str, list[str], dict, list[dict[str, str]]]:
     raw = os.environ.get("ACCOUNTS_CONFIG", "[]")
     try:
@@ -184,7 +198,7 @@ def _run_multi_account(
             "— falling back to single-account mode"
         )
         findings, summary, ids, tokens = _run_single_account(
-            ai_provider, ignore_regions, primary_region, cloud
+            ai_provider, ignore_regions, primary_region, cloud, meta
         )
         return findings, summary, ids, tokens, []
 
@@ -208,6 +222,8 @@ def _run_multi_account(
                 ignore_regions=ignore_regions,
                 accounts=[{"id": acct_id, "name": acct_name}],
             )
+            if meta is not None:
+                meta.add_loop(loop)
             all_findings.extend(findings)
             all_summaries.append(f"[{acct_name}] {summary}")
             account_ids.append(acct_id)

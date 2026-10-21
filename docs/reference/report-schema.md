@@ -1,6 +1,6 @@
 # Report JSON Schema
 
-Version: **1.0.1**
+Version: **1.1.0**
 
 Every Argus scan produces a JSON report with the following top-level fields.
 
@@ -8,7 +8,7 @@ Every Argus scan produces a JSON report with the following top-level fields.
 
 | Field | Type | Description |
 |---|---|---|
-| `schema_version` | `string` | Schema version identifier. Currently `"1.0.1"`. |
+| `schema_version` | `string` | Schema version identifier. Currently `"1.1.0"`. |
 | `scan_id` | `string` | UUID v4 unique to this scan. |
 | `generated_at` | `string` | ISO 8601 timestamp (UTC) when the report was generated. |
 | `cloud` | `string` | Cloud provider: `"aws"`, `"gcp"`, or `"azure"`. |
@@ -24,6 +24,22 @@ Every Argus scan produces a JSON report with the following top-level fields.
 | `scan_errors` | `object[]` | Accounts/projects/subscriptions that failed to scan: `{account_id, account_name, error}`. Empty when all succeeded. |
 | `skipped_resource_types` | `string[]` | Resource types that were skipped during the scan (for example, GCP asset types whose API isn't enabled). |
 | `registry_warnings` | `string[]` | Invalid resource-registry entries skipped at load time. Normally empty. |
+| `coverage` | `Coverage \| null` | What the scan actually analysed. See [Coverage object](#coverage-object). `null` when the entrypoint could not provide it. Added in 1.1.0. |
+| `scan_window` | `object \| null` | The lookback window actually used (`metrics_lookback_days`, `cost_lookback_days`, `cost_basis`). Added in 1.1.0. |
+| `preflight` | `object \| null` | Results of the pre-scan environment checks. Added in 1.1.0. |
+
+## Coverage object
+
+| Field | Type | Description |
+|---|---|---|
+| `discovered` | `integer` | Billable resources found after exclusion filters. |
+| `analysed` | `integer` | Resources handed to the AI. |
+| `dropped` | `integer` | `discovered - analysed`. |
+| `truncated` | `boolean` | `true` when `dropped > 0` (the `MAX_RESOURCES_PER_SCAN` cap bit). |
+| `selection` | `string` | `"cost_desc"` (cost data available), `"stratified_by_type"` (round-robin across types) or `"mixed"` (multi-account). |
+| `cost_data_available` | `boolean` | Whether any per-resource cost was returned. |
+| `regions_covered` | `string[]` | Regions in the discovered inventory. |
+| `types` | `object` | Per resource type: `{discovered, analysed}`. |
 
 ## Finding object
 
@@ -61,12 +77,13 @@ Every Argus scan produces a JSON report with the following top-level fields.
 The `schema_version` field uses semantic versioning:
 
 - **Patch** (1.0.x): new optional fields added. Existing consumers are unaffected.
-- **Minor** (1.x.0): field semantics changed or optional fields become required.
+- **Minor** (1.x.0): new optional top-level blocks, changed field semantics, or optional fields becoming required.
 - **Major** (x.0.0): fields removed or renamed. Consumers must update.
 
 Consumers should check `schema_version` before parsing and handle unknown versions gracefully.
 
 | Version | Change |
 |---|---|
+| 1.1.0 (v0.7.0) | New optional top-level `coverage`, `scan_window` and `preflight` blocks. Nothing removed or renamed. |
 | 1.0.1 (v0.6.0) | Findings gained optional `account_id` and `account_name`. |
 | 1.0 | Initial schema. |

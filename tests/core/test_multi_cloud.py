@@ -156,3 +156,31 @@ class TestMergeReports:
 
         assert "aws-account-1" in result["accounts_scanned"]
         assert "gcp-account-1" in result["accounts_scanned"]
+
+
+def test_merge_reports_merges_coverage_when_present():
+    cov = lambda d, a: {  # noqa: E731
+        "discovered": d,
+        "analysed": a,
+        "dropped": d - a,
+        "truncated": d > a,
+        "selection": "cost_desc",
+        "cost_data_available": True,
+        "regions_covered": ["r"],
+        "types": {"T": {"discovered": d, "analysed": a}},
+    }
+    aws = _make_report("aws", [])
+    aws["coverage"] = cov(10, 4)
+    gcp = _make_report("gcp", [])
+    gcp["coverage"] = cov(5, 5)
+
+    merged = merge_reports([aws, gcp])
+
+    assert merged["coverage"]["discovered"] == 15
+    assert merged["coverage"]["analysed"] == 9
+    assert merged["coverage"]["truncated"] is True
+
+
+def test_merge_reports_without_coverage_has_none():
+    merged = merge_reports([_make_report("aws", []), _make_report("gcp", [])])
+    assert merged["coverage"] is None

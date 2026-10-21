@@ -36,6 +36,7 @@ import structlog
 
 from adapters.gcp.adapter import GCPAdapter
 from core.agent.loop import AgentLoop
+from core.config import get_settings
 from core.log import configure_logging
 from core.models.finding import ResourceFinding
 from core.registry import get_registry
@@ -52,6 +53,7 @@ from core.reports.generator import (
 from core.reports.html import build_html_report
 from core.secrets import resolve_secrets
 from core.validation import ConfigurationError, validate_environment
+from entrypoints._meta import ScanMeta
 
 configure_logging()
 logger = structlog.get_logger(__name__)
@@ -85,6 +87,7 @@ def main() -> None:
     logger.info("scan_start", projects=project_ids, ignore_regions=ignore_regions)
 
     scan_errors: list[dict[str, str]] = []
+    meta = ScanMeta()
     if use_multi:
         (
             all_findings,
@@ -93,12 +96,13 @@ def main() -> None:
             token_summary,
             scan_errors,
             skipped_types,
-        ) = _run_multi_project(project_ids, ignore_regions, cloud)
+        ) = _run_multi_project(project_ids, ignore_regions, cloud, meta)
     else:
         all_findings, executive_summary, scanned_ids, token_summary, skipped_types = (
-            _run_single_project(project_ids[0], ignore_regions, cloud)
+            _run_single_project(project_ids[0], ignore_regions, cloud, meta)
         )
         scan_errors = []
+    meta.enforce_strict(get_settings().scan.strict_coverage)
 
     gcs_bucket = os.environ.get("REPORT_GCS_BUCKET", "").strip()
     previous_report = _load_previous_report(cloud, gcs_bucket)
@@ -115,6 +119,8 @@ def main() -> None:
         scan_errors=scan_errors,
         skipped_resource_types=skipped_types,
         registry_warnings=get_registry().load_warnings,
+        coverage=meta.coverage_dict(),
+        scan_window=meta.scan_window,
     )
     report_url: str | None = None
     if gcs_bucket:
@@ -202,6 +208,7 @@ def _run_single_project(
     project_id: str,
     ignore_regions: list[str],
     cloud: str,
+    meta: ScanMeta | None = None,
 ) -> tuple[list[ResourceFinding], str, list[str], dict, list[str]]:
     structlog.contextvars.bind_contextvars(account_id=project_id)
     ai_provider = _build_ai_provider(project_id)
@@ -212,6 +219,8 @@ def _run_single_project(
         ignore_regions=ignore_regions,
         accounts=[{"id": project_id, "name": project_id}],
     )
+    if meta is not None:
+        meta.add_loop(loop)
     return (
         findings,
         summary,
@@ -225,6 +234,7 @@ def _run_multi_project(
     project_ids: list[str],
     ignore_regions: list[str],
     cloud: str,
+    meta: ScanMeta | None = None,
 ) -> tuple[
     list[ResourceFinding], str, list[str], dict, list[dict[str, str]], list[str]
 ]:
@@ -254,6 +264,8 @@ def _run_multi_project(
                 ignore_regions=ignore_regions,
                 accounts=[{"id": pid, "name": name}],
             )
+            if meta is not None:
+                meta.add_loop(loop)
             all_findings.extend(findings)
             all_summaries.append(f"[{name}] {summary}")
             scanned_ids.append(pid)

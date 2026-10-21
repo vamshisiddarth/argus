@@ -19,3 +19,7 @@ class PreflightFailedError(RuntimeError):
     def __init__(self, message: str, result: Any = None) -> None:
         super().__init__(message)
         self.result = result
+
+
+class StrictCoverageError(RuntimeError):
+    """STRICT_COVERAGE is on and the resource cap left resources unanalysed."""

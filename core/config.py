@@ -185,6 +185,7 @@ class ScanSettings(BaseSettings):
     adapter_concurrency: int = Field(10, alias="ADAPTER_CONCURRENCY")
     max_iterations: int = Field(50, alias="MAX_AGENT_ITERATIONS")
     llm_budget_usd: float = Field(2.0, alias="LLM_BUDGET_USD")
+    strict_coverage: bool = Field(False, alias="STRICT_COVERAGE")
     exclude_tags: str = Field("", alias="EXCLUDE_TAGS")
     exclude_resource_types: str = Field("", alias="EXCLUDE_RESOURCE_TYPES")
 

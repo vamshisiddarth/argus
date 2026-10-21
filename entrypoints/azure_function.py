@@ -36,6 +36,7 @@ import structlog
 
 from adapters.azure.adapter import AzureAdapter
 from core.agent.loop import AgentLoop
+from core.config import get_settings
 from core.log import configure_logging
 from core.registry import get_registry
 from core.reports.comparison import compare_scans
@@ -47,6 +48,7 @@ from core.reports.generator import build_report, build_slack_payload
 from core.reports.html import build_html_report
 from core.secrets import resolve_secrets
 from core.validation import ConfigurationError, validate_environment
+from entrypoints._meta import ScanMeta
 
 configure_logging()
 logger = structlog.get_logger(__name__)
@@ -97,6 +99,9 @@ def main(mytimer: Any) -> None:
         ignore_regions=ignore_regions,
         accounts=accounts,
     )
+    meta = ScanMeta()
+    meta.add_loop(loop)
+    meta.enforce_strict(get_settings().scan.strict_coverage)
 
     storage_account = os.environ.get("REPORT_STORAGE_ACCOUNT", "").strip()
     previous_report = _load_previous_report(cloud, storage_account)
@@ -113,6 +118,8 @@ def main(mytimer: Any) -> None:
         scan_diff=scan_diff,
         scan_errors=[],
         registry_warnings=get_registry().load_warnings,
+        coverage=meta.coverage_dict(),
+        scan_window=meta.scan_window,
     )
     report_url: str | None = None
     if storage_account:

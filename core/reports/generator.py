@@ -19,7 +19,7 @@ def _registry() -> ResourceRegistry:
 
 # Report JSON schema version (see docs/reference/report-schema.md).
 # 1.0.1: findings gained optional account_id / account_name.
-SCHEMA_VERSION = "1.0.1"
+SCHEMA_VERSION = "1.1.0"
 
 # Maximum findings shown as individual rows in the Slack digest
 SLACK_DIGEST_LIMIT = 5
@@ -36,6 +36,9 @@ def build_report(
     scan_errors: list[dict[str, str]] | None = None,
     skipped_resource_types: list[str] | None = None,
     registry_warnings: list[str] | None = None,
+    coverage: dict[str, Any] | None = None,
+    scan_window: dict[str, Any] | None = None,
+    preflight: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """
     Convert a list of ResourceFinding objects into the canonical JSON report.
@@ -45,6 +48,8 @@ def build_report(
         for accounts/projects/subscriptions that failed to scan.
     registry_warnings: list of warning strings from get_registry().load_warnings;
         non-empty means the registry loaded with invalid specs skipped.
+    coverage / scan_window / preflight: schema 1.1.0 provenance blocks; None when
+        the caller does not have them (older entrypoints, chat mode).
     """
     sorted_findings = sorted(
         findings, key=lambda f: f.estimated_monthly_cost, reverse=True
@@ -70,6 +75,9 @@ def build_report(
         "scan_errors": scan_errors or [],
         "skipped_resource_types": skipped_resource_types or [],
         "registry_warnings": registry_warnings or [],
+        "coverage": coverage,
+        "scan_window": scan_window,
+        "preflight": preflight,
     }
 
 

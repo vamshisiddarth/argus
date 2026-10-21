@@ -655,3 +655,71 @@ class TestAttachAccounts:
             cloud="aws", ignore_regions=[], accounts=[{"id": "123", "name": "prod"}]
         )
         assert [(f.account_id, f.account_name) for f in findings] == [("123", "prod")]
+
+
+class TestLoopCoverage:
+    def test_loop_sets_coverage_after_prefilter(self):
+        loop = AgentLoop(
+            ai_provider=MagicMock(spec=AIProvider), cloud_adapter=FakeCloudAdapter()
+        )
+
+        loop._prefilter_resources(IGNORE_REGIONS)
+
+        cov = loop.coverage
+        assert (cov.discovered, cov.analysed, cov.dropped) == (1, 1, 0)
+        assert cov.truncated is False
+        assert cov.regions_covered == ["us-east-1"]
+        assert cov.cost_data_available is True
+        assert cov.selection == "cost_desc"
+        assert cov.types["AWS::EC2::NatGateway"].analysed == 1
+
+    def test_coverage_reports_truncation_per_type(self, monkeypatch):
+        class ManyAdapter(FakeCloudAdapter):
+            def list_resources(self, ignore_regions=None):
+                return [
+                    Resource(
+                        resource_id=f"{t}-{i}",
+                        resource_type=f"AWS::Test::{t}",
+                        cloud="aws",
+                        region="us-east-1" if i % 2 else "eu-west-1",
+                    )
+                    for t in ("A", "B", "C")
+                    for i in range(4)
+                ]
+
+            def get_cost(self, resource_ids, days=30):
+                return {}
+
+        monkeypatch.setenv("MAX_RESOURCES_PER_SCAN", "6")
+        loop = AgentLoop(
+            ai_provider=MagicMock(spec=AIProvider), cloud_adapter=ManyAdapter()
+        )
+
+        loop._prefilter_resources(IGNORE_REGIONS)
+
+        cov = loop.coverage
+        assert (cov.discovered, cov.analysed, cov.dropped) == (12, 6, 6)
+        assert cov.truncated is True
+        assert cov.selection == "stratified_by_type"
+        assert cov.cost_data_available is False
+        assert {t: c.analysed for t, c in cov.types.items()} == {
+            "AWS::Test::A": 2,
+            "AWS::Test::B": 2,
+            "AWS::Test::C": 2,
+        }
+        assert all(c.discovered == 4 for c in cov.types.values())
+        assert cov.regions_covered == ["eu-west-1", "us-east-1"]
+
+    def test_coverage_with_no_resources_is_zero(self):
+        class EmptyAdapter(FakeCloudAdapter):
+            def list_resources(self, ignore_regions=None):
+                return []
+
+        loop = AgentLoop(
+            ai_provider=MagicMock(spec=AIProvider), cloud_adapter=EmptyAdapter()
+        )
+
+        loop._prefilter_resources(IGNORE_REGIONS)
+
+        assert loop.coverage.discovered == 0
+        assert loop.coverage.truncated is False

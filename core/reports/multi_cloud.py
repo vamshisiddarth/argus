@@ -11,6 +11,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
+from core.models.coverage import Coverage
 from core.reports.generator import SCHEMA_VERSION
 
 RESOURCE_TAXONOMY: dict[str, str] = {
@@ -111,6 +112,11 @@ def merge_reports(reports: list[dict[str, Any]]) -> dict[str, Any]:
     all_findings.sort(key=lambda f: f["estimated_monthly_cost"], reverse=True)
     total_waste = sum(f["estimated_monthly_cost"] for f in all_findings)
 
+    coverages = [
+        Coverage.from_dict(r["coverage"]) for r in reports if r.get("coverage")
+    ]
+    merged_coverage = Coverage.merge(coverages).to_dict() if coverages else None
+
     return {
         "schema_version": SCHEMA_VERSION,
         "scan_id": str(uuid.uuid4()),
@@ -125,6 +131,7 @@ def merge_reports(reports: list[dict[str, Any]]) -> dict[str, Any]:
         "agent_input_tokens": total_input_tokens,
         "agent_output_tokens": total_output_tokens,
         "cloud_breakdown": cloud_breakdown,
+        "coverage": merged_coverage,
     }
 
 
@@ -143,6 +150,7 @@ def _empty_merged_report() -> dict[str, Any]:
         "agent_input_tokens": 0,
         "agent_output_tokens": 0,
         "cloud_breakdown": [],
+        "coverage": None,
     }
 
 

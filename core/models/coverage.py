@@ -1,0 +1,85 @@
+"""What a scan actually looked at: discovered vs analysed, per type and overall."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Any
+
+
+@dataclass(frozen=True)
+class TypeCoverage:
+    discovered: int
+    analysed: int
+
+
+@dataclass
+class Coverage:
+    discovered: int
+    analysed: int
+    selection: str  # "cost_desc" | "stratified_by_type" | "mixed"
+    cost_data_available: bool
+    regions_covered: list[str] = field(default_factory=list)
+    types: dict[str, TypeCoverage] = field(default_factory=dict)
+
+    @property
+    def dropped(self) -> int:
+        return self.discovered - self.analysed
+
+    @property
+    def truncated(self) -> bool:
+        return self.dropped > 0
+
+    @classmethod
+    def empty(cls) -> Coverage:
+        return cls(0, 0, "stratified_by_type", False)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "discovered": self.discovered,
+            "analysed": self.analysed,
+            "dropped": self.dropped,
+            "truncated": self.truncated,
+            "selection": self.selection,
+            "cost_data_available": self.cost_data_available,
+            "regions_covered": sorted(self.regions_covered),
+            "types": {
+                t: {"discovered": c.discovered, "analysed": c.analysed}
+                for t, c in sorted(self.types.items())
+            },
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> Coverage:
+        return cls(
+            discovered=d["discovered"],
+            analysed=d["analysed"],
+            selection=d.get("selection", "cost_desc"),
+            cost_data_available=d.get("cost_data_available", False),
+            regions_covered=list(d.get("regions_covered", [])),
+            types={
+                t: TypeCoverage(c["discovered"], c["analysed"])
+                for t, c in d.get("types", {}).items()
+            },
+        )
+
+    @staticmethod
+    def merge(items: list[Coverage]) -> Coverage:
+        """Combine per-account coverage into one overall figure."""
+        if not items:
+            return Coverage.empty()
+        types: dict[str, TypeCoverage] = {}
+        for item in items:
+            for name, tc in item.types.items():
+                prev = types.get(name, TypeCoverage(0, 0))
+                types[name] = TypeCoverage(
+                    prev.discovered + tc.discovered, prev.analysed + tc.analysed
+                )
+        rules = {i.selection for i in items}
+        return Coverage(
+            discovered=sum(i.discovered for i in items),
+            analysed=sum(i.analysed for i in items),
+            selection=rules.pop() if len(rules) == 1 else "mixed",
+            cost_data_available=all(i.cost_data_available for i in items),
+            regions_covered=sorted({r for i in items for r in i.regions_covered}),
+            types=types,
+        )

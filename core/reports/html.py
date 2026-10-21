@@ -35,6 +35,13 @@ def build_html_report(report: dict[str, Any]) -> str:
     errors_html = _build_errors_banner(
         scan_errors, len(report.get("accounts_scanned", []))
     )
+    coverage_html = _build_coverage_block(report.get("coverage"))
+    window = report.get("scan_window") or {}
+    window_html = (
+        f" &nbsp;·&nbsp; {int(window['metrics_lookback_days'])}-day metrics window"
+        if window.get("metrics_lookback_days")
+        else ""
+    )
     registry_warnings_html = _build_registry_warnings_banner(
         report.get("registry_warnings") or []
     )
@@ -65,6 +72,8 @@ a:hover{{text-decoration:underline}}
 .error-banner{{background:#fff8e1;border:1px solid #f59e0b;border-radius:10px;padding:14px 18px;margin-bottom:16px}}
 .error-banner-title{{font-size:13px;font-weight:600;color:#92400e;margin-bottom:6px}}
 .error-banner ul{{margin:0;padding-left:18px;font-size:12px;color:#92400e;line-height:1.8}}
+.coverage{{font-size:12px;color:#444;margin-bottom:16px}}
+.coverage-warning{{background:#fff8e1;border:1px solid #f59e0b;border-radius:10px;padding:12px 18px;color:#92400e}}
 .error-banner code{{background:#fef3c7;border-radius:3px;padding:1px 4px;font-family:'SFMono-Regular',Consolas,monospace}}
 .filters{{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center}}
 .filters select,.filters input{{background:#fff;border:1px solid #d4d4d4;border-radius:6px;padding:6px 10px;font-size:13px;color:#111;outline:none}}
@@ -107,7 +116,7 @@ tbody tr:last-child td{{border-bottom:none}}
         <path d="M4 12l8 4 8-4M4 16l8 4 8-4" stroke="#E24B4A" stroke-width="1.5" stroke-linecap="round"/>
       </svg>
       <span class="title">Argus — {cloud} Waste Report</span>
-      <span class="meta">{generated_at} &nbsp;·&nbsp; Scan {scan_id[:8]} &nbsp;·&nbsp; Accounts: {html.escape(accounts)}</span>
+      <span class="meta">{generated_at} &nbsp;·&nbsp; Scan {scan_id[:8]} &nbsp;·&nbsp; Accounts: {html.escape(accounts)}{window_html}</span>
     </div>
     <div class="stats">
       <div class="stat"><div class="stat-val red">${total:,.2f}</div><div class="stat-lbl">estimated waste / month</div></div>
@@ -116,7 +125,7 @@ tbody tr:last-child td{{border-bottom:none}}
     </div>
     <p class="summary">{summary}</p>
   </div>
-{errors_html}{registry_warnings_html}
+{errors_html}{coverage_html}{registry_warnings_html}
   <div class="filters">
     <select id="f-priority" onchange="applyFilters()">
       <option value="">All priorities</option>
@@ -307,6 +316,22 @@ def _build_errors_banner(
         f"account{'s' if total != 1 else ''} succeeded"
         f"</div>\n"
         f"    <ul>{items}</ul>\n"
+        f"  </div>\n"
+    )
+
+
+def _build_coverage_block(coverage: dict[str, Any] | None) -> str:
+    if not coverage:
+        return ""
+    analysed, discovered = coverage["analysed"], coverage["discovered"]
+    line = f"Analysed {analysed} of {discovered} resources"
+    if not coverage.get("truncated"):
+        return f'  <div class="coverage">{line}.</div>\n'
+    rule = html.escape(str(coverage.get("selection", "")))
+    return (
+        f'  <div class="coverage coverage-warning">\n'
+        f"    <strong>{line}</strong> — {coverage['dropped']} were not analysed "
+        f"(selection: {rule}). Raise MAX_RESOURCES_PER_SCAN to cover more.\n"
         f"  </div>\n"
     )
 

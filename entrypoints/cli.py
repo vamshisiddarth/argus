@@ -130,6 +130,12 @@ def main(argv: list[str] | None = None) -> None:
         type=float,
         metavar="USD",
     )
+    parser.add_argument(
+        "--strict-coverage",
+        action="store_true",
+        dest="strict_coverage",
+        help="Fail the scan if the resource cap leaves resources unanalysed",
+    )
 
     subparsers = parser.add_subparsers(dest="command")
 
@@ -346,6 +352,12 @@ def main(argv: list[str] | None = None) -> None:
         metavar="USD",
         help="LLM cost budget per scan in USD (default: 2.00, 0=unlimited)",
     )
+    scan_parser.add_argument(
+        "--strict-coverage",
+        action="store_true",
+        dest="strict_coverage",
+        help="Fail the scan if the resource cap leaves resources unanalysed",
+    )
 
     # --- argus chat ---
     chat_parser = subparsers.add_parser("chat", help="Interactive cloud cost Q&A")
@@ -461,6 +473,8 @@ def _run_scan(args: argparse.Namespace) -> None:
     os.environ["LLM_BUDGET_USD"] = str(args.llm_budget)
     if args.dry_run:
         os.environ["DRY_RUN"] = "true"
+    if getattr(args, "strict_coverage", False):
+        os.environ["STRICT_COVERAGE"] = "true"
 
     if args.accounts:
         _apply_accounts_config(args.accounts, args.cloud)
@@ -471,6 +485,7 @@ def _run_scan(args: argparse.Namespace) -> None:
         EXIT_PREFLIGHT_FAILED,
         AgentDidNotSubmitError,
         PreflightFailedError,
+        StrictCoverageError,
     )
 
     try:
@@ -495,9 +510,24 @@ def _run_scan(args: argparse.Namespace) -> None:
     except PreflightFailedError as exc:
         print(f"Preflight failed: {exc}", file=sys.stderr)
         sys.exit(EXIT_PREFLIGHT_FAILED)
+    except StrictCoverageError as exc:
+        print(f"Scan failed: {exc}", file=sys.stderr)
+        sys.exit(1)
 
     if result is not None:
         print(json.dumps(result, indent=2))
+    if isinstance(result, dict) and result.get("coverage"):
+        cov = result["coverage"]
+        note = (
+            f" ({cov['dropped']} not analysed, selection={cov['selection']})"
+            if cov.get("truncated")
+            else ""
+        )
+        print(
+            f"Coverage: analysed {cov['analysed']} of {cov['discovered']} resources"
+            f"{note}",
+            file=sys.stderr,
+        )
     if isinstance(result, dict) and result.get("budget_exceeded"):
         sys.exit(EXIT_BUDGET_EXCEEDED)
 
