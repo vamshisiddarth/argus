@@ -15,6 +15,7 @@ logger = structlog.get_logger(__name__)
 # Resource Explorer aggregator index lives in one region per account.
 # This is created by our CloudFormation template. Users can override
 # via RESOURCE_EXPLORER_REGION env var if their aggregator is elsewhere.
+_SEARCH_RESULT_LIMIT = 1000
 DEFAULT_AGGREGATOR_REGION = "us-east-1"
 
 # -----------------------------------------------------------------------
@@ -112,11 +113,13 @@ def list_resources(
     )
     ignore_set = set(ignore_regions) if ignore_regions else set()
     resources: list[Resource] = []
+    raw_total = 0
 
     try:
         paginator = client.get_paginator("search")
         for page in paginator.paginate(QueryString="*"):
             for raw in page.get("Resources", []):
+                raw_total += 1
                 if raw.get("Region") in ignore_set:
                     continue
                 resource_type = raw.get("ResourceType", "")
@@ -138,6 +141,16 @@ def list_resources(
                 "or enable Resource Explorer manually in the AWS console."
             ) from exc
         raise
+
+    if raw_total >= _SEARCH_RESULT_LIMIT:
+        # Resource Explorer's Search returns at most 1,000 results in total, so
+        # discovery (and the report's coverage numbers) may be incomplete.
+        logger.warning(
+            "resource_explorer_search_limit",
+            results=raw_total,
+            msg="Search reached the 1,000-result limit; resources beyond it were "
+            "not discovered and coverage may be understated.",
+        )
 
     logger.info(
         "resource_explorer_search_complete",

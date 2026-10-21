@@ -652,3 +652,69 @@ class TestHandlerPreflight:
 
         assert isinstance(exc, PreflightFailedError)
         loop_cls.return_value.run.assert_not_called()
+
+
+class TestHandlerAgentFailureMultiAccount:
+    ACCOUNTS = [
+        {
+            "id": "111111111111",
+            "name": "a",
+            "role_arn": "arn:aws:iam::111111111111:role/r",
+        },
+        {
+            "id": "222222222222",
+            "name": "b",
+            "role_arn": "arn:aws:iam::222222222222:role/r",
+        },
+    ]
+
+    def _run(self, monkeypatch, run_side_effect):
+        from contextlib import ExitStack
+        from unittest.mock import patch
+
+        monkeypatch.setenv("ACCOUNTS_MODE", "multi")
+        monkeypatch.setenv("SLACK_WEBHOOK_URL", "https://hooks.slack.com/test")
+        monkeypatch.setenv("ACCOUNTS_CONFIG", json.dumps(self.ACCOUNTS))
+        with ExitStack() as stack:
+            stack.enter_context(patch("entrypoints.aws_lambda.notify_all"))
+            stack.enter_context(
+                patch("entrypoints.aws_lambda.build_slack_payload", return_value={})
+            )
+            mock_build = stack.enter_context(
+                patch(
+                    "entrypoints.aws_lambda.build_report", return_value=_fake_report()
+                )
+            )
+            loop_cls = stack.enter_context(patch("entrypoints.aws_lambda.AgentLoop"))
+            stack.enter_context(patch("entrypoints.aws_lambda.AWSAdapter"))
+            stack.enter_context(patch("entrypoints.aws_lambda._build_ai_provider"))
+            loop_cls.return_value.run.side_effect = run_side_effect
+            from entrypoints.aws_lambda import handler
+
+            try:
+                return handler({}, None), mock_build
+            except Exception as exc:  # noqa: BLE001
+                return exc, mock_build
+
+    def test_one_agent_failure_does_not_abort_other_accounts(self, monkeypatch):
+        from core.errors import AgentDidNotSubmitError
+
+        result, mock_build = self._run(
+            monkeypatch, [AgentDidNotSubmitError("model said X"), ([], "fine")]
+        )
+
+        assert result["statusCode"] == 200
+        errors = mock_build.call_args.kwargs["scan_errors"]
+        assert [(e["account_id"], e["kind"]) for e in errors] == [
+            ("111111111111", "agent")
+        ]
+
+    def test_every_agent_failure_raises(self, monkeypatch):
+        from core.errors import AgentDidNotSubmitError
+
+        exc, _ = self._run(
+            monkeypatch,
+            [AgentDidNotSubmitError("one"), AgentDidNotSubmitError("two")],
+        )
+
+        assert isinstance(exc, AgentDidNotSubmitError)

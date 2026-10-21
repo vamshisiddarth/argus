@@ -32,6 +32,7 @@ A trust release. Argus now tells you what it covered, fails loudly when it could
 
 - Automations that treated exit code 0 as "scan ran" will now see 3 or 4 on the failures above. Handle them or investigate the underlying setup.
 - Preflight is AWS-only in this release; GCP and Azure get coverage, window and no-data handling but no preflight.
+- Known limitation: Resource Explorer `Search` returns at most 1,000 results, so on larger accounts `coverage.discovered` can understate the inventory. Argus now logs `resource_explorer_search_limit` when it hits the limit.
 - Scans with `--lookback-days` below 90 now really use that window; expect lower confidence on idle findings.
 
 ## v0.6.1 (2026-09-27)

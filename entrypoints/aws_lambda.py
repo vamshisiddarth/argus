@@ -30,7 +30,7 @@ from botocore.exceptions import ClientError
 from adapters.aws.adapter import AWSAdapter
 from core.agent.loop import AgentLoop
 from core.config import get_settings
-from core.errors import PreflightFailedError
+from core.errors import AgentDidNotSubmitError, PreflightFailedError
 from core.log import configure_logging
 from core.models.finding import ResourceFinding
 from core.models.preflight import PreflightResult
@@ -210,7 +210,7 @@ def _run_multi_account(
     all_summaries: list[str] = []
     account_ids: list[str] = []
     scan_errors: list[dict[str, str]] = []
-    preflight_failures: list[str] = []
+    fatal_failures: list[tuple[str, str]] = []
     total_input = 0
     total_output = 0
 
@@ -237,7 +237,7 @@ def _run_multi_account(
             total_output += loop.tracker.total_output_tokens
         except PreflightFailedError as exc:
             logger.error("account_preflight_failed", account_id=acct_id, error=str(exc))
-            preflight_failures.append(str(exc))
+            fatal_failures.append(("preflight", str(exc)))
             scan_errors.append(
                 {
                     "account_id": acct_id,
@@ -246,16 +246,28 @@ def _run_multi_account(
                     "kind": "preflight",
                 }
             )
+        except AgentDidNotSubmitError as exc:
+            logger.error("account_agent_failed", account_id=acct_id, error=str(exc))
+            fatal_failures.append(("agent", str(exc)))
+            scan_errors.append(
+                {
+                    "account_id": acct_id,
+                    "account_name": acct_name,
+                    "error": str(exc),
+                    "kind": "agent",
+                }
+            )
         except (PermissionError, ClientError) as exc:
             logger.error("account_scan_failed", account_id=acct_id, error=str(exc))
             scan_errors.append(
                 {"account_id": acct_id, "account_name": acct_name, "error": str(exc)}
             )
 
-    if preflight_failures and not account_ids:
-        raise PreflightFailedError(
-            "Preflight failed for every account:\n" + "\n".join(preflight_failures)
-        )
+    if fatal_failures and not account_ids and len(fatal_failures) == len(accounts):
+        detail = "\n".join(msg for _, msg in fatal_failures)
+        if all(kind == "agent" for kind, _ in fatal_failures):
+            raise AgentDidNotSubmitError(f"Every account failed:\n{detail}")
+        raise PreflightFailedError(f"Every account failed:\n{detail}")
 
     if len(accounts) > 1 and all_findings:
         logger.info("synthesizing_unified_summary", accounts=len(account_ids))

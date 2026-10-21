@@ -103,3 +103,35 @@ def test_ties_broken_by_resource_id():
     chosen, _ = select_candidates(resources, {}, cap=3)
 
     assert [r.resource_id for r in chosen] == ["volume-00", "volume-01", "volume-02"]
+
+
+def _types_named(n: int) -> list[str]:
+    return [f"AWS::Test::T{i}" for i in range(n)]
+
+
+def test_floor_never_drops_the_most_expensive_type_when_floor_exceeds_cap():
+    types = _types_named(6)
+    resources = [r for t in types for r in _res(t, 3, prefix=t[-2:].lower())]
+    # T5 holds the only expensive resources; floor of 2 x 6 types > cap of 8
+    costs = {r.resource_id: 0.01 for r in resources}
+    for r in resources:
+        if r.resource_type == types[5]:
+            costs[r.resource_id] = 5000.0
+
+    chosen, rule = select_candidates(resources, costs, cap=8)
+
+    assert rule == "cost_desc"
+    assert len(chosen) == 8
+    assert set(_types(chosen)) == set(types)  # every type still present
+    assert _types(chosen)[types[5]] >= 3  # and the costly one fills spare slots
+
+
+def test_when_types_outnumber_cap_the_costliest_types_win():
+    types = _types_named(6)
+    resources = [r for t in types for r in _res(t, 2, prefix=t[-2:].lower())]
+    costs = {r.resource_id: float(i) for i, r in enumerate(resources)}
+    # cost grows with list position, so the last types are the costliest
+
+    chosen, _ = select_candidates(resources, costs, cap=3)
+
+    assert set(_types(chosen)) == set(types[-3:])

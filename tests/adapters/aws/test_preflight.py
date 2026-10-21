@@ -197,3 +197,51 @@ def test_sts_failure_does_not_crash_preflight():
     assert _by_code(result)["P1_IDENTITY"].status == "warn"
     assert result.account_id is None
     assert result.failed == []
+
+
+def test_default_view_returning_no_arn_fails_p5_instead_of_crashing():
+    session = _session()
+    re = session.client("resource-explorer-2")
+    re.get_default_view.return_value = {}
+
+    result = run_preflight(session, "us-east-1")
+
+    assert _by_code(result)["P5_DEFAULT_VIEW"].status == "fail"
+    re.get_view.assert_not_called()
+
+
+def test_credentials_error_on_sts_is_a_warning_not_a_crash():
+    from botocore.exceptions import NoCredentialsError
+
+    session = _session()
+    sts = MagicMock()
+    sts.get_caller_identity.side_effect = NoCredentialsError()
+    original = session.client.side_effect
+    session.client.side_effect = lambda name, **kw: (
+        sts if name == "sts" else original(name, **kw)
+    )
+
+    result = run_preflight(session, "us-east-1")
+
+    assert _by_code(result)["P1_IDENTITY"].status == "warn"
+
+
+def test_connection_error_on_list_indexes_fails_p2():
+    from botocore.exceptions import EndpointConnectionError
+
+    result = run_preflight(
+        _session(list_indexes_error=EndpointConnectionError(endpoint_url="x")),
+        "us-east-1",
+    )
+
+    assert _by_code(result)["P2_RE_REACHABLE"].status == "fail"
+
+
+def test_unauthorized_search_is_reported_as_permission_problem():
+    result = run_preflight(
+        _session(search_error=_err("UnauthorizedException")), "us-east-1"
+    )
+
+    assert (
+        "resource-explorer-2:Search" in _by_code(result)["P7_SEARCH_PERMISSION"].message
+    )

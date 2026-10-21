@@ -37,6 +37,7 @@ import structlog
 from adapters.gcp.adapter import GCPAdapter
 from core.agent.loop import AgentLoop
 from core.config import get_settings
+from core.errors import AgentDidNotSubmitError
 from core.log import configure_logging
 from core.models.finding import ResourceFinding
 from core.registry import get_registry
@@ -246,6 +247,7 @@ def _run_multi_project(
     scanned_ids: list[str] = []
     scan_errors: list[dict[str, str]] = []
     all_skipped: list[str] = []
+    agent_failures: list[str] = []
     total_input = 0
     total_output = 0
     last_ai_provider = None
@@ -272,11 +274,27 @@ def _run_multi_project(
             total_input += loop.tracker.total_input_tokens
             total_output += loop.tracker.total_output_tokens
             all_skipped.extend(adapter.skipped_asset_types)
+        except AgentDidNotSubmitError as exc:
+            logger.error("project_agent_failed", project_id=pid, error=str(exc))
+            agent_failures.append(str(exc))
+            scan_errors.append(
+                {
+                    "account_id": pid,
+                    "account_name": name,
+                    "error": str(exc),
+                    "kind": "agent",
+                }
+            )
         except PermissionError as exc:
             logger.error("project_scan_failed", project_id=pid, error=str(exc))
             scan_errors.append(
                 {"account_id": pid, "account_name": name, "error": str(exc)}
             )
+
+    if agent_failures and not scanned_ids and len(agent_failures) == len(project_ids):
+        raise AgentDidNotSubmitError(
+            "Every project failed:\n" + "\n".join(agent_failures)
+        )
 
     if len(project_ids) > 1 and all_findings and last_ai_provider is not None:
         logger.info("synthesizing_unified_summary", projects=len(scanned_ids))

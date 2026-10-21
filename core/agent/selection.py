@@ -70,8 +70,11 @@ def select_candidates(
         return True
 
     if has_cost:
-        for t in types:
-            for r in by_type[t][:_FLOOR_PER_TYPE]:
+        # Floor per type, shrunk when it would eat the whole cap, and walked in
+        # order of each type's top cost so the costliest types are never starved.
+        floor = min(_FLOOR_PER_TYPE, max(1, cap // len(types)))
+        for t in sorted(types, key=lambda t: (order(by_type[t][0]), t)):
+            for r in by_type[t][:floor]:
                 take(r)
         for r in sorted(resources, key=order):
             take(r)

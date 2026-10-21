@@ -131,3 +131,43 @@ def test_confidence_shown_in_html():
     f = ResourceFinding.from_dict(_finding("x", "low"), now)
     html = build_html_report(build_report([f], cloud="aws", executive_summary="s"))
     assert "confidence: low" in html
+
+
+def test_exception_in_get_metrics_forces_low_confidence():
+    class Boom(Adapter):
+        def get_metrics(self, resource_id, resource_type, days=90):
+            raise RuntimeError("read timeout")
+
+    fake_ai = MagicMock(spec=AIProvider)
+    fake_ai.chat.side_effect = [
+        _tool("get_metrics", {"resource_id": "nat-zero", "resource_type": NAT}, "t1"),
+        _tool(
+            "submit_findings",
+            {"findings": [_finding("nat-zero", "high")], "executive_summary": "s"},
+            "t2",
+        ),
+    ]
+
+    out, _ = AgentLoop(fake_ai, Boom()).run("aws", [], ACCOUNTS)
+
+    assert out[0].confidence == "low"
+
+
+def test_requested_id_is_tracked_even_if_adapter_returns_a_different_id():
+    class Rewriting(Adapter):
+        def get_metrics(self, resource_id, resource_type, days=90):
+            return MetricSummary("short-id", resource_type, days, {}, has_data=False)
+
+    fake_ai = MagicMock(spec=AIProvider)
+    fake_ai.chat.side_effect = [
+        _tool("get_metrics", {"resource_id": "nat-zero", "resource_type": NAT}, "t1"),
+        _tool(
+            "submit_findings",
+            {"findings": [_finding("nat-zero", "high")], "executive_summary": "s"},
+            "t2",
+        ),
+    ]
+
+    out, _ = AgentLoop(fake_ai, Rewriting()).run("aws", [], ACCOUNTS)
+
+    assert out[0].confidence == "low"

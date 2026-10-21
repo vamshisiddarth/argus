@@ -209,6 +209,10 @@ Warning: the default view does not include the `tags` property. Every resource
 looks untagged, so policy excludes such as `environment: prod` and
 `argus-exempt` cannot work. Add `Name=tags` to the view's included properties.
 
+### Resource Explorer's 1,000-result limit
+
+Resource Explorer `Search` returns at most 1,000 results in total. On larger accounts Argus logs `resource_explorer_search_limit` and the report's `coverage.discovered` can understate the real inventory. Scan per aggregator scope or exclude regions (`IGNORE_REGIONS`) to stay under the limit.
+
 ### P7_SEARCH_PERMISSION
 
 `Search` was denied or failed. The scan role needs `resource-explorer-2:Search`,

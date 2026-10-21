@@ -8,8 +8,9 @@ or empty results; a `warn` means it can run but the report will be weaker.
 from __future__ import annotations
 
 import boto3
-from botocore.exceptions import ClientError
+from botocore.exceptions import BotoCoreError, ClientError
 
+from adapters.aws.config import BOTO_TIMEOUT_CONFIG
 from core.models.preflight import PreflightCheck, PreflightResult
 
 _RE_ACTIONS = (
@@ -17,6 +18,7 @@ _RE_ACTIONS = (
     "resource-explorer-2:GetView",
     "resource-explorer-2:GetDefaultView",
     "resource-explorer-2:ListIndexes",
+    "resource-explorer-2:GetIndex",
 )
 _ACTION_LIST = ", ".join(_RE_ACTIONS)
 _DOCS_HINT = "See docs/reference/iam-permissions.md for the minimal read-only policy."
@@ -30,15 +32,18 @@ def _is_admin_like(arn: str) -> bool:
     return False
 
 
-def _code(exc: ClientError) -> str:
-    return str(exc.response.get("Error", {}).get("Code", ""))
+def _code(exc: Exception) -> str:
+    if isinstance(exc, ClientError):
+        return str(exc.response.get("Error", {}).get("Code", ""))
+    return type(exc).__name__
 
 
-def _denied(exc: ClientError) -> bool:
+def _denied(exc: Exception) -> bool:
     return _code(exc) in (
         "AccessDenied",
         "AccessDeniedException",
         "UnauthorizedOperation",
+        "UnauthorizedException",
     )
 
 
@@ -52,7 +57,7 @@ def run_preflight(
 
     # P1: who are we running as?
     try:
-        ident = session.client("sts").get_caller_identity()
+        ident = session.client("sts", config=BOTO_TIMEOUT_CONFIG).get_caller_identity()
         result.account_id = ident.get("Account") or account_id
         arn = ident.get("Arn", "unknown")
         if _is_admin_like(arn):
@@ -67,7 +72,7 @@ def run_preflight(
             )
         else:
             add(PreflightCheck("P1_IDENTITY", "info", f"Scanning as {arn}."))
-    except ClientError as exc:
+    except (ClientError, BotoCoreError) as exc:
         add(
             PreflightCheck(
                 "P1_IDENTITY",
@@ -77,12 +82,14 @@ def run_preflight(
             )
         )
 
-    re = session.client("resource-explorer-2", region_name=aggregator_region)
+    re = session.client(
+        "resource-explorer-2", region_name=aggregator_region, config=BOTO_TIMEOUT_CONFIG
+    )
 
     # P2 + P3: can we list indexes, and is there an aggregator in the right region?
     try:
         indexes = _list_indexes(re)
-    except ClientError as exc:
+    except (ClientError, BotoCoreError) as exc:
         add(
             PreflightCheck(
                 "P2_RE_REACHABLE",
@@ -130,7 +137,7 @@ def run_preflight(
     # P4: is the index finished populating?
     try:
         state = re.get_index().get("State", "UNKNOWN")
-    except ClientError:
+    except (ClientError, BotoCoreError):
         state = None
     if state in ("CREATING", "UPDATING"):
         add(
@@ -147,7 +154,7 @@ def run_preflight(
     # P5 + P6: default view exists and carries tags
     try:
         view_arn = re.get_default_view().get("ViewArn")
-    except ClientError as exc:
+    except (ClientError, BotoCoreError) as exc:
         missing = _code(exc) == "ResourceNotFoundException"
         add(
             PreflightCheck(
@@ -166,12 +173,22 @@ def run_preflight(
             )
         )
         return result
+    if not view_arn:
+        add(
+            PreflightCheck(
+                "P5_DEFAULT_VIEW",
+                "fail",
+                f"No default view in {aggregator_region}.",
+                "Create a default view that includes the tags property.",
+            )
+        )
+        return result
     add(PreflightCheck("P5_DEFAULT_VIEW", "ok", "A default view exists."))
 
     try:
         props = re.get_view(ViewArn=view_arn)["View"].get("IncludedProperties", [])
         has_tags = any(p.get("Name") == "tags" for p in props)
-    except ClientError:
+    except (ClientError, BotoCoreError):
         has_tags = None
     if has_tags is False:
         add(
@@ -191,7 +208,7 @@ def run_preflight(
     try:
         re.search(QueryString="*", MaxResults=1)
         add(PreflightCheck("P7_SEARCH_PERMISSION", "ok", "Search is permitted."))
-    except ClientError as exc:
+    except (ClientError, BotoCoreError) as exc:
         if _denied(exc):
             add(
                 PreflightCheck(

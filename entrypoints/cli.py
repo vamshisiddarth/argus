@@ -342,9 +342,11 @@ def main(argv: list[str] | None = None) -> None:
         metavar="N",
         help="Max resources to analyze per scan (default: 200)",
     )
+    # default=SUPPRESS on options also defined on the top-level parser, so a value
+    # given before the subcommand is not overwritten by the subparser's default.
     scan_parser.add_argument(
         "--lookback-days",
-        default=os.environ.get("METRICS_LOOKBACK_DAYS", "90"),
+        default=argparse.SUPPRESS,
         dest="lookback_days",
         type=int,
         metavar="DAYS",
@@ -361,12 +363,14 @@ def main(argv: list[str] | None = None) -> None:
     scan_parser.add_argument(
         "--strict-coverage",
         action="store_true",
+        default=argparse.SUPPRESS,
         dest="strict_coverage",
         help="Fail the scan if the resource cap leaves resources unanalysed",
     )
     scan_parser.add_argument(
         "--skip-preflight",
         action="store_true",
+        default=argparse.SUPPRESS,
         dest="skip_preflight",
         help="Skip the pre-scan environment checks (recorded in the report)",
     )
@@ -429,6 +433,9 @@ def main(argv: list[str] | None = None) -> None:
             args.lookback_days = int(os.environ.get("METRICS_LOOKBACK_DAYS", "90"))
         if args.llm_budget is None:
             args.llm_budget = float(os.environ.get("LLM_BUDGET_USD", "2.0"))
+
+    if args.command == "scan" and getattr(args, "lookback_days", None) is None:
+        args.lookback_days = int(os.environ.get("METRICS_LOOKBACK_DAYS", "90"))
 
     if not args.command:
         parser.print_help()

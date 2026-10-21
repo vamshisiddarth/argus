@@ -382,6 +382,7 @@ class AgentLoop:
                     summary = self._adapter.get_metrics(**args)
                     if summary.status != "ok":
                         self._no_data_ids.add(summary.resource_id)
+                        self._no_data_ids.add(str(tc.arguments.get("resource_id")))
                     return (
                         json.dumps(
                             summary.to_dict(), default=str, separators=(",", ":")
@@ -403,6 +404,9 @@ class AgentLoop:
 
         except Exception as exc:  # noqa: BLE001
             logger.error("tool_error", tool=tc.name, error=str(exc))
+            if tc.name == "get_metrics":
+                # A failed metrics call is missing evidence, not zero usage.
+                self._no_data_ids.add(str(tc.arguments.get("resource_id")))
             return f"Tool error: {exc}", True
 
 

@@ -139,3 +139,45 @@ class TestPreflightCli:
         }
         _scan()
         assert "Preflight was SKIPPED" in capsys.readouterr().err
+
+
+class TestFlagsBeforeSubcommand:
+    @patch("entrypoints.aws_lambda.handler")
+    def test_top_level_flags_survive_the_scan_subcommand(
+        self, mock_handler, monkeypatch
+    ):
+        import os
+
+        for var in ("METRICS_LOOKBACK_DAYS", "STRICT_COVERAGE", "ARGUS_SKIP_PREFLIGHT"):
+            monkeypatch.delenv(var, raising=False)
+        mock_handler.return_value = {"statusCode": 200}
+
+        _scan(
+            [
+                "--lookback-days",
+                "14",
+                "--strict-coverage",
+                "--skip-preflight",
+                "scan",
+                "--cloud",
+                "aws",
+            ]
+        )
+
+        assert os.environ["METRICS_LOOKBACK_DAYS"] == "14"
+        assert os.environ["STRICT_COVERAGE"] == "true"
+        assert os.environ["ARGUS_SKIP_PREFLIGHT"] == "true"
+        for var in ("METRICS_LOOKBACK_DAYS", "STRICT_COVERAGE", "ARGUS_SKIP_PREFLIGHT"):
+            monkeypatch.delenv(var, raising=False)
+
+    @patch("entrypoints.aws_lambda.handler")
+    def test_scan_defaults_still_apply_without_flags(self, mock_handler, monkeypatch):
+        import os
+
+        monkeypatch.delenv("METRICS_LOOKBACK_DAYS", raising=False)
+        mock_handler.return_value = {"statusCode": 200}
+
+        _scan(["scan", "--cloud", "aws"])
+
+        assert os.environ["METRICS_LOOKBACK_DAYS"] == "90"
+        monkeypatch.delenv("METRICS_LOOKBACK_DAYS", raising=False)

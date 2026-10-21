@@ -233,3 +233,38 @@ class TestListResources:
 
         with pytest.raises(PermissionError):
             list_resources(mock_session, ignore_regions=[])
+
+
+class TestSearchLimit:
+    def _session(self, n: int):
+        raw = [
+            _make_raw_resource(arn=f"arn:aws:ec2:us-east-1:1:volume/vol-{i}")
+            for i in range(n)
+        ]
+        client = MagicMock()
+        client.get_paginator.return_value.paginate.return_value = [
+            {"Resources": raw[:500]},
+            {"Resources": raw[500:]},
+        ]
+        session = MagicMock()
+        session.client.return_value = client
+        return session
+
+    def test_warns_when_search_hits_the_1000_result_limit(self):
+        from structlog.testing import capture_logs
+
+        with capture_logs() as logs:
+            list_resources(self._session(1000))
+
+        events = [e for e in logs if e["event"] == "resource_explorer_search_limit"]
+        assert len(events) == 1
+        assert events[0]["log_level"] == "warning"
+        assert events[0]["results"] == 1000
+
+    def test_no_warning_below_the_limit(self):
+        from structlog.testing import capture_logs
+
+        with capture_logs() as logs:
+            list_resources(self._session(999))
+
+        assert not [e for e in logs if e["event"] == "resource_explorer_search_limit"]
