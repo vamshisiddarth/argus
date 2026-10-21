@@ -94,13 +94,15 @@ class AgentLoop:
         self._ai = ai_provider
         self._adapter = cloud_adapter
         self.coverage: Coverage | None = None
+        self.scan_window: dict[str, Any] | None = None
+        self._costs: dict[str, float] = {}
         self._tools: list[Tool] = [
             Tool(
                 name=t["name"],
                 description=t["description"],
                 input_schema=t["input_schema"],
             )
-            for t in build_tool_schemas()
+            for t in build_tool_schemas(lookback_days=_lookback_days())
         ]
 
     def run(
@@ -118,7 +120,10 @@ class AgentLoop:
             executive_summary: AI-written 3-5 sentence summary for managers
         """
         system_prompt = build_system_prompt(
-            cloud=cloud, ignore_regions=ignore_regions, accounts=accounts
+            cloud=cloud,
+            ignore_regions=ignore_regions,
+            accounts=accounts,
+            lookback_days=_lookback_days(),
         )
 
         # ------------------------------------------------------------------
@@ -170,6 +175,7 @@ class AgentLoop:
                             **self.tracker.summary(),
                         )
                         findings, summary = _parse_findings(tc.arguments, cloud=cloud)
+                        findings = _attach_cost_basis(findings, self._costs)
                         return _attach_accounts(findings, accounts), summary
 
                 # Persist the assistant turn before executing tools
@@ -282,6 +288,7 @@ class AgentLoop:
         if not resources:
             self._prefiltered_payload = []
             self.coverage = Coverage.empty()
+            self.scan_window = _scan_window(has_cost=False)
             logger.info("prefilter_complete", discovered=0, sent_to_ai=0)
             return []
 
@@ -294,6 +301,8 @@ class AgentLoop:
             costs = {}
 
         # Deterministic cap: never drops a whole resource type (see selection.py)
+        self._costs = costs
+        self.scan_window = _scan_window(has_cost=any(v > 0 for v in costs.values()))
         cap = get_settings().scan.max_resources
         chosen, selection_rule = select_candidates(resources, costs, cap)
         capped = [(r, costs.get(r.resource_id, 0.0)) for r in chosen]
@@ -362,7 +371,9 @@ class AgentLoop:
                     )
 
                 case "get_metrics":
-                    summary = self._adapter.get_metrics(**tc.arguments)
+                    # The scan's window is authoritative, whatever the model asks for.
+                    args = {**tc.arguments, "days": _lookback_days()}
+                    summary = self._adapter.get_metrics(**args)
                     return (
                         json.dumps(
                             summary.to_dict(), default=str, separators=(",", ":")
@@ -470,6 +481,29 @@ def _tags_match(resource_tags: dict[str, str], exclude_tags: dict[str, str]) -> 
         if resource_tags.get(key) == value:
             return True
     return False
+
+
+def _lookback_days() -> int:
+    return get_settings().scan.metrics_lookback_days
+
+
+_COST_LOOKBACK_DAYS = 30  # adapter get_cost default
+
+
+def _scan_window(has_cost: bool) -> dict[str, Any]:
+    return {
+        "metrics_lookback_days": _lookback_days(),
+        "cost_lookback_days": _COST_LOOKBACK_DAYS,
+        "cost_basis": "billed" if has_cost else "unavailable",
+    }
+
+
+def _attach_cost_basis(
+    findings: list[ResourceFinding], costs: dict[str, float]
+) -> list[ResourceFinding]:
+    for f in findings:
+        f.cost_basis = "billed" if costs.get(f.resource_id, 0.0) > 0 else "estimated"
+    return findings
 
 
 def _build_coverage(

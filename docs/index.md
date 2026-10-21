@@ -134,7 +134,7 @@ Argus investigates live and answers with costs and recommendations.
   <div class="how-step">
     <div class="how-num">2</div>
     <h3>Investigate</h3>
-    <p>A ReAct agent loop reasons like a human analyst — pulling 90-day metrics, actual spend, and last-activity timestamps only for resources where it matters. No hardcoded thresholds.</p>
+    <p>A ReAct agent loop reasons like a human analyst — pulling metrics over your lookback window (90 days by default), actual spend, and last-activity timestamps only for resources where it matters. No hardcoded thresholds.</p>
   </div>
   <div class="how-connector">→</div>
   <div class="how-step">

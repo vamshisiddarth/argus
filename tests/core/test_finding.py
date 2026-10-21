@@ -62,6 +62,7 @@ class TestToDict:
             "status",
             "account_id",
             "account_name",
+            "cost_basis",
         }
         assert expected_keys == set(result.keys())
 

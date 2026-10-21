@@ -8,7 +8,8 @@ _RIGHT_SIZING_RULES = """RIGHT-SIZING RULES
 When get_metrics returns an instance_type field, you have the current size and MUST
 recommend a specific target size — not a generic "consider downsizing".
 
-Decision thresholds (90-day average — never judge on a shorter window):
+Decision thresholds (averaged over the scan's metrics window, stated in the
+WINDOW section of your instructions):
 
   EC2 Instance
     CPU < 5% AND NetworkOut < 1 GB/day  → downsize one family tier
@@ -75,10 +76,26 @@ REGIONS
 {regions_note}"""
 
 
+def _window_section(lookback_days: int) -> str:
+    text = (
+        "WINDOW\n──────\n"
+        f"Metrics cover the past {lookback_days} days. Always cite this window in "
+        "waste_reason (never a different number of days)."
+    )
+    if lookback_days < 90:
+        text += (
+            f"\n\nSHORT WINDOW: this scan uses a {lookback_days}-day window, shorter "
+            "than a full quarter, so it can miss monthly and quarterly patterns. Say so in "
+            "waste_reason and treat idle conclusions as less certain."
+        )
+    return text
+
+
 def build_system_prompt(
     cloud: str,
     ignore_regions: list[str],
     accounts: list[dict],
+    lookback_days: int = 90,
 ) -> str:
     """
     Build the agent system prompt. Injected once per scan — not per iteration.
@@ -105,7 +122,8 @@ YOUR APPROACH
    Resources are sorted by cost descending — focus on the top entries first.
 2. Use the cost_usd values already in the list to prioritize — no need to call
    get_cost again unless you need cost for resources not already in the list.
-3. For each candidate, call get_metrics to check actual usage over the past 90 days.
+3. For each candidate, call get_metrics to check actual usage over the past {lookback_days} days
+   (the window is fixed for this scan; do not pass `days`).
 4. Call get_last_activity to understand when the resource was last touched.
 5. Form a conclusion: is this resource idle, underutilized, or orphaned?
 6. When your analysis is complete, call submit_findings with all findings
@@ -119,6 +137,8 @@ WHAT TO LOOK FOR
 - Resources that are stopped/paused but still charging (volumes, reserved IPs)
 - Over-provisioned resources (large instance, near-zero load) — see RIGHT-SIZING below
 - Duplicate or redundant resources (multiple similar resources, one unused)
+
+{_window_section(lookback_days)}
 
 {_RIGHT_SIZING_RULES}
 
@@ -221,7 +241,7 @@ Never recommend deletion without stating impact and cost savings.
 """
 
 
-def build_tool_schemas() -> list[dict]:
+def build_tool_schemas(lookback_days: int = 90) -> list[dict]:
     """
     Return the tool definitions used to register tools with the AI provider.
     Kept here alongside the prompt so both evolve together.
@@ -262,9 +282,8 @@ def build_tool_schemas() -> list[dict]:
                 "DB connections, etc.). "
                 "You do not need to specify which metrics — just provide "
                 "the resource ID and type. "
-                "Do NOT pass a days value less than 90 — short windows "
-                "produce false positives "
-                "by missing weekly, monthly, or quarterly usage patterns."
+                f"The lookback window is fixed for this scan at {lookback_days} days; "
+                "any days value you pass is replaced by it."
             ),
             "input_schema": {
                 "type": "object",
@@ -280,11 +299,10 @@ def build_tool_schemas() -> list[dict]:
                     "days": {
                         "type": "integer",
                         "description": (
-                            "Lookback window in days. Default is 90. "
-                            "Never set below 90 — shorter windows miss quarterly patterns "
-                            "and produce false-positive idle findings."
+                            f"Optional. The scan fixes the window at {lookback_days} "
+                            "days regardless of this value."
                         ),
-                        "default": 90,
+                        "default": lookback_days,
                     },
                 },
                 "required": ["resource_id", "resource_type"],
@@ -415,6 +433,8 @@ def build_tool_schemas() -> list[dict]:
     ]
 
 
-def build_chat_tool_schemas() -> list[dict]:
+def build_chat_tool_schemas(lookback_days: int = 90) -> list[dict]:
     """Chat mode tools — same as batch minus submit_findings."""
-    return [t for t in build_tool_schemas() if t["name"] != "submit_findings"]
+    return [
+        t for t in build_tool_schemas(lookback_days) if t["name"] != "submit_findings"
+    ]

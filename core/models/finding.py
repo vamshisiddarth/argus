@@ -35,6 +35,9 @@ class ResourceFinding:
     # Used by remediation `accounts` scope filters and runbook templates.
     account_id: str | None = None
     account_name: str | None = None
+    # "billed" when the cost came from the cloud's cost API, "estimated" otherwise.
+    # Set by the agent loop, never trusted from the model.
+    cost_basis: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -56,6 +59,7 @@ class ResourceFinding:
             "status": self.status,
             "account_id": self.account_id,
             "account_name": self.account_name,
+            "cost_basis": self.cost_basis,
         }
 
     @classmethod
@@ -81,4 +85,5 @@ class ResourceFinding:
             status=data.get("status", "new"),
             account_id=data.get("account_id"),
             account_name=data.get("account_name"),
+            cost_basis=data.get("cost_basis"),
         )

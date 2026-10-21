@@ -315,7 +315,7 @@ argus --run-now --cloud aws [options]           # backward compat
   --ai-provider PROVIDER     anthropic | bedrock | vertexai | azure_openai (default: anthropic)
   --accounts PATH            Path to accounts.yaml for multi-account/project/subscription mode
   --max-resources N          Maximum resources to analyze per scan (default: 200)
-  --lookback-days DAYS       Metrics lookback window in days (default: 90, use 14 for faster local dev)
+  --lookback-days DAYS       Metrics lookback window in days, applied to every metrics query and shown in the report (default: 90, use 14 for faster local dev)
   --llm-budget USD           Cost budget per scan/session (default: $2.00 scan, $1.00 chat)
 ```
 

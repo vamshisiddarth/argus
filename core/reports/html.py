@@ -276,6 +276,12 @@ def _build_rows(findings: list[dict[str, Any]]) -> str:
 
         display_name = name or resource_id
         cost_class = f"cost-{priority}"
+        est_label = (
+            ' <span class="muted" title="Estimated from list price, not billed">'
+            "est.</span>"
+            if f.get("cost_basis") == "estimated"
+            else ""
+        )
         pill_class = f"pill-{priority}"
 
         parts.append(
@@ -285,7 +291,7 @@ def _build_rows(findings: list[dict[str, Any]]) -> str:
   <td><span class="mono">{display_name}</span>{"<br><span class='mono muted'>" + resource_id + "</span>" if name else ""}</td>
   <td class="muted">{rtype_label}</td>
   <td class="muted">{region}</td>
-  <td class="{cost_class}">${cost:,.2f}</td>
+  <td class="{cost_class}">${cost:,.2f}{est_label}</td>
   <td class="muted">{last_activity_str}</td>
 </tr>
 <tr class="detail-row">

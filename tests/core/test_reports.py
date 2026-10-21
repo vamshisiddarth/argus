@@ -872,3 +872,17 @@ class TestHtmlCoverage:
     def test_window_is_shown_when_present(self):
         out = self._html(scan_window={"metrics_lookback_days": 14})
         assert "14-day" in out
+
+
+class TestHtmlCostBasis:
+    def _html_for(self, basis):
+        report = build_report(_sample_findings(), cloud="aws", executive_summary="x")
+        for f in report["findings"]:
+            f["cost_basis"] = basis
+        return build_html_report(report)
+
+    def test_estimated_cost_is_labelled(self):
+        assert "est.</span>" in self._html_for("estimated")
+
+    def test_billed_cost_has_no_label(self):
+        assert "est.</span>" not in self._html_for("billed")
