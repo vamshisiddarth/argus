@@ -30,8 +30,10 @@ from botocore.exceptions import ClientError
 from adapters.aws.adapter import AWSAdapter
 from core.agent.loop import AgentLoop
 from core.config import get_settings
+from core.errors import PreflightFailedError
 from core.log import configure_logging
 from core.models.finding import ResourceFinding
+from core.models.preflight import PreflightResult
 from core.registry import get_registry
 from core.reports.comparison import compare_scans
 from core.reports.delivery import (
@@ -108,7 +110,7 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         registry_warnings=get_registry().load_warnings,
         coverage=meta.coverage_dict(),
         scan_window=meta.scan_window,
-        preflight=meta.preflight,
+        preflight=meta.preflight_dict(),
     )
     report_url: str | None = None
     if s3_bucket:
@@ -153,6 +155,7 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         "total_estimated_waste_usd": report["total_estimated_waste_usd"],
         "budget_exceeded": budget_exceeded,
         "coverage": meta.summary(),
+        "preflight": meta.preflight_summary(),
     }
 
 
@@ -170,6 +173,7 @@ def _run_single_account(
 ) -> tuple[list[ResourceFinding], str, list[str], dict]:
     account_id = _get_current_account_id()
     adapter = AWSAdapter.for_account(account=None, region=primary_region)
+    _run_preflight(adapter, account_id, meta)
     loop = AgentLoop(ai_provider=ai_provider, cloud_adapter=adapter)
     findings, summary = loop.run(
         cloud=cloud, ignore_regions=ignore_regions, accounts=[{"id": account_id}]
@@ -206,6 +210,7 @@ def _run_multi_account(
     all_summaries: list[str] = []
     account_ids: list[str] = []
     scan_errors: list[dict[str, str]] = []
+    preflight_failures: list[str] = []
     total_input = 0
     total_output = 0
 
@@ -216,6 +221,7 @@ def _run_multi_account(
 
         try:
             adapter = AWSAdapter.for_account(account=account, region=primary_region)
+            _run_preflight(adapter, acct_id, meta)
             loop = AgentLoop(ai_provider=ai_provider, cloud_adapter=adapter)
             findings, summary = loop.run(
                 cloud=cloud,
@@ -229,11 +235,27 @@ def _run_multi_account(
             account_ids.append(acct_id)
             total_input += loop.tracker.total_input_tokens
             total_output += loop.tracker.total_output_tokens
+        except PreflightFailedError as exc:
+            logger.error("account_preflight_failed", account_id=acct_id, error=str(exc))
+            preflight_failures.append(str(exc))
+            scan_errors.append(
+                {
+                    "account_id": acct_id,
+                    "account_name": acct_name,
+                    "error": str(exc),
+                    "kind": "preflight",
+                }
+            )
         except (PermissionError, ClientError) as exc:
             logger.error("account_scan_failed", account_id=acct_id, error=str(exc))
             scan_errors.append(
                 {"account_id": acct_id, "account_name": acct_name, "error": str(exc)}
             )
+
+    if preflight_failures and not account_ids:
+        raise PreflightFailedError(
+            "Preflight failed for every account:\n" + "\n".join(preflight_failures)
+        )
 
     if len(accounts) > 1 and all_findings:
         logger.info("synthesizing_unified_summary", accounts=len(account_ids))
@@ -259,6 +281,24 @@ def _run_multi_account(
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+def _run_preflight(
+    adapter: AWSAdapter, account_id: str, meta: ScanMeta | None
+) -> PreflightResult:
+    """Run the AWS preflight (unless skipped); raise PreflightFailedError on failure."""
+    if get_settings().scan.skip_preflight:
+        logger.warning("preflight_skipped", account_id=account_id)
+        result = PreflightResult.skipped_result(account_id)
+    else:
+        result = adapter.preflight(account_id)
+        for check in result.warnings:
+            logger.warning("preflight_warning", code=check.code, msg=check.message)
+    if meta is not None:
+        meta.preflights.append(result)
+    if result.failed:
+        raise PreflightFailedError(result.describe_failures(), result)
+    return result
 
 
 def _build_ai_provider() -> Any:

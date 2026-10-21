@@ -6,7 +6,9 @@ from datetime import datetime
 import boto3
 
 from adapters.aws import auth, cloudtrail, cloudwatch, cost_explorer, resource_explorer
+from adapters.aws.preflight import run_preflight
 from adapters.base import CloudAdapter, MetricSummary, Resource
+from core.models.preflight import PreflightResult
 
 
 class AWSAdapter(CloudAdapter):
@@ -31,6 +33,10 @@ class AWSAdapter(CloudAdapter):
             or os.environ.get("RESOURCE_EXPLORER_REGION")
             or "us-east-1"
         )
+
+    def preflight(self, account_id: str | None = None) -> PreflightResult:
+        """Read-only environment checks to run before spending any LLM budget."""
+        return run_preflight(self._session, self._aggregator_region, account_id)
 
     def list_resources(self, ignore_regions: list[str] | None = None) -> list[Resource]:
         return resource_explorer.list_resources(

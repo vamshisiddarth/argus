@@ -36,6 +36,7 @@ def build_html_report(report: dict[str, Any]) -> str:
         scan_errors, len(report.get("accounts_scanned", []))
     )
     coverage_html = _build_coverage_block(report.get("coverage"))
+    preflight_html = _build_preflight_box(report.get("preflight"))
     window = report.get("scan_window") or {}
     window_html = (
         f" &nbsp;·&nbsp; {int(window['metrics_lookback_days'])}-day metrics window"
@@ -125,7 +126,7 @@ tbody tr:last-child td{{border-bottom:none}}
     </div>
     <p class="summary">{summary}</p>
   </div>
-{errors_html}{coverage_html}{registry_warnings_html}
+{errors_html}{preflight_html}{coverage_html}{registry_warnings_html}
   <div class="filters">
     <select id="f-priority" onchange="applyFilters()">
       <option value="">All priorities</option>
@@ -329,6 +330,34 @@ def _build_errors_banner(
         f"</div>\n"
         f"    <ul>{items}</ul>\n"
         f"  </div>\n"
+    )
+
+
+def _build_preflight_box(preflight: dict[str, Any] | None) -> str:
+    if not preflight:
+        return ""
+    items = ""
+    for acct in preflight.get("accounts", []):
+        for c in acct.get("checks", []):
+            if c.get("status") != "warn":
+                continue
+            fix = f" Fix: {html.escape(c['fix'])}" if c.get("fix") else ""
+            items += (
+                f"<li><code>{html.escape(c['code'])}</code> — "
+                f"{html.escape(c['message'])}{fix}</li>"
+            )
+    skipped = (
+        "<div>Preflight was skipped; setup problems are not reported.</div>"
+        if preflight.get("skipped")
+        else ""
+    )
+    if not items and not skipped:
+        return ""
+    title = '<div class="error-banner-title">Setup warnings</div>' if items else ""
+    return (
+        '  <div class="error-banner">\n'
+        f"    {title}{skipped}<ul>{items}</ul>\n"
+        "  </div>\n"
     )
 
 

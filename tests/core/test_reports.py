@@ -886,3 +886,44 @@ class TestHtmlCostBasis:
 
     def test_billed_cost_has_no_label(self):
         assert "est.</span>" not in self._html_for("billed")
+
+
+class TestHtmlPreflight:
+    def _html(self, preflight):
+        report = build_report(
+            _sample_findings(), cloud="aws", executive_summary="x", preflight=preflight
+        )
+        return build_html_report(report)
+
+    def _pre(self, status, skipped=False):
+        return {
+            "skipped": skipped,
+            "accounts": [
+                {
+                    "account_id": "1",
+                    "skipped": skipped,
+                    "checks": [
+                        {
+                            "code": "P6_VIEW_TAGS",
+                            "status": status,
+                            "message": "view lacks tags",
+                            "fix": "add tags property",
+                        }
+                    ],
+                }
+            ],
+        }
+
+    def test_warnings_box_lists_message_and_fix(self):
+        out = self._html(self._pre("warn"))
+        assert "Setup warnings" in out
+        assert "view lacks tags" in out
+        assert "add tags property" in out
+
+    def test_skipped_preflight_is_called_out(self):
+        assert "Preflight was skipped" in self._html(self._pre("ok", skipped=True))
+
+    def test_clean_preflight_shows_nothing(self):
+        out = self._html(self._pre("ok"))
+        assert "Setup warnings" not in out
+        assert "Preflight was skipped" not in out

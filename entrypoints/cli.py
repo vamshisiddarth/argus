@@ -136,6 +136,12 @@ def main(argv: list[str] | None = None) -> None:
         dest="strict_coverage",
         help="Fail the scan if the resource cap leaves resources unanalysed",
     )
+    parser.add_argument(
+        "--skip-preflight",
+        action="store_true",
+        dest="skip_preflight",
+        help="Skip the pre-scan environment checks (recorded in the report)",
+    )
 
     subparsers = parser.add_subparsers(dest="command")
 
@@ -358,6 +364,12 @@ def main(argv: list[str] | None = None) -> None:
         dest="strict_coverage",
         help="Fail the scan if the resource cap leaves resources unanalysed",
     )
+    scan_parser.add_argument(
+        "--skip-preflight",
+        action="store_true",
+        dest="skip_preflight",
+        help="Skip the pre-scan environment checks (recorded in the report)",
+    )
 
     # --- argus chat ---
     chat_parser = subparsers.add_parser("chat", help="Interactive cloud cost Q&A")
@@ -475,6 +487,8 @@ def _run_scan(args: argparse.Namespace) -> None:
         os.environ["DRY_RUN"] = "true"
     if getattr(args, "strict_coverage", False):
         os.environ["STRICT_COVERAGE"] = "true"
+    if getattr(args, "skip_preflight", False):
+        os.environ["ARGUS_SKIP_PREFLIGHT"] = "true"
 
     if args.accounts:
         _apply_accounts_config(args.accounts, args.cloud)
@@ -516,6 +530,16 @@ def _run_scan(args: argparse.Namespace) -> None:
 
     if result is not None:
         print(json.dumps(result, indent=2))
+    if isinstance(result, dict) and result.get("preflight"):
+        pre = result["preflight"]
+        if pre.get("skipped"):
+            print(
+                "Preflight was SKIPPED (--skip-preflight); setup problems "
+                "will not be reported.",
+                file=sys.stderr,
+            )
+        for warning in pre.get("warnings", []):
+            print(f"Preflight warning: {warning}", file=sys.stderr)
     if isinstance(result, dict) and result.get("coverage"):
         cov = result["coverage"]
         note = (

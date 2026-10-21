@@ -103,3 +103,39 @@ class TestCoverageCli:
 
         assert exc.value.code == 1
         assert "analysed 1 of 9" in capsys.readouterr().err
+
+
+class TestPreflightCli:
+    @patch("entrypoints.aws_lambda.handler")
+    def test_skip_preflight_flag_sets_env(self, mock_handler, monkeypatch):
+        import os
+
+        monkeypatch.delenv("ARGUS_SKIP_PREFLIGHT", raising=False)
+        mock_handler.return_value = {"statusCode": 200}
+
+        _scan(["--cloud", "aws", "--run-now", "--skip-preflight"])
+
+        assert os.environ["ARGUS_SKIP_PREFLIGHT"] == "true"
+        monkeypatch.delenv("ARGUS_SKIP_PREFLIGHT", raising=False)
+
+    @patch("entrypoints.aws_lambda.handler")
+    def test_prints_preflight_warnings_and_skipped_state(self, mock_handler, capsys):
+        mock_handler.return_value = {
+            "statusCode": 200,
+            "preflight": {
+                "skipped": False,
+                "warnings": ["P6_VIEW_TAGS: The default view does not include tags"],
+            },
+        }
+
+        _scan()
+
+        err = capsys.readouterr().err
+        assert "Preflight warning: P6_VIEW_TAGS" in err
+
+        mock_handler.return_value = {
+            "statusCode": 200,
+            "preflight": {"skipped": True, "warnings": []},
+        }
+        _scan()
+        assert "Preflight was SKIPPED" in capsys.readouterr().err
