@@ -10,6 +10,7 @@ import structlog
 from adapters.base import CloudAdapter
 from ai.base import AIProvider, Message, Tool, ToolCall, ToolResult
 from core.agent.prompts import build_system_prompt, build_tool_schemas
+from core.agent.selection import select_candidates
 from core.config import get_settings
 from core.errors import AgentDidNotSubmitError
 from core.models.finding import ResourceFinding
@@ -260,13 +261,14 @@ class AgentLoop:
         Steps:
           1. list_resources — discovers all billable resources
           2. get_cost (one batched call) — fetches USD cost for all of them
-          3. Sort by cost descending, keep top get_settings().scan.max_resources
+          3. Cap at get_settings().scan.max_resources via select_candidates
+             (cost order when cost data exists, per-type round-robin otherwise)
           4. Build the compact payload that will be handed to the AI on its
              first list_resources call
 
         This keeps the AI context bounded regardless of account size:
-          - 10K raw resources → ~3K after non-billable filter → top 200 by cost
-          - The AI never sees zero-cost noise
+          - 10K raw resources → ~3K after non-billable filter → 200 candidates
+          - Every resource type stays represented when the cap truncates
         """
         logger.info("prefilter_start")
 
@@ -288,21 +290,20 @@ class AgentLoop:
             logger.warning("prefilter_cost_fetch_failed", error=str(exc))
             costs = {}
 
-        # Attach cost to each resource and sort descending
-        resources_with_cost = [(r, costs.get(r.resource_id, 0.0)) for r in resources]
-        resources_with_cost.sort(key=lambda x: x[1], reverse=True)
-
-        # Cap at get_settings().scan.max_resources
-        capped = resources_with_cost[: get_settings().scan.max_resources]
+        # Deterministic cap: never drops a whole resource type (see selection.py)
+        cap = get_settings().scan.max_resources
+        chosen, selection_rule = select_candidates(resources, costs, cap)
+        capped = [(r, costs.get(r.resource_id, 0.0)) for r in chosen]
         dropped = total_discovered - len(capped)
 
         if dropped > 0:
-            logger.info(
+            logger.warning(
                 "prefilter_capped",
                 discovered=total_discovered,
                 sent_to_ai=len(capped),
-                dropped_zero_cost=dropped,
-                cap=get_settings().scan.max_resources,
+                dropped=dropped,
+                cap=cap,
+                selection=selection_rule,
             )
 
         # Build compact payload — include cost so AI doesn't need to call get_cost
