@@ -11,6 +11,7 @@ from adapters.base import CloudAdapter
 from ai.base import AIProvider, Message, Tool, ToolCall, ToolResult
 from core.agent.prompts import build_system_prompt, build_tool_schemas
 from core.config import get_settings
+from core.errors import AgentDidNotSubmitError
 from core.models.finding import ResourceFinding
 from core.token_tracker import BudgetExceededError, TokenTracker
 
@@ -135,6 +136,7 @@ class AgentLoop:
             Message(role="user", text="Begin your cloud cost analysis now.")
         ]
 
+        retried = False
         for iteration in range(1, max_iterations + 1):
             logger.info("agent_iteration", iteration=iteration)
 
@@ -182,14 +184,32 @@ class AgentLoop:
                 messages.append(Message(role="user", tool_results=tool_results))
 
             else:
-                # end_turn or max_tokens without submit_findings — shouldn't happen
-                # if the prompt is working, but handle gracefully
+                # end_turn or max_tokens without submit_findings. Re-prompt once;
+                # a second miss is a failed scan, never a clean empty one.
                 logger.warning(
                     "agent_stopped_without_findings",
                     stop_reason=response.stop_reason,
+                    retried=retried,
                     **self.tracker.summary(),
                 )
-                return [], response.text or ""
+                if retried:
+                    raise AgentDidNotSubmitError(
+                        "The model stopped without calling submit_findings, even "
+                        "after a reminder. Last model output: "
+                        f"{(response.text or '')[:500]}"
+                    )
+                retried = True
+                messages.append(Message(role="assistant", text=response.text or "..."))
+                messages.append(
+                    Message(
+                        role="user",
+                        text=(
+                            "You stopped without calling submit_findings. Call "
+                            "submit_findings now with your findings (an empty "
+                            "list if there are none)."
+                        ),
+                    )
+                )
 
         raise RuntimeError(
             f"Agent loop exceeded {max_iterations} iterations "

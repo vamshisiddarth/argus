@@ -14,6 +14,7 @@ from core.agent.loop import (
     _reject_if_mutating,
 )
 from core.config import ScanSettings
+from core.errors import AgentDidNotSubmitError
 
 IGNORE_REGIONS: list[str] = []
 ACCOUNTS = [{"id": "123456789012", "name": "test-account"}]
@@ -226,7 +227,7 @@ class TestAgentLoopHappyPath:
 
 
 class TestAgentLoopEdgeCases:
-    def test_end_turn_without_findings_returns_empty(self):
+    def test_end_turn_without_findings_fails(self):
         fake_ai = MagicMock(spec=AIProvider)
         fake_ai.chat.return_value = AIResponse(
             stop_reason="end_turn",
@@ -235,12 +236,8 @@ class TestAgentLoopEdgeCases:
         )
 
         loop = AgentLoop(ai_provider=fake_ai, cloud_adapter=FakeCloudAdapter())
-        findings, summary = loop.run(
-            cloud="aws", ignore_regions=IGNORE_REGIONS, accounts=ACCOUNTS
-        )
-
-        assert findings == []
-        assert "could not" in summary
+        with pytest.raises(AgentDidNotSubmitError, match="could not determine"):
+            loop.run(cloud="aws", ignore_regions=IGNORE_REGIONS, accounts=ACCOUNTS)
 
     def test_unknown_tool_returns_error_result(self):
         fake_ai = MagicMock(spec=AIProvider)

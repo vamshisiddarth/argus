@@ -280,7 +280,12 @@ def main(argv: list[str] | None = None) -> None:
 
     # --- argus scan ---
     scan_parser = subparsers.add_parser(
-        "scan", help="Run a full cost optimization scan"
+        "scan",
+        help="Run a full cost optimization scan",
+        epilog=(
+            "exit codes: 0 ok, 1 error, 2 LLM budget exceeded, "
+            "3 agent stopped without submitting findings, 4 preflight failed"
+        ),
     )
     scan_parser.add_argument(
         "--cloud",
@@ -460,26 +465,41 @@ def _run_scan(args: argparse.Namespace) -> None:
     if args.accounts:
         _apply_accounts_config(args.accounts, args.cloud)
 
-    if args.cloud == "aws":
-        from entrypoints.aws_lambda import handler
+    from core.errors import (
+        EXIT_AGENT_NO_SUBMIT,
+        EXIT_BUDGET_EXCEEDED,
+        EXIT_PREFLIGHT_FAILED,
+        AgentDidNotSubmitError,
+        PreflightFailedError,
+    )
 
-        result = handler({}, None)
-    elif args.cloud == "gcp":
-        from entrypoints.gcp_cloudrun import main as gcp_main
+    try:
+        if args.cloud == "aws":
+            from entrypoints.aws_lambda import handler
 
-        result = gcp_main()  # type: ignore[assignment,func-returns-value]
-    elif args.cloud == "azure":
-        from entrypoints.azure_function import main as azure_main
+            result = handler({}, None)
+        elif args.cloud == "gcp":
+            from entrypoints.gcp_cloudrun import main as gcp_main
 
-        result = azure_main(None)  # type: ignore[assignment,func-returns-value]
-    else:
-        print(f"Cloud {args.cloud!r} is not supported.", file=sys.stderr)
-        sys.exit(1)
+            result = gcp_main()  # type: ignore[assignment,func-returns-value]
+        elif args.cloud == "azure":
+            from entrypoints.azure_function import main as azure_main
+
+            result = azure_main(None)  # type: ignore[assignment,func-returns-value]
+        else:
+            print(f"Cloud {args.cloud!r} is not supported.", file=sys.stderr)
+            sys.exit(1)
+    except AgentDidNotSubmitError as exc:
+        print(f"Scan failed: {exc}", file=sys.stderr)
+        sys.exit(EXIT_AGENT_NO_SUBMIT)
+    except PreflightFailedError as exc:
+        print(f"Preflight failed: {exc}", file=sys.stderr)
+        sys.exit(EXIT_PREFLIGHT_FAILED)
 
     if result is not None:
         print(json.dumps(result, indent=2))
     if isinstance(result, dict) and result.get("budget_exceeded"):
-        sys.exit(2)
+        sys.exit(EXIT_BUDGET_EXCEEDED)
 
 
 def _run_chat(args: argparse.Namespace) -> None:
