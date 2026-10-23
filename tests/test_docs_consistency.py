@@ -104,15 +104,49 @@ def test_new_ai_settings_documented():
     assert "AI_TIMEOUT_SECONDS" in env_vars
 
 
-def test_changelog_lists_known_gaps_for_deferred_items():
+def test_changelog_describes_the_customer_feedback_features():
     section = _read("CHANGELOG.md").split("## v0.7.0", 1)[1].split("\n## v", 1)[0]
-    assert "Known gaps" in section
-    for item in ("confidence", "--expect-account", "deterministic"):
-        assert item in section
+    for item in (
+        "--expect-account",
+        "waste_by_confidence",
+        "baseline rules",
+        "per-region discovery",
+        "ai_max_tokens",
+        "known limitations",
+    ):
+        assert item in section.lower(), item
+    assert "Known gaps (tracked for 0.7.1" not in section
 
 
-def test_standalone_scan_role_template_and_guard_are_documented():
-    iam = _read("docs/reference/iam-permissions.md")
-    assert "read-only-scan-role.yaml" in iam
-    assert "--expect-account" in iam
-    assert "ReadOnlyAccess" in iam
+def test_every_baseline_rule_is_documented():
+    from core.baseline.rules import RULES
+
+    page = _read("docs/concepts/baseline-rules.md")
+    for rule in RULES:
+        assert rule.rule_id in page, rule.rule_id
+        assert f"{rule.list_price_usd:.2f}" in page
+    assert "concepts/baseline-rules.md" in _read("mkdocs.yml")
+
+
+def test_new_settings_are_documented():
+    env_vars = _read("docs/reference/env-vars.md")
+    for var in ("ARGUS_BASELINE_RULES", "ARGUS_EXPECT_ACCOUNT", "BEDROCK_MAX_TOKENS"):
+        assert var in env_vars, var
+
+
+def test_report_schema_documents_the_new_fields():
+    schema = _read("docs/reference/report-schema.md")
+    for key in (
+        "waste_by_confidence",
+        "total_is_estimate",
+        "discovery_complete",
+        "detected_by",
+        "confidence",
+        "cost_basis",
+        "max_resources_source",
+    ):
+        assert key in schema, key
+
+
+def test_roadmap_no_longer_lists_fixed_gaps():
+    assert "BEDROCK_MAX_TOKENS` is ignored" not in _read("docs/roadmap.md")

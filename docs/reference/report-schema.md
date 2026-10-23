@@ -25,8 +25,10 @@ Every Argus scan produces a JSON report with the following top-level fields.
 | `skipped_resource_types` | `string[]` | Resource types that were skipped during the scan (for example, GCP asset types whose API isn't enabled). |
 | `registry_warnings` | `string[]` | Invalid resource-registry entries skipped at load time. Normally empty. |
 | `coverage` | `Coverage \| null` | What the scan actually analysed. See [Coverage object](#coverage-object). `null` when the entrypoint could not provide it. Added in 1.1.0. |
-| `scan_window` | `object \| null` | The lookback window actually used (`metrics_lookback_days`, `cost_lookback_days`, `cost_basis`). Added in 1.1.0. |
+| `scan_window` | `object \| null` | Settings actually used: `metrics_lookback_days`, `cost_lookback_days` (14, the most resource-level cost data holds), `cost_basis`, `max_resources` and `max_resources_source` (`explicit` or `budget`). Added in 1.1.0. |
 | `preflight` | `object \| null` | Results of the pre-scan environment checks. Added in 1.1.0. |
+| `waste_by_confidence` | `object` | `total_estimated_waste_usd` split into `high`, `medium`, `low` and `unrated` (findings with no confidence). Added in 1.1.0. |
+| `total_is_estimate` | `boolean` | `true` unless every finding's `cost_basis` is `billed`; headlines then say the total is not billed. Added in 1.1.0. |
 
 ## Coverage object
 
@@ -40,6 +42,7 @@ Every Argus scan produces a JSON report with the following top-level fields.
 | `cost_data_available` | `boolean` | Whether any per-resource cost was returned. |
 | `regions_covered` | `string[]` | Regions in the discovered inventory. |
 | `types` | `object` | Per resource type: `{discovered, analysed}`. |
+| `discovery_complete` | `boolean \| null` | `false` when a discovery query hit the provider's result limit (AWS Resource Explorer returns at most 1,000 per query; Argus then searches region by region and sets this only if a single region still overflows). `null` when the adapter does not report it. Added in 1.1.0. |
 
 ## Finding object
 
@@ -56,6 +59,9 @@ Every Argus scan produces a JSON report with the following top-level fields.
 | `priority` | `string` | `"high"`, `"medium"`, or `"low"` — assigned by the AI. |
 | `metrics_summary` | `object` | Key metric signals the AI used to make its decision. |
 | `tags` | `object` | Resource tags as key-value pairs. |
+| `confidence` | `string \| null` | `"low"`, `"medium"` or `"high"`. Forced to `low` when the metrics behind the finding were unavailable; capped at `medium` for windows under 90 days. Added in 1.1.0. |
+| `cost_basis` | `string \| null` | `"billed"` (from Cost Explorer) or `"estimated"`. Added in 1.1.0. |
+| `detected_by` | `string \| null` | `"model"` or `"rule:<id>"` for a [baseline rule](../concepts/baseline-rules.md). Added in 1.1.0. |
 | `last_activity` | `string \| null` | ISO 8601 timestamp of the last detected activity, or `null`. |
 | `scan_time` | `string` | ISO 8601 timestamp of when the resource was scanned. |
 | `account_id` | `string \| null` | Account / project / subscription the resource belongs to. Added in 1.0.1; `null` if it couldn't be attributed. |

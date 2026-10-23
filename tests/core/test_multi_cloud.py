@@ -198,3 +198,27 @@ def test_merged_report_carries_waste_breakdown():
     assert merged["waste_by_confidence"]["high"] == 100.0
     assert merged["waste_by_confidence"]["low"] == 40.0
     assert merged["total_is_estimate"] is True
+
+
+def test_merged_report_keeps_scan_window_and_preflight():
+    aws = _make_report("aws", [])
+    aws["scan_window"] = {"metrics_lookback_days": 14, "cost_basis": "unavailable"}
+    aws["preflight"] = {
+        "skipped": False,
+        "accounts": [{"account_id": "1", "skipped": False, "checks": []}],
+    }
+    gcp = _make_report("gcp", [])
+    gcp["scan_window"] = {"metrics_lookback_days": 14, "cost_basis": "billed"}
+    gcp["preflight"] = None
+
+    merged = merge_reports([aws, gcp])
+
+    assert merged["scan_window"]["metrics_lookback_days"] == 14
+    assert merged["scan_window"]["cost_basis"] == "mixed"
+    assert merged["preflight"]["skipped"] is False
+    assert [a["account_id"] for a in merged["preflight"]["accounts"]] == ["1"]
+
+
+def test_merged_report_without_those_blocks_has_none():
+    merged = merge_reports([_make_report("aws", []), _make_report("gcp", [])])
+    assert merged["scan_window"] is None and merged["preflight"] is None

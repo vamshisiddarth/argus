@@ -24,6 +24,7 @@ def _session(
     get_default_view_error=None,
     search_error=None,
     ce_error=None,
+    get_index_error=None,
 ):
     sts = MagicMock()
     sts.get_caller_identity.return_value = {"Account": "123456789012", "Arn": arn}
@@ -39,7 +40,10 @@ def _session(
                 else [{"Region": "us-east-1", "Type": "AGGREGATOR", "Arn": "arn:idx"}]
             )
         }
-    re.get_index.return_value = {"State": index_state, "Type": "AGGREGATOR"}
+    if get_index_error:
+        re.get_index.side_effect = get_index_error
+    else:
+        re.get_index.return_value = {"State": index_state, "Type": "AGGREGATOR"}
     if get_default_view_error:
         re.get_default_view.side_effect = get_default_view_error
     else:
@@ -295,3 +299,31 @@ def test_cost_check_is_skipped_when_search_already_failed():
         _session(search_error=_err("AccessDeniedException")), "us-east-1"
     )
     assert "P8_COST_DATA" not in _by_code(result)
+
+
+def test_unreadable_index_state_warns_instead_of_silently_skipping():
+    result = run_preflight(
+        _session(get_index_error=_err("AccessDeniedException")), "us-east-1"
+    )
+
+    check = _by_code(result)["P4_INDEX_STATE"]
+    assert check.status == "warn"
+    assert "resource-explorer-2:GetIndex" in check.message
+    assert result.failed == []
+
+
+def test_missing_credentials_are_named_instead_of_blaming_listindexes():
+    from botocore.exceptions import NoCredentialsError
+
+    session = _session(list_indexes_error=NoCredentialsError())
+    sts = MagicMock()
+    sts.get_caller_identity.side_effect = NoCredentialsError()
+    original = session.client.side_effect
+    session.client.side_effect = lambda name, **kw: (
+        sts if name == "sts" else original(name, **kw)
+    )
+
+    result = run_preflight(session, "us-east-1")
+
+    assert "credentials" in _by_code(result)["P2_RE_REACHABLE"].message.lower()
+    assert "ListIndexes" not in _by_code(result)["P2_RE_REACHABLE"].message

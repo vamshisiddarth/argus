@@ -8,7 +8,7 @@ or empty results; a `warn` means it can run but the report will be weaker.
 from __future__ import annotations
 
 import boto3
-from botocore.exceptions import BotoCoreError, ClientError
+from botocore.exceptions import BotoCoreError, ClientError, NoCredentialsError
 
 from adapters.aws.config import BOTO_TIMEOUT_CONFIG
 from adapters.aws.cost_explorer import probe_resource_level_cost
@@ -91,13 +91,25 @@ def run_preflight(
     try:
         indexes = _list_indexes(re)
     except (ClientError, BotoCoreError) as exc:
+        no_credentials = isinstance(exc, NoCredentialsError) or "NoCredentials" in (
+            _code(exc)
+        )
         add(
             PreflightCheck(
                 "P2_RE_REACHABLE",
                 "fail",
-                "Cannot list Resource Explorer indexes "
-                f"({_code(exc)}); missing resource-explorer-2:ListIndexes?",
-                f"Grant {_ACTION_LIST}. " + _DOCS_HINT,
+                (
+                    "No AWS credentials were found, so Resource Explorer cannot be "
+                    "reached."
+                    if no_credentials
+                    else "Cannot list Resource Explorer indexes "
+                    f"({_code(exc)}); missing resource-explorer-2:ListIndexes?"
+                ),
+                (
+                    "Set AWS_PROFILE or export credentials (aws sso login)."
+                    if no_credentials
+                    else f"Grant {_ACTION_LIST}. " + _DOCS_HINT
+                ),
             )
         )
         return result
@@ -136,10 +148,21 @@ def run_preflight(
     add(PreflightCheck("P3_AGGREGATOR_INDEX", "ok", "Aggregator index found."))
 
     # P4: is the index finished populating?
+    state: str | None
     try:
         state = re.get_index().get("State", "UNKNOWN")
-    except (ClientError, BotoCoreError):
+    except (ClientError, BotoCoreError) as exc:
         state = None
+        add(
+            PreflightCheck(
+                "P4_INDEX_STATE",
+                "warn",
+                f"Could not read the index state ({_code(exc)}; needs "
+                "resource-explorer-2:GetIndex), so a still-populating index "
+                "would not be detected.",
+                f"Grant {_ACTION_LIST}.",
+            )
+        )
     if state in ("CREATING", "UPDATING"):
         add(
             PreflightCheck(

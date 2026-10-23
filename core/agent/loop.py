@@ -669,10 +669,8 @@ def _compress_resource(r: dict) -> dict:
 
     Strategy:
     - Shorten key names (resource_id → id, resource_type → type)
-    - Truncate long ARNs to their short form for the list view.
-      The full ARN is passed back by the AI when it calls get_metrics /
-      get_cost / get_last_activity, so the adapter always receives the
-      canonical identifier.
+    - Keep resource ids as given (ARNs are not shortened), so the adapter always
+      receives the canonical identifier when the AI calls get_metrics / get_cost.
     - Drop None / empty values entirely
     - Keep tags only if non-empty (they carry owner/env signals)
     """

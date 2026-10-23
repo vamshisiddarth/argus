@@ -113,6 +113,8 @@ def merge_reports(reports: list[dict[str, Any]]) -> dict[str, Any]:
     total_waste = sum(f["estimated_monthly_cost"] for f in all_findings)
 
     waste_by_confidence, total_is_estimate = waste_breakdown(all_findings)
+    scan_window = _merge_windows([r.get("scan_window") for r in reports])
+    preflight = _merge_preflights([r.get("preflight") for r in reports])
     coverages = [
         Coverage.from_dict(r["coverage"]) for r in reports if r.get("coverage")
     ]
@@ -135,6 +137,28 @@ def merge_reports(reports: list[dict[str, Any]]) -> dict[str, Any]:
         "coverage": merged_coverage,
         "waste_by_confidence": waste_by_confidence,
         "total_is_estimate": total_is_estimate,
+        "scan_window": scan_window,
+        "preflight": preflight,
+    }
+
+
+def _merge_windows(windows: list[dict[str, Any] | None]) -> dict[str, Any] | None:
+    present = [w for w in windows if w]
+    if not present:
+        return None
+    merged = dict(present[0])
+    if len({w.get("cost_basis") for w in present}) > 1:
+        merged["cost_basis"] = "mixed"
+    return merged
+
+
+def _merge_preflights(blocks: list[dict[str, Any] | None]) -> dict[str, Any] | None:
+    present = [b for b in blocks if b]
+    if not present:
+        return None
+    return {
+        "skipped": all(b.get("skipped") for b in present),
+        "accounts": [a for b in present for a in b.get("accounts", [])],
     }
 
 
@@ -154,6 +178,8 @@ def _empty_merged_report() -> dict[str, Any]:
         "agent_output_tokens": 0,
         "cloud_breakdown": [],
         "coverage": None,
+        "scan_window": None,
+        "preflight": None,
     }
 
 

@@ -13,7 +13,7 @@ Complete reference for all Argus environment variables.
 | `ANTHROPIC_MODEL` | `claude-sonnet-4-6` | Model name when using Anthropic API directly |
 | `BEDROCK_MODEL_ID` | `anthropic.claude-sonnet-4-6` | Bedrock model ID |
 | `BEDROCK_REGION` | `us-east-1` | Region where Bedrock is enabled |
-| `BEDROCK_MAX_TOKENS` | `2048` | Currently **not used**: the Bedrock provider always requests up to 4096 output tokens |
+| `BEDROCK_MAX_TOKENS` | unset | Output-token limit for the Bedrock provider. Overrides `AI_MAX_TOKENS` for Bedrock only |
 | `VERTEXAI_PROJECT` | — | Required when `AI_PROVIDER=vertexai` |
 | `VERTEXAI_LOCATION` | `us-central1` | Vertex AI region |
 | `VERTEXAI_MODEL` | `google/gemini-1.5-pro-002` | Vertex AI model name |
@@ -90,10 +90,12 @@ Complete reference for all Argus environment variables.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `MAX_RESOURCES_PER_SCAN` | `200` | Maximum resources handed to the AI after Phase 0 cost-sorting. Raise for very large accounts (increases AI token cost proportionally). |
-| `AI_MAX_TOKENS` | `16000` | Output-token limit per model response (Anthropic provider). If the model is cut off, Argus asks it to submit findings in batches and fails with exit code 3 after 3 cut-offs. |
+| `MAX_RESOURCES_PER_SCAN` | scaled from `LLM_BUDGET_USD` | Maximum resources handed to the AI. When unset it is 150 per dollar of LLM budget, between 50 and 1000 (300 at the default $2.00; 500 when the budget is unlimited). The figure comes from a measured run of about $0.0033 per resource, so a default scan uses roughly half the budget. Set it explicitly to override; the report records the value and whether it was `explicit` or `budget`. |
+| `AI_MAX_TOKENS` | `16000` | Output-token limit per model response. Used by all providers; Vertex AI is clamped to 8192 and Azure OpenAI to 16384 (their default models' limits) unless you pass a value in code. If the model is cut off, Argus asks it to submit findings in batches and fails with exit code 3 after 3 cut-offs. |
 | `AI_TIMEOUT_SECONDS` | `600` | Request timeout for the Anthropic provider. Timeouts and connection errors are retried with backoff. |
 | `STRICT_COVERAGE` | `false` | When `true`, fail the scan (exit 1) if the resource cap leaves any resources unanalysed. Equivalent to `--strict-coverage`. |
+| `ARGUS_BASELINE_RULES` | `true` | Run the deterministic [baseline rules](../concepts/baseline-rules.md) before the model. |
+| `ARGUS_EXPECT_ACCOUNT` | unset | AWS account ID the credentials must belong to (single-account scans). A mismatch aborts with exit code 4 before any cloud or LLM call. Equivalent to `--expect-account`. |
 | `ARGUS_SKIP_PREFLIGHT` | `false` | When `true`, skip the pre-scan environment checks (identity, Resource Explorer index/view/permissions). Logged at WARNING and recorded in the report. Equivalent to `--skip-preflight`. |
 | `METRICS_LOOKBACK_DAYS` | `90` | CloudWatch / Cloud Monitoring / Azure Monitor lookback window. Applied to every metrics query (the model cannot override it) and recorded in the report's `scan_window`. 90 days covers quarterly usage patterns and aligns with the CloudTrail lookback. Set to `14` for faster local dev runs — **not recommended in production** as short windows produce false-positive idle findings. |
 | `ADAPTER_CONCURRENCY` | `10` | Maximum parallel threads for metric and activity fetches during a scan. Increase for large accounts with many resources; decrease if you hit API rate limits. |

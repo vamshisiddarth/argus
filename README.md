@@ -314,9 +314,12 @@ argus --run-now --cloud aws [options]           # backward compat
   --ignore-regions REGIONS   Comma-separated regions to skip (e.g. ap-east-1,me-south-1)
   --ai-provider PROVIDER     anthropic | bedrock | vertexai | azure_openai (default: anthropic)
   --accounts PATH            Path to accounts.yaml for multi-account/project/subscription mode
-  --max-resources N          Maximum resources to analyze per scan (default: 200)
+  --max-resources N          Maximum resources to analyze per scan (default: scaled from --llm-budget, 300 at $2.00)
   --lookback-days DAYS       Metrics lookback window in days, applied to every metrics query and shown in the report (default: 90, use 14 for faster local dev)
   --llm-budget USD           Cost budget per scan/session (default: $2.00 scan, $1.00 chat)
+  --expect-account ID        Abort (exit 4) unless the AWS credentials belong to this account
+  --strict-coverage          Fail (exit 1) if the cap or a search limit leaves resources unanalysed
+  --skip-preflight           Skip the AWS pre-scan environment checks (recorded in the report)
 ```
 
 ---
