@@ -173,6 +173,7 @@ def main(mytimer: Any) -> dict[str, Any] | None:
         "total_estimated_waste_usd": report["total_estimated_waste_usd"],
         "budget_exceeded": False,
         "coverage": meta.summary(),
+        "llm": meta.llm_summary(),
     }
 
 

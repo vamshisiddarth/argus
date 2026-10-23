@@ -1060,3 +1060,30 @@ class TestHtmlFreeConfig:
         )
 
         assert "77 free configuration objects" in build_html_report(report)
+
+
+class TestSpendInReports:
+    def _report(self):
+        return build_report(
+            _sample_findings(),
+            cloud="aws",
+            executive_summary="x",
+            scan_window={
+                "metrics_lookback_days": 14,
+                "llm_spent_usd": 0.31,
+                "llm_estimate_usd": 0.4,
+                "llm_budget_usd": 2.0,
+            },
+        )
+
+    def test_html_shows_what_the_scan_cost(self):
+        out = build_html_report(self._report())
+        assert "LLM spend" in out and "$0.31" in out and "$2.00" in out
+
+    def test_slack_digest_shows_spend(self):
+        assert "LLM spend $0.31" in str(build_slack_payload(self._report()))
+
+    def test_reports_without_spend_render_unchanged(self):
+        report = build_report([], cloud="aws", executive_summary="x")
+        assert "LLM spend" not in build_html_report(report)
+        assert "LLM spend" not in str(build_slack_payload(report))

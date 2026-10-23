@@ -78,3 +78,27 @@ def test_strict_also_fails_when_discovery_was_incomplete():
     with pytest.raises(StrictCoverageError, match="discovery"):
         meta.enforce_strict(True)
     meta.enforce_strict(False)
+
+
+def test_llm_spend_is_summed_across_accounts():
+    first = _loop(
+        10, 4, {"llm_budget_usd": 2.0, "llm_estimate_usd": 0.3, "llm_spent_usd": 0.2}
+    )
+    second = _loop(
+        5, 5, {"llm_budget_usd": 2.0, "llm_estimate_usd": 0.1, "llm_spent_usd": 0.05}
+    )
+    meta = ScanMeta()
+    meta.add_loop(first)
+    meta.add_loop(second)
+
+    assert meta.scan_window["llm_spent_usd"] == 0.25
+    assert meta.scan_window["llm_estimate_usd"] == 0.4
+    assert meta.llm_summary() == {
+        "spent_usd": 0.25,
+        "estimate_usd": 0.4,
+        "budget_usd": 4.0,
+    }
+
+
+def test_no_llm_numbers_means_no_summary():
+    assert ScanMeta().llm_summary() is None

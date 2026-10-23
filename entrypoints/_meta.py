@@ -21,8 +21,25 @@ class ScanMeta:
         if isinstance(loop.coverage, Coverage):
             self.coverages.append(loop.coverage)
         window = getattr(loop, "scan_window", None)
-        if self.scan_window is None and isinstance(window, dict):
-            self.scan_window = window
+        if not isinstance(window, dict):
+            return
+        if self.scan_window is None:
+            self.scan_window = dict(window)
+            return
+        for key in ("llm_spent_usd", "llm_estimate_usd", "llm_budget_usd"):
+            if key in window:
+                total = (self.scan_window.get(key) or 0) + (window[key] or 0)
+                self.scan_window[key] = round(total, 4)
+
+    def llm_summary(self) -> dict[str, Any] | None:
+        window = self.scan_window or {}
+        if "llm_spent_usd" not in window:
+            return None
+        return {
+            "spent_usd": window["llm_spent_usd"],
+            "estimate_usd": window.get("llm_estimate_usd", 0.0),
+            "budget_usd": window.get("llm_budget_usd", 0.0),
+        }
 
     def preflight_dict(self) -> dict[str, Any] | None:
         if not self.preflights:
