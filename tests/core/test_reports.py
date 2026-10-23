@@ -1027,3 +1027,24 @@ class TestHtmlDiscovery:
         out = build_html_report(report)
 
         assert "Discovery incomplete" in out
+
+
+class TestHtmlDetectedBy:
+    def test_rule_findings_are_labelled_in_the_detail_row(self):
+        f = _finding("nat-1")
+        f.detected_by = "rule:nat-gateway-idle"
+        out = build_html_report(build_report([f], cloud="aws", executive_summary="x"))
+        assert "rule:nat-gateway-idle" in out
+        assert "Detected by" in out
+
+    def test_model_findings_say_so(self):
+        f = _finding("i-1")
+        f.detected_by = "model"
+        out = build_html_report(build_report([f], cloud="aws", executive_summary="x"))
+        assert "Detected by:</span>model" in out
+
+    def test_findings_without_the_field_render_without_the_line(self):
+        out = build_html_report(
+            build_report([_finding("i-1")], cloud="aws", executive_summary="x")
+        )
+        assert "Detected by" not in out

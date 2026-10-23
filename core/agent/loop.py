@@ -11,6 +11,7 @@ from adapters.base import CloudAdapter
 from ai.base import AIProvider, Message, Tool, ToolCall, ToolResult
 from core.agent.prompts import build_system_prompt, build_tool_schemas
 from core.agent.selection import select_candidates
+from core.baseline import BaselineResult, run_baseline
 from core.config import get_settings
 from core.errors import AgentDidNotSubmitError
 from core.models.coverage import Coverage, TypeCoverage
@@ -98,6 +99,7 @@ class AgentLoop:
         self._costs: dict[str, float] = {}
         self._resource_tags: dict[str, dict[str, str]] = {}
         self._no_data_ids: set[str] = set()
+        self._baseline = BaselineResult()
         self._partial_findings: list[dict[str, Any]] = []
         self._tools: list[Tool] = [
             Tool(
@@ -122,12 +124,6 @@ class AgentLoop:
             findings: ResourceFinding list sorted by estimated_monthly_cost desc
             executive_summary: AI-written 3-5 sentence summary for managers
         """
-        system_prompt = build_system_prompt(
-            cloud=cloud,
-            ignore_regions=ignore_regions,
-            accounts=accounts,
-            lookback_days=_lookback_days(),
-        )
 
         # ------------------------------------------------------------------
         # Phase 0 — pre-filter (outside AI context, no tokens consumed)
@@ -135,6 +131,14 @@ class AgentLoop:
         # to the agent. This keeps context small regardless of account size.
         # ------------------------------------------------------------------
         self._prefilter_resources(ignore_regions)
+
+        system_prompt = build_system_prompt(
+            cloud=cloud,
+            ignore_regions=ignore_regions,
+            accounts=accounts,
+            lookback_days=_lookback_days(),
+            rule_finding_ids=sorted(self._baseline.finding_ids),
+        )
 
         settings = get_settings()
         self.tracker = TokenTracker(
@@ -162,7 +166,7 @@ class AgentLoop:
                     "budget_exceeded_stopping",
                     **self.tracker.summary(),
                 )
-                return [], (
+                return self._merge_baseline([]), (
                     f"Scan aborted: LLM budget of "
                     f"${self.tracker.budget_usd:.2f} exceeded "
                     f"(${self.tracker.estimated_cost_usd:.4f} spent "
@@ -222,6 +226,9 @@ class AgentLoop:
                         window_days=_lookback_days(),
                     )
                     findings = _attach_cost_basis(findings, self._costs)
+                    for f in findings:
+                        f.detected_by = "model"
+                    findings = self._merge_baseline(findings)
                     findings = _attach_tags(findings, self._resource_tags)
                     return _attach_accounts(findings, accounts), summary
 
@@ -297,6 +304,16 @@ class AgentLoop:
             "Check the system prompt or increase MAX_AGENT_ITERATIONS."
         )
 
+    def _merge_baseline(
+        self, model_findings: list[ResourceFinding]
+    ) -> list[ResourceFinding]:
+        """Rule findings are authoritative: they replace model findings on the same id."""
+        decided = self._baseline.finding_ids
+        merged = [*self._baseline.findings]
+        merged += [f for f in model_findings if f.resource_id not in decided]
+        merged.sort(key=lambda f: (-f.estimated_monthly_cost, f.resource_id))
+        return merged
+
     def _execute_tool_calls(self, tool_calls: list[ToolCall]) -> list[ToolResult]:
         parallel = [tc for tc in tool_calls if tc.name in _PARALLELIZABLE_TOOLS]
         sequential = [tc for tc in tool_calls if tc.name not in _PARALLELIZABLE_TOOLS]
@@ -359,6 +376,7 @@ class AgentLoop:
         if not resources:
             self._prefiltered_payload = []
             self.coverage = Coverage.empty()
+            self._baseline = BaselineResult()
             self.scan_window = _scan_window(has_cost=False)
             logger.info("prefilter_complete", discovered=0, sent_to_ai=0)
             return []
@@ -379,12 +397,30 @@ class AgentLoop:
         cap = scan_cfg.max_resources
         self.scan_window["max_resources"] = cap
         self.scan_window["max_resources_source"] = scan_cfg.max_resources_source
-        chosen, selection_rule = select_candidates(resources, costs, cap)
+        self._baseline = BaselineResult()
+        if scan_cfg.baseline_rules:
+            self._baseline = run_baseline(
+                self._adapter,
+                resources,
+                costs,
+                _lookback_days(),
+                scan_cfg.adapter_concurrency,
+            )
+        decided = self._baseline.finding_ids
+        pool = [r for r in resources if r.resource_id not in decided]
+        chosen, selection_rule = select_candidates(pool, costs, cap)
         capped = [(r, costs.get(r.resource_id, 0.0)) for r in chosen]
-        dropped = total_discovered - len(capped)
+        chosen_ids = {r.resource_id for r in chosen}
+        analysed = chosen + [
+            r
+            for r in resources
+            if r.resource_id in self._baseline.evaluated_ids
+            and r.resource_id not in chosen_ids
+        ]
+        dropped = total_discovered - len(analysed)
         self.coverage = _build_coverage(
             resources,
-            chosen,
+            analysed,
             costs,
             selection_rule,
             total_discovered,
