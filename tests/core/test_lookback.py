@@ -137,8 +137,8 @@ def test_findings_are_labelled_billed_or_estimated():
     findings, _ = AgentLoop(fake_ai, adapter).run("aws", [], ACCOUNTS)
 
     basis = {f.resource_id: f.cost_basis for f in findings}
-    assert basis == {"nat-1": "billed", "nat-2": "estimated"}
-    assert findings[0].to_dict()["cost_basis"] in ("billed", "estimated")
+    assert basis == {"nat-1": "billed", "nat-2": "model_estimate"}
+    assert findings[0].to_dict()["cost_basis"] in ("billed", "model_estimate")
 
 
 def test_finding_cost_basis_defaults_to_none_and_round_trips():

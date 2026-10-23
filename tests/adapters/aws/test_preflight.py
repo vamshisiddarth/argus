@@ -25,6 +25,7 @@ def _session(
     search_error=None,
     ce_error=None,
     get_index_error=None,
+    ec2_errors=None,
 ):
     sts = MagicMock()
     sts.get_caller_identity.return_value = {"Account": "123456789012", "Arn": arn}
@@ -56,6 +57,9 @@ def _session(
     else:
         re.search.return_value = {"Resources": []}
 
+    ec2 = MagicMock()
+    for op, err in (ec2_errors or {}).items():
+        getattr(ec2, op).side_effect = err
     ce = MagicMock()
     if ce_error:
         ce.get_cost_and_usage_with_resources.side_effect = ce_error
@@ -64,6 +68,7 @@ def _session(
         "sts": sts,
         "resource-explorer-2": re,
         "ce": ce,
+        "ec2": ec2,
     }[name]
     return session
 
@@ -327,3 +332,38 @@ def test_missing_credentials_are_named_instead_of_blaming_listindexes():
 
     assert "credentials" in _by_code(result)["P2_RE_REACHABLE"].message.lower()
     assert "ListIndexes" not in _by_code(result)["P2_RE_REACHABLE"].message
+
+
+def test_state_access_is_ok_when_describe_calls_work():
+    result = run_preflight(_session(), "us-east-1")
+    assert _by_code(result)["P9_STATE_ACCESS"].status == "ok"
+
+
+def test_denied_describe_calls_are_named_in_a_warning():
+    result = run_preflight(
+        _session(
+            ec2_errors={
+                "describe_volumes": _err("UnauthorizedOperation"),
+                "describe_addresses": _err("UnauthorizedOperation"),
+            }
+        ),
+        "us-east-1",
+    )
+
+    check = _by_code(result)["P9_STATE_ACCESS"]
+    assert check.status == "warn"
+    assert "ec2:DescribeVolumes" in check.message
+    assert "ec2:DescribeAddresses" in check.message
+    assert "unattached" in check.message.lower()
+    assert result.failed == []
+
+
+def test_only_the_denied_action_is_named():
+    result = run_preflight(
+        _session(ec2_errors={"describe_addresses": _err("UnauthorizedOperation")}),
+        "us-east-1",
+    )
+
+    check = _by_code(result)["P9_STATE_ACCESS"]
+    assert "ec2:DescribeAddresses" in check.message
+    assert "ec2:DescribeVolumes" not in check.message

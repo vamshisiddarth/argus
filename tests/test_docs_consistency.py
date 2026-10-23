@@ -71,6 +71,7 @@ def test_exit_codes_page_exists_and_is_in_nav():
         "P6_VIEW_TAGS",
         "P7_SEARCH_PERMISSION",
         "P8_COST_DATA",
+        "P9_STATE_ACCESS",
     ],
 )
 def test_every_preflight_code_has_a_troubleshooting_entry(code):
@@ -162,3 +163,9 @@ def test_day_window_settings_are_documented():
     for flag in ("--cost-days", "--activity-days"):
         assert flag in readme and flag in changelog, flag
     assert "activity_lookback_days" in schema
+
+
+@pytest.mark.parametrize("rel", IAM_FILES)
+@pytest.mark.parametrize("action", ["ec2:DescribeVolumes", "ec2:DescribeAddresses"])
+def test_state_rule_describe_actions_are_in_every_role_definition(rel, action):
+    assert action in _read(rel), f"{action} missing from {rel}"

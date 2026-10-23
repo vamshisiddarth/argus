@@ -69,7 +69,7 @@ def test_idle_nat_gateway_becomes_a_high_priority_rule_finding():
     assert f.resource_id == "nat-1" and f.resource_type == NAT
     assert f.detected_by == "rule:nat-gateway-idle"
     assert f.estimated_monthly_cost == 32.85
-    assert f.cost_basis == "estimated"
+    assert f.cost_basis == "list_price"
     assert f.priority == "high"
     assert f.confidence == "high"
     assert "route table" in f.recommendation

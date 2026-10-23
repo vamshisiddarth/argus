@@ -571,6 +571,7 @@ You receive a batch of resources, one JSON object per line:
   i     index to cite in your findings
   id    resource id (short)       t   resource type        r   region
   name, tags                      cost  billed USD for the cost window (if known)
+  st    current configuration (state, size, attachment, ...) when known
   m     metric values over the metrics window (a missing metric means no data)
   ms    metric status when it is not ok: no_data or error
   la    last activity date, or none_in_window if nothing was recorded

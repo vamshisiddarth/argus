@@ -286,3 +286,26 @@ def test_free_config_objects_skipped_by_the_adapter_are_reported():
     assert loop.coverage.free_config_skipped == 7
     assert loop.coverage.to_dict()["free_config_skipped"] == 7
     assert "7 free configuration objects" in summary
+
+
+def test_configuration_state_collected_for_rules_reaches_the_model():
+    class Stateful(Adapter):
+        def collect_state(self, resources):
+            return {
+                r.resource_id: {
+                    "kind": "ebs_volume",
+                    "state": "in-use",
+                    "size_gb": 40,
+                    "volume_type": "gp3",
+                    "attached_to": ["i-1"],
+                }
+                for r in resources
+            }
+
+    res = [_vol(0)]
+    adapter = Stateful(res, metrics={"vol-000": _ok("vol-000")})
+
+    _, _, _, ai = _run(adapter, [_report()])
+
+    sent = ai.chat.call_args_list[0].args[0][0].text
+    assert '"st":{"state":"in-use"' in sent

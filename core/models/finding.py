@@ -35,7 +35,8 @@ class ResourceFinding:
     # Used by remediation `accounts` scope filters and runbook templates.
     account_id: str | None = None
     account_name: str | None = None
-    # "billed" when the cost came from the cloud's cost API, "estimated" otherwise.
+    # "billed" (cloud cost API), "list_price" (Argus price catalog), "model_estimate"
+    # (the AI's guess) or "unknown".
     # Set by the agent loop, never trusted from the model.
     cost_basis: str | None = None
     # "low" | "medium" | "high". Forced to "low" by the agent loop when the

@@ -309,7 +309,7 @@ def _build_rows(findings: list[dict[str, Any]]) -> str:
         est_label = (
             ' <span class="muted" title="Estimated from list price, not billed">'
             "est.</span>"
-            if f.get("cost_basis") == "estimated"
+            if f.get("cost_basis") not in (None, "billed")
             else ""
         )
         pill_class = f"pill-{priority}"

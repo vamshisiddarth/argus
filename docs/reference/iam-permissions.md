@@ -30,6 +30,8 @@ the templates creates them for you.
         "ce:GetCostAndUsageWithResources",
         "cloudtrail:LookupEvents",
         "ec2:DescribeInstances",
+        "ec2:DescribeVolumes",
+        "ec2:DescribeAddresses",
         "rds:DescribeDBInstances",
         "rds:DescribeDBClusters",
         "elasticache:DescribeCacheClusters",

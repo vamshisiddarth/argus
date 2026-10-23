@@ -183,3 +183,39 @@ class TestPromptLine:
         ).to_prompt(0)
 
         assert line["la"] == "2026-09-01"
+
+
+class TestConfigurationState:
+    def test_state_is_attached_and_shown_compactly(self):
+        res = _res("vol-1")
+        state = {
+            "kind": "ebs_volume",
+            "state": "in-use",
+            "size_gb": 100,
+            "volume_type": "gp3",
+            "iops": 3000,
+            "throughput": None,
+            "attached_to": ["i-1"],
+            "created": "2026-01-02T00:00:00+00:00",
+        }
+
+        (e,) = collect_evidence(
+            FakeAdapter(), [res], {}, window_days=14, states={res.resource_id: state}
+        )
+        line = e.to_prompt(0)
+
+        assert e.state == state
+        assert line["st"]["state"] == "in-use"
+        assert line["st"]["size_gb"] == 100
+        assert "throughput" not in line["st"]  # None dropped
+        assert "kind" not in line["st"]
+
+    def test_resources_without_state_have_no_st_key(self):
+        (e,) = collect_evidence(FakeAdapter(), [_res("a")], {}, window_days=14)
+        assert "st" not in e.to_prompt(0)
+
+    def test_the_prompt_explains_the_st_field(self):
+        from core.agent.prompts import build_triage_prompt
+
+        assert "st " in build_triage_prompt("aws", [], [], 14, 30)
+        assert "current configuration" in build_triage_prompt("aws", [], [], 14, 30)
