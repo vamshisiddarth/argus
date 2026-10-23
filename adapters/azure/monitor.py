@@ -320,6 +320,8 @@ def get_metrics(
             period_days=days,
             metrics={},
             has_data=False,
+            status="error",
+            error=(str(exc) or type(exc).__name__)[:300],
         )
 
     return _parse_response(response, metric_defs, resource_id, resource_type, days)
