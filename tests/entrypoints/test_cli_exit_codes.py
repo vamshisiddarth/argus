@@ -20,6 +20,11 @@ _SCAN_ENV_VARS = (
     "STRICT_COVERAGE",
     "METRICS_LOOKBACK_DAYS",
     "MAX_RESOURCES_PER_SCAN",
+    "IGNORE_REGIONS",
+    "PRIMARY_REGION",
+    "AI_PROVIDER",
+    "LLM_BUDGET_USD",
+    "DRY_RUN",
 )
 
 
@@ -285,3 +290,50 @@ class TestMaxResourcesCli:
         _scan(["--cloud", "aws", "--run-now"])
 
         assert "MAX_RESOURCES_PER_SCAN" not in os.environ
+
+
+class TestEveryScanFlagWorksBeforeTheSubcommand:
+    CASES = [
+        (["--ignore-regions", "ap-east-1"], "IGNORE_REGIONS", "ap-east-1"),
+        (["--primary-region", "eu-west-1"], "PRIMARY_REGION", "eu-west-1"),
+        (["--ai-provider", "bedrock"], "AI_PROVIDER", "bedrock"),
+        (["--llm-budget", "0.5"], "LLM_BUDGET_USD", "0.5"),
+        (["--dry-run"], "DRY_RUN", "true"),
+    ]
+
+    @patch("entrypoints.aws_lambda.handler")
+    def test_flag_before_subcommand_is_applied(self, mock_handler):
+        import os
+
+        mock_handler.return_value = {"statusCode": 200}
+        for flags, var, expected in self.CASES:
+            os.environ.pop(var, None)
+            _scan([*flags, "scan", "--cloud", "aws"])
+            assert os.environ[var] == expected, flags
+
+    @patch("entrypoints.aws_lambda.handler")
+    def test_flag_after_subcommand_is_applied(self, mock_handler):
+        import os
+
+        mock_handler.return_value = {"statusCode": 200}
+        for flags, var, expected in self.CASES:
+            os.environ.pop(var, None)
+            _scan(["scan", "--cloud", "aws", *flags])
+            assert os.environ[var] == expected, flags
+
+    @patch("entrypoints.aws_lambda.handler")
+    def test_cloud_before_subcommand_is_applied(self, mock_handler):
+        mock_handler.return_value = {"statusCode": 200}
+        _scan(["--cloud", "aws", "scan"])
+        mock_handler.assert_called_once()
+
+    @patch("entrypoints.aws_lambda.handler")
+    def test_defaults_apply_when_nothing_is_given(self, mock_handler):
+        import os
+
+        mock_handler.return_value = {"statusCode": 200}
+        _scan(["scan", "--cloud", "aws"])
+
+        assert os.environ["PRIMARY_REGION"] == "us-east-1"
+        assert os.environ["LLM_BUDGET_USD"] == "2.0"
+        assert os.environ["AI_PROVIDER"] == "anthropic"

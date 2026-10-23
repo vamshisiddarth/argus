@@ -827,3 +827,69 @@ class TestExpectAccount:
         monkeypatch.setenv("ARGUS_SKIP_PREFLIGHT", "true")
         exc, _, _ = self._run(monkeypatch, "999999999999")
         assert isinstance(exc, PreflightFailedError)
+
+
+class TestStrictCoverageKeepsTheReport:
+    def _setup(self, monkeypatch, summary):
+        from contextlib import ExitStack
+        from unittest.mock import patch
+
+        from core.models.coverage import Coverage, TypeCoverage
+
+        monkeypatch.setenv("ACCOUNTS_MODE", "single")
+        monkeypatch.setenv("STRICT_COVERAGE", "true")
+        monkeypatch.setenv("SLACK_WEBHOOK_URL", "https://hooks.slack.com/test")
+        stack = ExitStack()
+        mocks = {
+            "notify": stack.enter_context(patch("entrypoints.aws_lambda.notify_all")),
+            "save": stack.enter_context(
+                patch("entrypoints.aws_lambda.save_reports_locally")
+            ),
+            "build": stack.enter_context(
+                patch(
+                    "entrypoints.aws_lambda.build_report", return_value=_fake_report()
+                )
+            ),
+        }
+        stack.enter_context(
+            patch("entrypoints.aws_lambda.build_slack_payload", return_value={})
+        )
+        loop_cls = stack.enter_context(patch("entrypoints.aws_lambda.AgentLoop"))
+        stack.enter_context(patch("entrypoints.aws_lambda.AWSAdapter"))
+        stack.enter_context(
+            patch("entrypoints.aws_lambda._get_current_account_id", return_value="1")
+        )
+        stack.enter_context(patch("entrypoints.aws_lambda._build_ai_provider"))
+        loop = loop_cls.return_value
+        loop.run.return_value = ([], summary)
+        loop.coverage = Coverage(
+            880, 200, "cost_desc", True, ["us-east-1"], {"T": TypeCoverage(880, 200)}
+        )
+        return stack, mocks
+
+    def test_report_is_written_and_delivered_before_the_strict_failure(
+        self, monkeypatch
+    ):
+        import pytest
+
+        from core.errors import StrictCoverageError
+        from entrypoints.aws_lambda import handler
+
+        stack, mocks = self._setup(monkeypatch, "ok")
+        with stack, pytest.raises(StrictCoverageError):
+            handler({}, None)
+
+        mocks["build"].assert_called_once()
+        mocks["save"].assert_called_once()
+        mocks["notify"].assert_called_once()
+
+    def test_a_budget_abort_still_reports_exit_2_not_the_strict_error(
+        self, monkeypatch
+    ):
+        from entrypoints.aws_lambda import handler
+
+        stack, _ = self._setup(monkeypatch, "Scan aborted: LLM budget of $2.00")
+        with stack:
+            result = handler({}, None)
+
+        assert result["budget_exceeded"] is True

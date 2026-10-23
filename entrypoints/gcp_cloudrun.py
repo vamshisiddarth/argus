@@ -37,7 +37,7 @@ import structlog
 from adapters.gcp.adapter import GCPAdapter
 from core.agent.loop import AgentLoop
 from core.config import get_settings
-from core.errors import AgentDidNotSubmitError
+from core.errors import AgentDidNotSubmitError, StrictCoverageError
 from core.log import configure_logging
 from core.models.finding import ResourceFinding
 from core.registry import get_registry
@@ -103,7 +103,12 @@ def main() -> None:
             _run_single_project(project_ids[0], ignore_regions, cloud, meta)
         )
         scan_errors = []
-    meta.enforce_strict(get_settings().scan.strict_coverage)
+    strict_error: Exception | None = None
+    try:
+        meta.enforce_strict(get_settings().scan.strict_coverage)
+    except StrictCoverageError as exc:
+        # Keep going: the scan was paid for, so write and deliver the report first.
+        strict_error = exc
 
     gcs_bucket = os.environ.get("REPORT_GCS_BUCKET", "").strip()
     previous_report = _load_previous_report(cloud, gcs_bucket)
@@ -155,6 +160,8 @@ def main() -> None:
     )
     if budget_exceeded:
         sys.exit(2)
+    if strict_error is not None:
+        raise strict_error
     if not delivered:
         sys.exit(1)
 
