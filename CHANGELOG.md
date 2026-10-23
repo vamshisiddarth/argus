@@ -57,6 +57,7 @@ A trust release. Argus now tells you what it covered, fails loudly when it could
 - Baseline rules cover three resource types today; everything else is still judged by the model, so findings for other types can vary between runs.
 - Resource Explorer region-by-region search still cannot see more than 1,000 resources in a single region (reported as `discovery_complete: false`).
 - The budget-scaled cap is a heuristic from one measured run; a scan on very large resources can use more of the budget, and a budget abort returns the rule findings plus a summary but no model findings.
+- Output cut-offs: a real cut-off followed by recovery was verified live once; merging several `partial` batches is covered by unit tests only, and a very small `AI_MAX_TOKENS` (a few hundred) can still end in exit code 3 because the model cannot finish even one batch.
 - Anthropic requests are not streamed; `AI_TIMEOUT_SECONDS` (default 600) bounds a response and `AI_MAX_TOKENS` above roughly 21000 may be rejected by the SDK's non-streaming guard.
 
 ### Upgrade notes
