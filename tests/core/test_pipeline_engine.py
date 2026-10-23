@@ -309,3 +309,14 @@ def test_configuration_state_collected_for_rules_reaches_the_model():
 
     sent = ai.chat.call_args_list[0].args[0][0].text
     assert '"st":{"state":"in-use"' in sent
+
+
+def test_scan_window_says_where_the_tags_came_from():
+    class Tagged(Adapter):
+        tags_source = "tagging_api"
+
+    _, _, loop, _ = _run(
+        Tagged([_vol(0)], metrics={"vol-000": _ok("vol-000")}), [_report()]
+    )
+
+    assert loop.scan_window["tags_source"] == "tagging_api"
