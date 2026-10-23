@@ -343,11 +343,11 @@ def main(argv: list[str] | None = None) -> None:
     )
     scan_parser.add_argument(
         "--max-resources",
-        default=os.environ.get("MAX_RESOURCES_PER_SCAN", "200"),
+        default=argparse.SUPPRESS,
         dest="max_resources",
         type=int,
         metavar="N",
-        help="Max resources to analyze per scan (default: 200)",
+        help="Max resources to analyze per scan (default: scaled from --llm-budget)",
     )
     # default=SUPPRESS on options also defined on the top-level parser, so a value
     # given before the subcommand is not overwritten by the subparser's default.
@@ -441,8 +441,6 @@ def main(argv: list[str] | None = None) -> None:
             args.primary_region = os.environ.get("PRIMARY_REGION", "us-east-1")
         if args.ai_provider is None:
             args.ai_provider = os.environ.get("AI_PROVIDER", "anthropic")
-        if args.max_resources is None:
-            args.max_resources = int(os.environ.get("MAX_RESOURCES_PER_SCAN", "200"))
         if args.lookback_days is None:
             args.lookback_days = int(os.environ.get("METRICS_LOOKBACK_DAYS", "90"))
         if args.llm_budget is None:
@@ -501,7 +499,8 @@ def _run_scan(args: argparse.Namespace) -> None:
     os.environ["IGNORE_REGIONS"] = args.ignore_regions
     os.environ["PRIMARY_REGION"] = args.primary_region
     os.environ["AI_PROVIDER"] = args.ai_provider
-    os.environ["MAX_RESOURCES_PER_SCAN"] = str(args.max_resources)
+    if getattr(args, "max_resources", None) is not None:
+        os.environ["MAX_RESOURCES_PER_SCAN"] = str(args.max_resources)
     os.environ["METRICS_LOOKBACK_DAYS"] = str(args.lookback_days)
     os.environ["LLM_BUDGET_USD"] = str(args.llm_budget)
     if args.dry_run:

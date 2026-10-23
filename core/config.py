@@ -10,7 +10,7 @@ Usage::
     from core.config import get_settings
     cfg = get_settings()
     print(cfg.ai.provider)          # "anthropic"
-    print(cfg.scan.max_resources)   # 200
+    print(cfg.scan.max_resources)   # 300 (scaled from the $2 default budget)
 """
 
 from __future__ import annotations
@@ -179,10 +179,19 @@ class RemediationSettings(BaseSettings):
 # ---------------------------------------------------------------------------
 
 
+# Measured on a real 200-resource scan: about $0.0033 per resource, so 150 per
+# dollar of budget keeps a default scan near half the budget.
+_RESOURCES_PER_BUDGET_USD = 150
+_MIN_AUTO_CAP = 50
+_MAX_AUTO_CAP = 1000
+_UNLIMITED_BUDGET_CAP = 500
+
+
 class ScanSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="", env_file=".env", extra="ignore")
 
-    max_resources: int = Field(200, alias="MAX_RESOURCES_PER_SCAN")
+    # Explicit cap; when unset the cap is scaled from the LLM budget (see max_resources)
+    max_resources_override: int | None = Field(None, alias="MAX_RESOURCES_PER_SCAN")
     metrics_lookback_days: int = Field(90, alias="METRICS_LOOKBACK_DAYS")
     adapter_concurrency: int = Field(10, alias="ADAPTER_CONCURRENCY")
     max_iterations: int = Field(50, alias="MAX_AGENT_ITERATIONS")
@@ -192,6 +201,20 @@ class ScanSettings(BaseSettings):
     expect_account: str | None = Field(None, alias="ARGUS_EXPECT_ACCOUNT")
     exclude_tags: str = Field("", alias="EXCLUDE_TAGS")
     exclude_resource_types: str = Field("", alias="EXCLUDE_RESOURCE_TYPES")
+
+    @property
+    def max_resources(self) -> int:
+        """Resources sent to the AI. Explicit setting wins, else scaled from budget."""
+        if self.max_resources_override is not None:
+            return self.max_resources_override
+        if self.llm_budget_usd <= 0:
+            return _UNLIMITED_BUDGET_CAP
+        scaled = int(self.llm_budget_usd * _RESOURCES_PER_BUDGET_USD)
+        return max(_MIN_AUTO_CAP, min(_MAX_AUTO_CAP, scaled))
+
+    @property
+    def max_resources_source(self) -> str:
+        return "explicit" if self.max_resources_override is not None else "budget"
 
     @property
     def exclude_tags_dict(self) -> dict[str, str]:
