@@ -33,6 +33,8 @@ class AISettings(BaseSettings):
     provider: str = Field("anthropic", alias="AI_PROVIDER")
     model: str | None = Field(None, alias="AI_MODEL")
     temperature: float = Field(0.0, alias="AI_TEMPERATURE")
+    max_tokens: int = Field(16000, alias="AI_MAX_TOKENS")
+    timeout_seconds: float = Field(600.0, alias="AI_TIMEOUT_SECONDS")
 
     # Anthropic
     anthropic_api_key: str | None = Field(None, alias="ANTHROPIC_API_KEY")

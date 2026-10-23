@@ -96,7 +96,9 @@ class AgentLoop:
         self.coverage: Coverage | None = None
         self.scan_window: dict[str, Any] | None = None
         self._costs: dict[str, float] = {}
+        self._resource_tags: dict[str, dict[str, str]] = {}
         self._no_data_ids: set[str] = set()
+        self._partial_findings: list[dict[str, Any]] = []
         self._tools: list[Tool] = [
             Tool(
                 name=t["name"],
@@ -146,6 +148,8 @@ class AgentLoop:
         ]
 
         retried = False
+        truncations = 0
+        self._partial_findings = []
         for iteration in range(1, max_iterations + 1):
             logger.info("agent_iteration", iteration=iteration)
 
@@ -167,22 +171,59 @@ class AgentLoop:
                 )
 
             if response.stop_reason == "tool_use":
-                # Check first — submit_findings terminates the loop immediately
-                for tc in response.tool_calls:
-                    if tc.name == "submit_findings":
-                        logger.info(
-                            "agent_complete",
-                            findings_count=len(tc.arguments.get("findings", [])),
-                            **self.tracker.summary(),
+                # submit_findings ends the loop unless it is a partial batch
+                submit = next(
+                    (tc for tc in response.tool_calls if tc.name == "submit_findings"),
+                    None,
+                )
+                if submit is not None and submit.arguments.get("partial") is True:
+                    batch = submit.arguments.get("findings", [])
+                    self._partial_findings.extend(batch)
+                    messages.append(
+                        Message(
+                            role="assistant",
+                            text=response.text,
+                            tool_calls=[submit],
                         )
-                        findings, summary = _parse_findings(
-                            tc.arguments,
-                            cloud=cloud,
-                            no_data_ids=self._no_data_ids,
-                            window_days=_lookback_days(),
+                    )
+                    messages.append(
+                        Message(
+                            role="user",
+                            tool_results=[
+                                ToolResult(
+                                    tool_call_id=submit.id,
+                                    content=(
+                                        f"Recorded {len(batch)} finding(s). Submit "
+                                        "the remaining findings; set partial=false "
+                                        "on the last call."
+                                    ),
+                                    is_error=False,
+                                )
+                            ],
                         )
-                        findings = _attach_cost_basis(findings, self._costs)
-                        return _attach_accounts(findings, accounts), summary
+                    )
+                    continue
+                if submit is not None:
+                    args = {**submit.arguments}
+                    merged = {
+                        f["resource_id"]: f
+                        for f in [*self._partial_findings, *args.get("findings", [])]
+                    }
+                    args["findings"] = list(merged.values())
+                    logger.info(
+                        "agent_complete",
+                        findings_count=len(args["findings"]),
+                        **self.tracker.summary(),
+                    )
+                    findings, summary = _parse_findings(
+                        args,
+                        cloud=cloud,
+                        no_data_ids=self._no_data_ids,
+                        window_days=_lookback_days(),
+                    )
+                    findings = _attach_cost_basis(findings, self._costs)
+                    findings = _attach_tags(findings, self._resource_tags)
+                    return _attach_accounts(findings, accounts), summary
 
                 # Persist the assistant turn before executing tools
                 messages.append(
@@ -207,6 +248,30 @@ class AgentLoop:
                     retried=retried,
                     **self.tracker.summary(),
                 )
+                if response.stop_reason == "max_tokens":
+                    truncations += 1
+                    if truncations > _MAX_TRUNCATIONS:
+                        raise AgentDidNotSubmitError(
+                            "The model's output was cut off by the output limit "
+                            f"{truncations} times. Raise AI_MAX_TOKENS or lower "
+                            "MAX_RESOURCES_PER_SCAN."
+                        )
+                    messages.append(
+                        Message(role="assistant", text=response.text or "...")
+                    )
+                    messages.append(
+                        Message(
+                            role="user",
+                            text=(
+                                "Your last response hit the output limit and was cut "
+                                "off. Call submit_findings in batches of at most 8 "
+                                "findings with short waste_reason text, setting "
+                                "partial=true on every batch except the last "
+                                "(partial=false)."
+                            ),
+                        )
+                    )
+                    continue
                 if retried:
                     raise AgentDidNotSubmitError(
                         "The model stopped without calling submit_findings, even "
@@ -308,6 +373,7 @@ class AgentLoop:
 
         # Deterministic cap: never drops a whole resource type (see selection.py)
         self._costs = costs
+        self._resource_tags = {r.resource_id: dict(r.tags) for r in resources}
         self.scan_window = _scan_window(has_cost=any(v > 0 for v in costs.values()))
         cap = get_settings().scan.max_resources
         chosen, selection_rule = select_candidates(resources, costs, cap)
@@ -510,6 +576,16 @@ def _scan_window(has_cost: bool) -> dict[str, Any]:
     }
 
 
+def _attach_tags(
+    findings: list[ResourceFinding], tags_by_id: dict[str, dict[str, str]]
+) -> list[ResourceFinding]:
+    """Tags come from the inventory, not the model: policy excludes rely on them."""
+    for f in findings:
+        if f.resource_id in tags_by_id:
+            f.tags = dict(tags_by_id[f.resource_id])
+    return findings
+
+
 def _attach_cost_basis(
     findings: list[ResourceFinding], costs: dict[str, float]
 ) -> list[ResourceFinding]:
@@ -604,6 +680,7 @@ def _subscription_from_resource_id(
     return None
 
 
+_MAX_TRUNCATIONS = 3
 _CONFIDENCE_RANK = {"low": 0, "medium": 1, "high": 2}
 
 

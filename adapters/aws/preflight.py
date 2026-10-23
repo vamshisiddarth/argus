@@ -11,6 +11,7 @@ import boto3
 from botocore.exceptions import BotoCoreError, ClientError
 
 from adapters.aws.config import BOTO_TIMEOUT_CONFIG
+from adapters.aws.cost_explorer import probe_resource_level_cost
 from core.models.preflight import PreflightCheck, PreflightResult
 
 _RE_ACTIONS = (
@@ -210,6 +211,7 @@ def run_preflight(
     try:
         re.search(QueryString="*", MaxResults=1)
         add(PreflightCheck("P7_SEARCH_PERMISSION", "ok", "Search is permitted."))
+        _check_cost_data(session, add)
     except (ClientError, BotoCoreError) as exc:
         if _denied(exc):
             add(
@@ -242,3 +244,22 @@ def _list_indexes(client) -> list[dict]:
         token = page.get("NextToken")
         if not token:
             return out
+
+
+def _check_cost_data(session, add) -> None:
+    problem = probe_resource_level_cost(session)
+    if problem is None:
+        add(
+            PreflightCheck("P8_COST_DATA", "ok", "Per-resource cost data is available.")
+        )
+        return
+    add(
+        PreflightCheck(
+            "P8_COST_DATA",
+            "warn",
+            f"{problem} Findings will have no billed cost; per-resource cost "
+            "is unavailable.",
+            "Enable resource-level data in the payer account's Cost Explorer "
+            "settings, then re-run.",
+        )
+    )

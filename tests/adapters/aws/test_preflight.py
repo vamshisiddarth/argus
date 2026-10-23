@@ -23,6 +23,7 @@ def _session(
     list_indexes_error=None,
     get_default_view_error=None,
     search_error=None,
+    ce_error=None,
 ):
     sts = MagicMock()
     sts.get_caller_identity.return_value = {"Account": "123456789012", "Arn": arn}
@@ -51,10 +52,14 @@ def _session(
     else:
         re.search.return_value = {"Resources": []}
 
+    ce = MagicMock()
+    if ce_error:
+        ce.get_cost_and_usage_with_resources.side_effect = ce_error
     session = MagicMock()
     session.client.side_effect = lambda name, **kw: {
         "sts": sts,
         "resource-explorer-2": re,
+        "ce": ce,
     }[name]
     return session
 
@@ -262,3 +267,31 @@ def test_unauthorized_search_is_reported_as_permission_problem():
     assert (
         "resource-explorer-2:Search" in _by_code(result)["P7_SEARCH_PERMISSION"].message
     )
+
+
+def test_cost_data_available_is_ok():
+    result = run_preflight(_session(), "us-east-1")
+    assert _by_code(result)["P8_COST_DATA"].status == "ok"
+
+
+def test_resource_level_cost_not_enabled_warns_before_any_llm_spend():
+    err = _err("AccessDeniedException")
+    err.response["Error"]["Message"] = (
+        "Resource-level data granularity is an opt-in feature. Enable it from "
+        "the PAYER account."
+    )
+
+    result = run_preflight(_session(ce_error=err), "us-east-1")
+
+    check = _by_code(result)["P8_COST_DATA"]
+    assert check.status == "warn"
+    assert "PAYER" in check.message
+    assert "unavailable" in check.message
+    assert result.failed == []
+
+
+def test_cost_check_is_skipped_when_search_already_failed():
+    result = run_preflight(
+        _session(search_error=_err("AccessDeniedException")), "us-east-1"
+    )
+    assert "P8_COST_DATA" not in _by_code(result)

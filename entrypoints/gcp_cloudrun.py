@@ -151,7 +151,7 @@ def main() -> None:
         findings=report["findings_count"],
         total_waste_usd=round(report["total_estimated_waste_usd"], 2),
         budget_exceeded=budget_exceeded,
-        slack_delivered=delivered,
+        slack_delivered=delivered and not get_settings().report.dry_run,
     )
     if budget_exceeded:
         sys.exit(2)

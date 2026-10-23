@@ -718,3 +718,42 @@ class TestHandlerAgentFailureMultiAccount:
         )
 
         assert isinstance(exc, AgentDidNotSubmitError)
+
+
+class TestDryRunLogging:
+    def test_dry_run_does_not_claim_slack_was_delivered(self, monkeypatch):
+        from contextlib import ExitStack
+        from unittest.mock import patch
+
+        from structlog.testing import capture_logs
+
+        monkeypatch.setenv("DRY_RUN", "true")
+        monkeypatch.setenv("ACCOUNTS_MODE", "single")
+        with ExitStack() as stack:
+            stack.enter_context(
+                patch("entrypoints.aws_lambda.notify_all", return_value=True)
+            )
+            stack.enter_context(
+                patch("entrypoints.aws_lambda.build_slack_payload", return_value={})
+            )
+            stack.enter_context(
+                patch(
+                    "entrypoints.aws_lambda.build_report", return_value=_fake_report()
+                )
+            )
+            loop_cls = stack.enter_context(patch("entrypoints.aws_lambda.AgentLoop"))
+            stack.enter_context(patch("entrypoints.aws_lambda.AWSAdapter"))
+            stack.enter_context(
+                patch(
+                    "entrypoints.aws_lambda._get_current_account_id", return_value="1"
+                )
+            )
+            stack.enter_context(patch("entrypoints.aws_lambda._build_ai_provider"))
+            loop_cls.return_value.run.return_value = ([], "ok")
+            from entrypoints.aws_lambda import handler
+
+            with capture_logs() as logs:
+                handler({}, None)
+
+        done = next(e for e in logs if e["event"] == "scan_complete")
+        assert done["slack_delivered"] is False

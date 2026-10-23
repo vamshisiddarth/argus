@@ -211,6 +211,15 @@ Warning: the default view does not include the `tags` property. Every resource
 looks untagged, so policy excludes such as `environment: prod` and
 `argus-exempt` cannot work. Add `Name=tags` to the view's included properties.
 
+### P8_COST_DATA
+
+Warning: per-resource cost data is unavailable (resource-level data is not enabled,
+Cost Explorer is not activated, or the role lacks `ce:GetCostAndUsageWithResources`).
+Scans still run, but findings carry no billed cost (`cost_basis: estimated`). Enable
+resource-level data in the PAYER account: Cost Management > Cost Explorer settings >
+Resource-level data. Resource-level data covers only the last 14 days, so Argus
+requests at most 14 days of it.
+
 ### Resource Explorer's 1,000-result limit
 
 Resource Explorer `Search` returns at most 1,000 results in total. On larger accounts Argus logs `resource_explorer_search_limit` and the report's `coverage.discovered` can understate the real inventory. Scan per aggregator scope or exclude regions (`IGNORE_REGIONS`) to stay under the limit.

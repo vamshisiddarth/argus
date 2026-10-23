@@ -23,10 +23,24 @@ A trust release. Argus now tells you what it covered, fails loudly when it could
 - Exit codes documented in a new reference page. `docs/reference/troubleshooting.md` explains each preflight code.
 - IAM: `GetDefaultView`, `ListViews`, `GetIndex` added to the CloudFormation templates and docs; Terraform read-only scan role in `deploy/aws/terraform/`; the AWS template exposes `ResourceExplorerRegion`.
 
-### Fixed
+### Fixed (from customer live runs)
 
+- **Output truncation:** `max_tokens` was hard-coded to 4096 and a cut-off scan failed with no way forward. It is now `AI_MAX_TOKENS` (default 16000). When the model is cut off, Argus asks it to submit findings in batches (`submit_findings` accepts `partial`), and fails with exit code 3 naming the setting after 3 cut-offs.
+- **Anthropic timeouts:** the 60 second timeout is now `AI_TIMEOUT_SECONDS` (default 600) and timeouts and connection errors are retried.
+- **Dependency:** `anthropic` is now `>=0.40.0,<3`, and `temperature` is only sent when the installed SDK accepts it (SDK 1.x/2.x reject it, which crashed fresh installs on the first model call).
+- **Cost Explorer:** resource-level cost requests are clamped to 14 days (the most that exists); the "enable resource-level data in the PAYER account" error no longer shows the wrong IAM hint; each failure is logged once; a new preflight check P8 warns before any LLM spend that cost data will be unavailable.
+- **Finding tags** now come from the discovered inventory, not from the model (a model that omitted tags made `environment:prod` / `argus-exempt` safeguards silently inert).
+- Dry runs no longer log `slack_delivered: true`.
 - The AWS template did not expose `RESOURCE_EXPLORER_REGION`.
 - The prefilter log field `dropped_zero_cost` was wrong whenever dropped resources had a cost; it is now `dropped`.
+
+### Known gaps (tracked for 0.7.1 and later)
+
+- The headline total mixes confidence levels and has no billing data behind it; split totals by confidence and label as an estimate when `cost_basis` is not billed.
+- Resource Explorer's 1,000-result limit and the 200-resource default cap leave part of large accounts unanalysed; per-region search and budget-scaled caps are not built yet.
+- Run-to-run variance: deterministic rules for obvious cases (unused NAT gateways, idle load balancers) with the model adding judgement are planned, not built.
+- `--expect-account` to guard against scanning the wrong profile is not built; check `aws sts get-caller-identity` first.
+- Minimal read-only role for `ReadOnlyAccess` + Resource Explorer + Cost Explorer is documented in the IAM page and Terraform snippet; a CloudFormation-only variant is not.
 
 ### Upgrade notes
 

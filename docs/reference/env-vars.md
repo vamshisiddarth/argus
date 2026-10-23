@@ -91,6 +91,8 @@ Complete reference for all Argus environment variables.
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `MAX_RESOURCES_PER_SCAN` | `200` | Maximum resources handed to the AI after Phase 0 cost-sorting. Raise for very large accounts (increases AI token cost proportionally). |
+| `AI_MAX_TOKENS` | `16000` | Output-token limit per model response (Anthropic provider). If the model is cut off, Argus asks it to submit findings in batches and fails with exit code 3 after 3 cut-offs. |
+| `AI_TIMEOUT_SECONDS` | `600` | Request timeout for the Anthropic provider. Timeouts and connection errors are retried with backoff. |
 | `STRICT_COVERAGE` | `false` | When `true`, fail the scan (exit 1) if the resource cap leaves any resources unanalysed. Equivalent to `--strict-coverage`. |
 | `ARGUS_SKIP_PREFLIGHT` | `false` | When `true`, skip the pre-scan environment checks (identity, Resource Explorer index/view/permissions). Logged at WARNING and recorded in the report. Equivalent to `--skip-preflight`. |
 | `METRICS_LOOKBACK_DAYS` | `90` | CloudWatch / Cloud Monitoring / Azure Monitor lookback window. Applied to every metrics query (the model cannot override it) and recorded in the report's `scan_window`. 90 days covers quarterly usage patterns and aligns with the CloudTrail lookback. Set to `14` for faster local dev runs — **not recommended in production** as short windows produce false-positive idle findings. |

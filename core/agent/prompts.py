@@ -444,6 +444,15 @@ def build_tool_schemas(lookback_days: int = 90) -> list[dict]:
                             "the most impactful finding, and the single most important action to take."
                         ),
                     },
+                    "partial": {
+                        "type": "boolean",
+                        "description": (
+                            "Set true when more submit_findings calls will follow "
+                            "(use batches of at most 8 findings if your output "
+                            "would be too long). Set false or omit on the last call."
+                        ),
+                        "default": False,
+                    },
                 },
                 "required": ["findings", "executive_summary"],
             },

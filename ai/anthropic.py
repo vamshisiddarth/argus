@@ -25,14 +25,13 @@ class AnthropicProvider(AIProvider):
     """
 
     DEFAULT_MODEL = "claude-sonnet-4-6"
-    DEFAULT_MAX_TOKENS = 4096
     DEFAULT_TEMPERATURE = 0.0
 
     def __init__(
         self,
         api_key: str | None = None,
         model: str | None = None,
-        max_tokens: int = DEFAULT_MAX_TOKENS,
+        max_tokens: int | None = None,
         temperature: float | None = None,
     ) -> None:
         from core.config import get_settings
@@ -43,9 +42,11 @@ class AnthropicProvider(AIProvider):
             raise EnvironmentError(
                 "ANTHROPIC_API_KEY is not set. Export it or pass api_key= explicitly."
             )
-        self._client = anthropic_sdk.Anthropic(api_key=resolved_key, timeout=60.0)
+        self._client = anthropic_sdk.Anthropic(
+            api_key=resolved_key, timeout=cfg.timeout_seconds
+        )
         self._model = model or cfg.resolved_model("anthropic")
-        self._max_tokens = max_tokens
+        self._max_tokens = cfg.max_tokens if max_tokens is None else max_tokens
         self._temperature = temperature if temperature is not None else cfg.temperature
         self._send_temperature = _accepts_temperature(self._client.messages.create)
 
@@ -90,6 +91,7 @@ class AnthropicProvider(AIProvider):
             except (
                 anthropic_sdk.RateLimitError,
                 anthropic_sdk.InternalServerError,
+                anthropic_sdk.APIConnectionError,  # includes APITimeoutError
             ) as exc:
                 if attempt < _MAX_RETRIES - 1:
                     jitter = random.uniform(0, delay * 0.5)  # noqa: S311

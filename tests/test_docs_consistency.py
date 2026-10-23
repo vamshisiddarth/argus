@@ -69,6 +69,7 @@ def test_exit_codes_page_exists_and_is_in_nav():
         "P5_DEFAULT_VIEW",
         "P6_VIEW_TAGS",
         "P7_SEARCH_PERMISSION",
+        "P8_COST_DATA",
     ],
 )
 def test_every_preflight_code_has_a_troubleshooting_entry(code):
@@ -85,3 +86,25 @@ def test_new_env_vars_documented():
     env_vars = _read("docs/reference/env-vars.md")
     assert "STRICT_COVERAGE" in env_vars
     assert "ARGUS_SKIP_PREFLIGHT" in env_vars
+
+
+def test_anthropic_dependency_has_an_upper_bound():
+    import re
+
+    line = next(
+        line for line in _read("pyproject.toml").splitlines() if '"anthropic' in line
+    )
+    assert re.search(r"<\s*\d", line), f"no upper bound: {line.strip()}"
+
+
+def test_new_ai_settings_documented():
+    env_vars = _read("docs/reference/env-vars.md")
+    assert "AI_MAX_TOKENS" in env_vars
+    assert "AI_TIMEOUT_SECONDS" in env_vars
+
+
+def test_changelog_lists_known_gaps_for_deferred_items():
+    section = _read("CHANGELOG.md").split("## v0.7.0", 1)[1].split("\n## v", 1)[0]
+    assert "Known gaps" in section
+    for item in ("confidence", "--expect-account", "deterministic"):
+        assert item in section
