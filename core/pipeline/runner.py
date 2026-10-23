@@ -52,7 +52,9 @@ def run_pipeline(
     window = _lookback_days()
 
     resources, costs = loop._discover_and_cost(ignore_regions)
-    window_info = loop.scan_window
+    if loop.scan_window is None:
+        loop.scan_window = {}
+    window_info: dict[str, Any] = loop.scan_window
     window_info["llm_budget_usd"] = scan.llm_budget_usd
     if not resources:
         window_info["llm_estimate_usd"] = 0.0

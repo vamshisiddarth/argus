@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from core.registry import actions_section
 
 # Shared domain knowledge used by both batch scan and chat prompts.
@@ -494,7 +496,7 @@ def build_chat_tool_schemas(lookback_days: int = 90, cost_days: int = 14) -> lis
 # Evidence-first triage (the default scan engine)
 # ---------------------------------------------------------------------------
 
-REPORT_FINDINGS_TOOL = {
+REPORT_FINDINGS_TOOL: dict[str, Any] = {
     "name": "report_findings",
     "description": (
         "Report which resources in this batch are wasteful. Call it exactly once "

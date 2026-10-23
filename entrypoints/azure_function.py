@@ -72,7 +72,7 @@ def main(mytimer: Any) -> dict[str, Any] | None:
         validate_environment(cloud)
     except ConfigurationError as exc:
         logger.error("startup_validation_failed", error=str(exc))
-        return
+        return None
 
     ignore_regions = [
         r.strip() for r in os.environ.get("IGNORE_REGIONS", "").split(",") if r.strip()

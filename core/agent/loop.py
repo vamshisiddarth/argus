@@ -420,6 +420,8 @@ class AgentLoop:
 
         scan_cfg = get_settings().scan
         cap = scan_cfg.max_resources
+        if self.scan_window is None:
+            self.scan_window = {}
         self.scan_window["max_resources"] = cap
         self.scan_window["max_resources_source"] = scan_cfg.max_resources_source
         self._baseline = BaselineResult()

@@ -32,7 +32,8 @@ def waste_breakdown(findings: list[dict[str, Any]]) -> tuple[dict[str, float], b
     """(USD by confidence, whether the total is an unbilled estimate)."""
     by_conf = {k: 0.0 for k in _CONFIDENCE_ORDER}
     for f in findings:
-        key = f.get("confidence") if f.get("confidence") in by_conf else "unrated"
+        conf = f.get("confidence")
+        key = conf if isinstance(conf, str) and conf in by_conf else "unrated"
         by_conf[key] += float(f.get("estimated_monthly_cost") or 0.0)
     is_estimate = any(f.get("cost_basis") != "billed" for f in findings)
     return {k: round(v, 2) for k, v in by_conf.items()}, is_estimate
