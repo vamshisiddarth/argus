@@ -3,7 +3,6 @@
 from unittest.mock import MagicMock, patch
 
 import anthropic as anthropic_sdk
-import httpx
 import pytest
 
 from ai.anthropic import AnthropicProvider
@@ -66,12 +65,8 @@ def test_timeout_comes_from_ai_timeout_seconds(monkeypatch):
 @pytest.mark.parametrize(
     "error_factory",
     [
-        lambda: anthropic_sdk.APITimeoutError(
-            request=httpx.Request("POST", "http://x")
-        ),
-        lambda: anthropic_sdk.APIConnectionError(
-            request=httpx.Request("POST", "http://x")
-        ),
+        lambda: anthropic_sdk.APITimeoutError(request=MagicMock()),
+        lambda: anthropic_sdk.APIConnectionError(request=MagicMock()),
     ],
 )
 @patch("ai.anthropic.time.sleep")
@@ -88,7 +83,7 @@ def test_timeouts_and_connection_errors_are_retried(mock_sleep, error_factory):
 
 @patch("ai.anthropic.time.sleep")
 def test_timeout_is_raised_after_max_retries(mock_sleep):
-    err = anthropic_sdk.APITimeoutError(request=httpx.Request("POST", "http://x"))
+    err = anthropic_sdk.APITimeoutError(request=MagicMock())
     create = MagicMock(side_effect=err)
     provider, _, _ = _provider(create=create)
 

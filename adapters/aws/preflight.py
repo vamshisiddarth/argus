@@ -7,6 +7,9 @@ or empty results; a `warn` means it can run but the report will be weaker.
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from typing import Any
+
 import boto3
 from botocore.exceptions import BotoCoreError, ClientError, NoCredentialsError
 
@@ -260,11 +263,11 @@ def run_preflight(
     return result
 
 
-def _list_indexes(client) -> list[dict]:
+def _list_indexes(client: Any) -> list[dict]:
     out: list[dict] = []
     token = None
     while True:
-        kwargs = {"NextToken": token} if token else {}
+        kwargs: dict[str, str] = {"NextToken": token} if token else {}
         page = client.list_indexes(**kwargs)
         out.extend(page.get("Indexes", []))
         token = page.get("NextToken")
@@ -272,7 +275,9 @@ def _list_indexes(client) -> list[dict]:
             return out
 
 
-def _check_cost_data(session, add) -> None:
+def _check_cost_data(
+    session: boto3.Session, add: Callable[[PreflightCheck], None]
+) -> None:
     problem = probe_resource_level_cost(session)
     if problem is None:
         add(
@@ -291,7 +296,9 @@ def _check_cost_data(session, add) -> None:
     )
 
 
-def _check_state_access(session, region: str, add) -> None:
+def _check_state_access(
+    session: boto3.Session, region: str, add: Callable[[PreflightCheck], None]
+) -> None:
     """Rules for unattached volumes and unused IPs need two EC2 Describe calls."""
     client = session.client("ec2", region_name=region, config=BOTO_TIMEOUT_CONFIG)
     denied: list[str] = []

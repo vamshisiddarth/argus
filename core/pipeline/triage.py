@@ -267,6 +267,10 @@ def _extract(response: AIResponse) -> list[dict[str, Any]] | None:
     return None
 
 
+def _choice(value: Any, allowed: tuple[str, ...], default: str) -> str:
+    return value if isinstance(value, str) and value in allowed else default
+
+
 def _accept(
     result: TriageResult,
     batch: list[tuple[int, Evidence]],
@@ -277,8 +281,11 @@ def _accept(
     for raw in findings:
         if not isinstance(raw, dict):
             continue
+        raw_index = raw.get("i")
+        if raw_index is None:
+            continue
         try:
-            idx = int(raw.get("i"))
+            idx = int(raw_index)
         except (TypeError, ValueError):
             continue
         if idx not in by_index or idx in seen:
@@ -291,14 +298,8 @@ def _accept(
                 evidence=by_index[idx],
                 waste_reason=str(raw.get("waste_reason", ""))[:400],
                 recommendation=str(raw.get("recommendation", ""))[:400],
-                priority=(
-                    raw.get("priority") if raw.get("priority") in _PRIORITIES else "low"
-                ),
-                confidence=(
-                    raw.get("confidence")
-                    if raw.get("confidence") in _CONFIDENCES
-                    else "medium"
-                ),
+                priority=_choice(raw.get("priority"), _PRIORITIES, "low"),
+                confidence=_choice(raw.get("confidence"), _CONFIDENCES, "medium"),
                 model_cost_usd=(
                     float(cost) if isinstance(cost, (int, float)) and cost > 0 else 0.0
                 ),

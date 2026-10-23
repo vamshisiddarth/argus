@@ -170,15 +170,17 @@ def discover(
     filtered = dict(first_filtered)
     complete = True
     regions = set(session.get_available_regions("resource-explorer-2")) | {"global"}
-    supported: dict[str, list[str]] | None | bool = False  # False = not fetched yet
+    supported: dict[str, list[str]] | None = None
+    supported_fetched = False
     for region in sorted(regions - ignore_set):
         items, total, skipped = _search(client, f"region:{region}", ignore_set)
         by_arn.update({r.resource_id: r for r in items})
         filtered.update(skipped)
         if total < _SEARCH_RESULT_LIMIT:
             continue
-        if supported is False:
+        if not supported_fetched:
             supported = _supported_types(client)
+            supported_fetched = True
         logger.warning(
             "resource_explorer_region_limit",
             region=region,
