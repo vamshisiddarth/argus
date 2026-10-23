@@ -172,3 +172,46 @@ def test_day_window_settings_are_documented():
 )
 def test_state_rule_describe_actions_are_in_every_role_definition(rel, action):
     assert action in _read(rel), f"{action} missing from {rel}"
+
+
+def test_changelog_documents_the_engine_and_the_security_fix():
+    section = _read("CHANGELOG.md").split("## v0.7.0", 1)[1].split("\n## v", 1)[0]
+    for item in (
+        "type_map.py",
+        "scan pipeline",
+        "free configuration objects",
+        "pre-run estimate",
+        "cached prompt tokens",
+        "tag:GetResources",
+        "ListSupportedResourceTypes",
+        "Security fix",
+    ):
+        assert item.lower() in section.lower(), item
+
+
+def test_engine_settings_and_new_report_fields_are_documented():
+    env_vars = _read("docs/reference/env-vars.md")
+    schema = _read("docs/reference/report-schema.md")
+    how = _read("docs/concepts/how-it-works.md")
+    for var in ("ARGUS_ENGINE", "ARGUS_TRIAGE_BATCH_ITEMS", "ARGUS_ACTIVITY_LOOKUP"):
+        assert var in env_vars, var
+    for key in (
+        "stop_reason",
+        "skipped_by_reason",
+        "free_config_skipped",
+        "tags_source",
+        "llm_estimate_usd",
+    ):
+        assert key in schema, key
+    assert "scan pipeline" in how.lower()
+
+
+def test_state_rules_are_listed_with_their_prices():
+    page = _read("docs/concepts/baseline-rules.md")
+    for rule_id in (
+        "ebs-volume-unattached",
+        "elastic-ip-unassociated",
+        "ec2-instance-stopped",
+    ):
+        assert rule_id in page
+    assert "3.65" in page

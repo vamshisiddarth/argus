@@ -25,7 +25,7 @@ Every Argus scan produces a JSON report with the following top-level fields.
 | `skipped_resource_types` | `string[]` | Resource types that were skipped during the scan (for example, GCP asset types whose API isn't enabled). |
 | `registry_warnings` | `string[]` | Invalid resource-registry entries skipped at load time. Normally empty. |
 | `coverage` | `Coverage \| null` | What the scan actually analysed. See [Coverage object](#coverage-object). `null` when the entrypoint could not provide it. Added in 1.1.0. |
-| `scan_window` | `object \| null` | Settings actually used: `metrics_lookback_days`, `cost_lookback_days` (the effective cost window, at most 14 on AWS), `activity_lookback_days`, `cost_basis`, `max_resources` and `max_resources_source` (`explicit` or `budget`). Added in 1.1.0. |
+| `scan_window` | `object \| null` | Settings actually used: `metrics_lookback_days`, `cost_lookback_days` (the effective cost window, at most 14 on AWS), `activity_lookback_days`, `cost_basis`, `max_resources` and `max_resources_source` (`explicit` or `budget`), `tags_source` (`resource_explorer`, `tagging_api` or `unavailable`), and the LLM economics `llm_budget_usd`, `llm_estimate_usd` (computed before the first call) and `llm_spent_usd`. Added in 1.1.0. |
 | `preflight` | `object \| null` | Results of the pre-scan environment checks. Added in 1.1.0. |
 | `waste_by_confidence` | `object` | `total_estimated_waste_usd` split into `high`, `medium`, `low` and `unrated` (findings with no confidence). Added in 1.1.0. |
 | `total_is_estimate` | `boolean` | `true` unless every finding's `cost_basis` is `billed`; headlines then say the total is not billed. Added in 1.1.0. |
@@ -42,6 +42,9 @@ Every Argus scan produces a JSON report with the following top-level fields.
 | `cost_data_available` | `boolean` | Whether any per-resource cost was returned. |
 | `regions_covered` | `string[]` | Regions in the discovered inventory. |
 | `types` | `object` | Per resource type: `{discovered, analysed}`. |
+| `stop_reason` | `string \| null` | Why not everything was analysed: `"budget"`, `"cap"` or `"llm_failure"`; `null` when complete. |
+| `skipped_by_reason` | `object` | Resources not analysed, by reason (`budget`, `cap`, `llm_failure`). |
+| `free_config_skipped` | `integer` | Free configuration objects (subnets, IAM roles, ...) skipped on purpose; not part of `discovered`. |
 | `discovery_complete` | `boolean \| null` | `false` when a discovery query hit the provider's result limit (AWS Resource Explorer returns at most 1,000 per query; Argus then searches region by region and sets this only if a single region still overflows). `null` when the adapter does not report it. Added in 1.1.0. |
 
 ## Finding object
