@@ -34,12 +34,25 @@ A trust release. Argus now tells you what it covered, fails loudly when it could
 - The AWS template did not expose `RESOURCE_EXPLORER_REGION`.
 - The prefilter log field `dropped_zero_cost` was wrong whenever dropped resources had a cost; it is now `dropped`.
 
+### Scan engine and correctness (found by reading a real customer inventory)
+
+- **Resource Explorer types are now mapped to Argus resource types.** Resource Explorer reports `ec2:natgateway`; the registry, CloudWatch metric tables, baseline rules, display names and remediation policies are keyed on `AWS::EC2::NatGateway`. Nothing joined them, so on a real 1000-resource account 0 of 101 types were recognised, and the rules and metric tables only worked when the model happened to translate names. `adapters/aws/type_map.py` fixes this; unknown types pass through unchanged.
+- **Free configuration objects are skipped on purpose** (security-group rules, subnets, IAM roles, task definitions, parameter groups, ...). In the customer's inventory that was 751 of 1000 resources that had been consuming the analysis cap and the LLM budget. They are counted in `coverage.free_config_skipped`, never hidden.
+- **New default engine: the scan pipeline** (`ARGUS_ENGINE=pipeline`; `react` keeps the original tool-calling loop, and `argus chat` still uses it). Evidence (metrics, cost, configuration, last activity) is gathered in code for every resource, then sent to the model in batches of stateless calls. A simulation on the customer's inventory shape analysed all 249 cost-bearing resources in 5 model calls for about $0.08 to $0.17, against about $0.80 for 200 resources with the old loop. Cost grows linearly with resources, the run stops before a batch that would exceed the budget, and nothing already found is discarded.
+- **Pre-run estimate** of the LLM cost (`scan_window.llm_estimate_usd`, logged before the first call) and **LLM spend, budget and estimate** in the CLI summary, the HTML report and the Slack digest.
+- **Spend is counted honestly:** cached prompt tokens (cache writes at 125%, reads at 10%) were not included in the token counts before, understating spend.
+- **Deterministic rules for unattached EBS volumes, unassociated Elastic IPs and stopped instances** (they have no metric signal) join the NAT / ALB / Classic ELB rules, priced from a list-price catalog (`cost_basis: list_price`). New read-only permissions: `ec2:DescribeVolumes`, `ec2:DescribeAddresses`; preflight check P9 warns when they are missing.
+- **Tags fall back to the Resource Groups Tagging API** (`tag:GetResources`) when the Resource Explorer view returns none, so `environment: prod` and `argus-exempt` safeguards keep working; `scan_window.tags_source` says which source was used.
+- **Discovery splits a full region by service and resource type** after the per-region step, using `resource-explorer-2:ListSupportedResourceTypes`; `discovery_complete` is `false` whenever completeness cannot be shown.
+- **Each finding shows its evidence** (metrics, configuration, last activity, window) in the HTML report, and `cost_basis` is one of `billed`, `list_price`, `model_estimate`, `unknown`.
+- **Security fix:** the HTML report embedded its JSON in a `<script>` block without escaping `<`, so a resource tag, name or model text containing `</script>` could inject markup into a report opened in a browser. The embedded JSON is now escaped.
+
 ### Added after customer live runs
 
 - **Confidence-split totals:** the report carries `waste_by_confidence` and `total_is_estimate`; the HTML, Slack digest and slide export label the headline as "not billed" with the split by confidence whenever any finding is not billed.
 - **Deterministic baseline rules** for idle NAT gateways and Application / Classic load balancers (`docs/concepts/baseline-rules.md`). They run before the model over every discovered resource of those types (independent of the resource cap), win over model findings for the same resource, and make those findings repeatable run to run. Findings carry `detected_by`. `ARGUS_BASELINE_RULES=false` turns them off.
 - **Per-region discovery:** when the first Resource Explorer search returns the 1,000-result maximum, Argus searches region by region and merges by ARN. `coverage.discovery_complete` is `false` only if a single region still overflows; `--strict-coverage` also fails on that.
-- **Budget-scaled resource cap:** unless `MAX_RESOURCES_PER_SCAN` / `--max-resources` is set, the cap is 150 per dollar of LLM budget (50 to 1000; 300 at the default). The report records the cap and its source.
+- **Budget-scaled resource cap (react engine):** unless `MAX_RESOURCES_PER_SCAN` / `--max-resources` is set, the cap is 150 per dollar of LLM budget (50 to 1000; 300 at the default). The pipeline engine has no cap by default and is limited by the budget instead; an explicit cap still applies. The report records the cap and its source.
 - **`--expect-account` / `ARGUS_EXPECT_ACCOUNT`:** abort with exit code 4 before any cloud or LLM call when single-account credentials belong to a different account (it also applies with `--skip-preflight`).
 - **Configurable day windows:** besides `--lookback-days` (metrics), `--cost-days` / `COST_LOOKBACK_DAYS` sets the per-resource cost window (capped at 14 on AWS, where resource-level data ends) and `--activity-days` / `ACTIVITY_LOOKBACK_DAYS` sets the last-activity window (capped at 90, the CloudTrail maximum). The model cannot override them, and `scan_window` records the effective values.
 - **Minimal read-only role:** `deploy/aws/read-only-scan-role.yaml` (minimal policy, or `ReadOnlyAccess` plus the Resource Explorer and Cost Explorer actions).
@@ -54,11 +67,13 @@ A trust release. Argus now tells you what it covered, fails loudly when it could
 
 ### Known limitations
 
-- Baseline rules cover three resource types today; everything else is still judged by the model, so findings for other types can vary between runs.
-- Resource Explorer region-by-region search still cannot see more than 1,000 resources in a single region (reported as `discovery_complete: false`).
-- The budget-scaled cap is a heuristic from one measured run; a scan on very large resources can use more of the budget, and a budget abort returns the rule findings plus a summary but no model findings.
-- Output cut-offs: a real cut-off followed by recovery was verified live once; merging several `partial` batches is covered by unit tests only, and a very small `AI_MAX_TOKENS` (a few hundred) can still end in exit code 3 because the model cannot finish even one batch.
-- Anthropic requests are not streamed; `AI_TIMEOUT_SECONDS` (default 600) bounds a response and `AI_MAX_TOKENS` above roughly 21000 may be rejected by the SDK's non-streaming guard.
+- Rules cover six resource types today (NAT gateway, Application and Classic load balancers, EBS volume, Elastic IP, EC2 instance); everything else is judged by the model from evidence, so those findings can vary between runs. They are labelled `detected_by: model`.
+- Rule prices are us-east-1 list prices without data-processing or request charges; `cost_basis: list_price` says so. Billed per-resource cost needs Cost Explorer resource-level data enabled in the payer account (check P8).
+- A single resource type with more than 1,000 resources in one region cannot be listed through Resource Explorer; the report says `discovery_complete: false`.
+- The pre-run LLM estimate assumes about a quarter of the resources are flagged; accounts that flag far more can spend up to about twice the estimate, and the budget still stops the scan.
+- Output cut-offs: a real cut-off followed by recovery was verified live once on the previous engine; merging several `partial` batches is covered by unit tests only, and a very small `AI_MAX_TOKENS` can still end in exit code 3.
+- Anthropic requests are not streamed; `AI_TIMEOUT_SECONDS` bounds a response.
+- GCP and Azure use the same pipeline but have no state rules, preflight or tag fallback yet.
 
 ### Upgrade notes
 

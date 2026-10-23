@@ -648,9 +648,11 @@ def _scan_window(has_cost: bool, adapter: Any = None) -> dict[str, Any]:
         "metrics_lookback_days": _lookback_days(),
         "cost_lookback_days": _cost_days(adapter),
         "activity_lookback_days": get_settings().scan.activity_lookback_days,
-        "tags_source": getattr(adapter, "tags_source", None)
-        if isinstance(getattr(adapter, "tags_source", None), str)
-        else None,
+        "tags_source": (
+            getattr(adapter, "tags_source", None)
+            if isinstance(getattr(adapter, "tags_source", None), str)
+            else None
+        ),
         "cost_basis": "billed" if has_cost else "unavailable",
     }
 
