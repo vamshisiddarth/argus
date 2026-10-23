@@ -307,7 +307,7 @@ class AgentLoop:
     def _merge_baseline(
         self, model_findings: list[ResourceFinding]
     ) -> list[ResourceFinding]:
-        """Rule findings are authoritative: they replace model findings on the same id."""
+        """Rule findings are authoritative over model findings for the same id."""
         decided = self._baseline.finding_ids
         merged = [*self._baseline.findings]
         merged += [f for f in model_findings if f.resource_id not in decided]
