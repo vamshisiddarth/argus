@@ -119,6 +119,7 @@ nav:
     - concepts/index.md
     - How It Works: concepts/how-it-works.md
     - AI Reasoning: concepts/ai-reasoning.md
+    - Baseline Rules: concepts/baseline-rules.md
     - Cloud Adapters: concepts/adapters.md
     - AI Providers: concepts/ai-providers.md
   - Remediation:

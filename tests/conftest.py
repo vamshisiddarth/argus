@@ -11,3 +11,10 @@ def _reset_settings_cache():
     clear_settings_cache()
     yield
     clear_settings_cache()
+
+
+@pytest.fixture(autouse=True)
+def _reports_go_to_tmp(tmp_path, monkeypatch):
+    """Tests must not write reports into the repo's local_reports/ directory."""
+    monkeypatch.setenv("LOCAL_REPORT_DIR", str(tmp_path / "local_reports"))
+    monkeypatch.setenv("ARGUS_AUDIT_LOG", str(tmp_path / "audit.jsonl"))

@@ -34,19 +34,36 @@ A trust release. Argus now tells you what it covered, fails loudly when it could
 - The AWS template did not expose `RESOURCE_EXPLORER_REGION`.
 - The prefilter log field `dropped_zero_cost` was wrong whenever dropped resources had a cost; it is now `dropped`.
 
-### Known gaps (tracked for 0.7.1 and later)
+### Added after customer live runs
 
-- The headline total mixes confidence levels and has no billing data behind it; split totals by confidence and label as an estimate when `cost_basis` is not billed.
-- Resource Explorer's 1,000-result limit and the 200-resource default cap leave part of large accounts unanalysed; per-region search and budget-scaled caps are not built yet.
-- Run-to-run variance: deterministic rules for obvious cases (unused NAT gateways, idle load balancers) with the model adding judgement are planned, not built.
-- `--expect-account` to guard against scanning the wrong profile is not built; check `aws sts get-caller-identity` first.
-- Minimal read-only role for `ReadOnlyAccess` + Resource Explorer + Cost Explorer is documented in the IAM page and Terraform snippet; a CloudFormation-only variant is not.
+- **Confidence-split totals:** the report carries `waste_by_confidence` and `total_is_estimate`; the HTML, Slack digest and slide export label the headline as "not billed" with the split by confidence whenever any finding is not billed.
+- **Deterministic baseline rules** for idle NAT gateways and Application / Classic load balancers (`docs/concepts/baseline-rules.md`). They run before the model over every discovered resource of those types (independent of the resource cap), win over model findings for the same resource, and make those findings repeatable run to run. Findings carry `detected_by`. `ARGUS_BASELINE_RULES=false` turns them off.
+- **Per-region discovery:** when the first Resource Explorer search returns the 1,000-result maximum, Argus searches region by region and merges by ARN. `coverage.discovery_complete` is `false` only if a single region still overflows; `--strict-coverage` also fails on that.
+- **Budget-scaled resource cap:** unless `MAX_RESOURCES_PER_SCAN` / `--max-resources` is set, the cap is 150 per dollar of LLM budget (50 to 1000; 300 at the default). The report records the cap and its source.
+- **`--expect-account` / `ARGUS_EXPECT_ACCOUNT`:** abort with exit code 4 before any cloud or LLM call when single-account credentials belong to a different account (it also applies with `--skip-preflight`).
+- **Minimal read-only role:** `deploy/aws/read-only-scan-role.yaml` (minimal policy, or `ReadOnlyAccess` plus the Resource Explorer and Cost Explorer actions).
+- `AI_MAX_TOKENS` now applies to every provider (Vertex AI and Azure OpenAI are clamped to their default models' output limits) and `BEDROCK_MAX_TOKENS` is no longer ignored.
+- GCP and Azure scans return a result summary, so `argus scan` prints the coverage line for them too; GCP/Azure metric query failures are reported as errors, not as "no data".
+- A failed `--strict-coverage` check no longer discards the report: it is written and delivered first, and a budget abort (exit code 2) takes precedence.
+- Every `argus scan` option works before or after the `scan` subcommand (previously the subcommand's defaults overwrote values given before it).
+- Preflight: an unreadable index state (`GetIndex` denied) is a warning, and missing credentials are named instead of blamed on `ListIndexes`.
+- Chat mode uses the configured metrics window in its tool descriptions and metric display.
+- The multi-cloud merged report carries `scan_window` and `preflight`.
+- Tests no longer write reports or the audit log into the repository's `local_reports/`.
+
+### Known limitations
+
+- Baseline rules cover three resource types today; everything else is still judged by the model, so findings for other types can vary between runs.
+- Resource Explorer region-by-region search still cannot see more than 1,000 resources in a single region (reported as `discovery_complete: false`).
+- The budget-scaled cap is a heuristic from one measured run; a scan on very large resources can use more of the budget, and a budget abort returns the rule findings plus a summary but no model findings.
+- Anthropic requests are not streamed; `AI_TIMEOUT_SECONDS` (default 600) bounds a response and `AI_MAX_TOKENS` above roughly 21000 may be rejected by the SDK's non-streaming guard.
 
 ### Upgrade notes
 
 - Automations that treated exit code 0 as "scan ran" will now see 3 or 4 on the failures above. Handle them or investigate the underlying setup.
 - Preflight is AWS-only in this release; GCP and Azure get coverage, window and no-data handling but no preflight.
 - Known limitation: Resource Explorer `Search` returns at most 1,000 results, so on larger accounts `coverage.discovered` can understate the inventory. Argus now logs `resource_explorer_search_limit` when it hits the limit.
+- `MAX_RESOURCES_PER_SCAN` no longer defaults to 200; it follows the LLM budget unless you set it (300 at the default budget).
 - Scans with `--lookback-days` below 90 now really use that window; expect lower confidence on idle findings.
 
 ## v0.6.1 (2026-09-27)
