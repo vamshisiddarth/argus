@@ -291,3 +291,41 @@ def test_baseline_log_says_how_many_candidates_could_not_be_decided():
     done = next(e for e in logs if e["event"] == "baseline_complete")
     assert (done["candidates"], done["evaluated"], done["findings"]) == (3, 1, 1)
     assert done["undecided"] == 2
+
+
+def test_rules_fire_on_resources_exactly_as_resource_explorer_reports_them():
+    """Regression: RE says "ec2:natgateway", the rules are keyed on the registry id."""
+    from adapters.aws.resource_explorer import _parse_resource
+
+    nat = _parse_resource(
+        {
+            "Arn": "arn:aws:ec2:us-east-1:1:natgateway/nat-live",
+            "ResourceType": "ec2:natgateway",
+            "Region": "us-east-1",
+            "Properties": [],
+        }
+    )
+    alb = _parse_resource(
+        {
+            "Arn": ALB_ARN,
+            "ResourceType": "elasticloadbalancing:loadbalancer/app",
+            "Region": "us-east-1",
+            "Properties": [],
+        }
+    )
+    answers = {
+        nat.resource_id: _ok(nat.resource_id, nat.resource_type, **IDLE_NAT),
+        alb.resource_id: _ok(
+            alb.resource_id,
+            alb.resource_type,
+            RequestCount=0.0,
+            ActiveConnectionCount=0.0,
+        ),
+    }
+
+    result, _ = _run([nat, alb], answers)
+
+    assert sorted(f.detected_by for f in result.findings) == [
+        "rule:alb-no-requests",
+        "rule:nat-gateway-idle",
+    ]
