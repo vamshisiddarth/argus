@@ -14,13 +14,15 @@ from core.registry import get_registry
 
 # Irregular names. Everything regular ("ec2:instance", "sqs:queue", ...) is derived
 # from the registry below.
+_ELBV2 = "AWS::ElasticLoadBalancingV2::LoadBalancer"
+
 _OVERRIDES: dict[str, str] = {
     "rds:db": "AWS::RDS::DBInstance",
     "rds:cluster": "AWS::RDS::DBCluster",
     "elasticloadbalancing:loadbalancer": "AWS::ElasticLoadBalancing::LoadBalancer",
-    "elasticloadbalancing:loadbalancer/app": "AWS::ElasticLoadBalancingV2::LoadBalancer",
-    "elasticloadbalancing:loadbalancer/net": "AWS::ElasticLoadBalancingV2::LoadBalancer",
-    "elasticloadbalancing:loadbalancer/gwy": "AWS::ElasticLoadBalancingV2::LoadBalancer",
+    "elasticloadbalancing:loadbalancer/app": _ELBV2,
+    "elasticloadbalancing:loadbalancer/net": _ELBV2,
+    "elasticloadbalancing:loadbalancer/gwy": _ELBV2,
     "elasticache:cluster": "AWS::ElastiCache::CacheCluster",
     "elasticache:replicationgroup": "AWS::ElastiCache::ReplicationGroup",
     "es:domain": "AWS::OpenSearchService::Domain",
