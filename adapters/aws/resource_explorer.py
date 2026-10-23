@@ -8,6 +8,7 @@ import structlog
 from botocore.exceptions import ClientError
 
 from adapters.aws.config import BOTO_TIMEOUT_CONFIG
+from adapters.aws.type_map import canonical_type, is_config_only
 from adapters.base import Resource
 
 logger = structlog.get_logger(__name__)
@@ -86,7 +87,12 @@ _NON_BILLABLE_PREFIXES: frozenset[str] = frozenset(
 
 
 def _is_billable(resource_type: str) -> bool:
-    """Return True if a resource type could appear on an AWS bill."""
+    """Return True if a resource type could appear on an AWS bill.
+
+    Accepts Resource Explorer names ("ec2:subnet") and CloudFormation-style ids.
+    """
+    if is_config_only(resource_type):
+        return False
     lower = resource_type.lower()
     return not any(lower.startswith(prefix) for prefix in _NON_BILLABLE_PREFIXES)
 
@@ -205,11 +211,12 @@ def _parse_resource(raw: dict[str, Any]) -> Resource | None:
 
     return Resource(
         resource_id=arn,
-        resource_type=resource_type,
+        resource_type=canonical_type(resource_type),
         cloud="aws",
         region=region,
         name=tags.get("Name"),
         tags=tags,
+        native_type=resource_type,
     )
 
 

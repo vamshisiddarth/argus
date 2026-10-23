@@ -16,6 +16,8 @@ class Resource:
     region: str
     name: str | None = None
     tags: dict[str, str] = field(default_factory=dict)
+    # The provider's own type name when it differs from resource_type
+    native_type: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
