@@ -12,6 +12,7 @@ from adapters.base import CloudAdapter
 from ai.base import AIProvider, Message, Tool, ToolResult
 from core.agent.loop import AgentLoop
 from core.agent.prompts import build_chat_system_prompt, build_chat_tool_schemas
+from core.config import get_settings
 from core.registry import get_registry
 from core.token_tracker import BudgetExceededError, TokenTracker
 
@@ -69,7 +70,7 @@ class ChatSession:
                 description=t["description"],
                 input_schema=t["input_schema"],
             )
-            for t in build_chat_tool_schemas()
+            for t in build_chat_tool_schemas(get_settings().scan.metrics_lookback_days)
         ]
 
         self.tracker = TokenTracker(budget_usd=budget_usd, provider="anthropic")
@@ -444,7 +445,7 @@ def _fmt_list_resources(raw: str) -> str:
 def _fmt_get_metrics(raw: str) -> str:
     data: dict = json.loads(raw)
     metrics: dict = data.get("metrics", {})
-    window_days: int = data.get("window_days", 14)
+    window_days: int = data.get("period_days") or data.get("window_days") or 14
 
     if not metrics:
         return f"No metrics ({window_days}d window) — resource may not emit data."

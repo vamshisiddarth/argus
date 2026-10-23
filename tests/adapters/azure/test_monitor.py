@@ -94,6 +94,8 @@ class TestGetMetrics:
                 result = get_metrics(SAMPLE_ID, SAMPLE_TYPE, days=14)
 
         assert result.has_data is False
+        assert result.status == "error"
+        assert result.error
 
 
 # ---------------------------------------------------------------------------
