@@ -28,6 +28,7 @@ class AWSAdapter(CloudAdapter):
         aggregator_region: str | None = None,
     ) -> None:
         self._session = session
+        self.discovery_complete: bool | None = None
         self._aggregator_region: str = (
             aggregator_region
             or os.environ.get("RESOURCE_EXPLORER_REGION")
@@ -39,11 +40,14 @@ class AWSAdapter(CloudAdapter):
         return run_preflight(self._session, self._aggregator_region, account_id)
 
     def list_resources(self, ignore_regions: list[str] | None = None) -> list[Resource]:
-        return resource_explorer.list_resources(
-            session=self._session,
-            ignore_regions=ignore_regions,
-            aggregator_region=self._aggregator_region,
+        resources, self.discovery_complete = (
+            resource_explorer.list_resources_with_status(
+                session=self._session,
+                ignore_regions=ignore_regions,
+                aggregator_region=self._aggregator_region,
+            )
         )
+        return resources
 
     def get_metrics(
         self,

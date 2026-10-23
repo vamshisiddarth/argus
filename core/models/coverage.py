@@ -20,6 +20,9 @@ class Coverage:
     cost_data_available: bool
     regions_covered: list[str] = field(default_factory=list)
     types: dict[str, TypeCoverage] = field(default_factory=dict)
+    # False when the discovery API could not return everything (e.g. AWS Resource
+    # Explorer's 1,000-result limit); None when the adapter does not say.
+    discovery_complete: bool | None = None
 
     @property
     def dropped(self) -> int:
@@ -41,6 +44,7 @@ class Coverage:
             "truncated": self.truncated,
             "selection": self.selection,
             "cost_data_available": self.cost_data_available,
+            "discovery_complete": self.discovery_complete,
             "regions_covered": sorted(self.regions_covered),
             "types": {
                 t: {"discovered": c.discovered, "analysed": c.analysed}
@@ -55,6 +59,7 @@ class Coverage:
             analysed=d["analysed"],
             selection=d.get("selection", "cost_desc"),
             cost_data_available=d.get("cost_data_available", False),
+            discovery_complete=d.get("discovery_complete"),
             regions_covered=list(d.get("regions_covered", [])),
             types={
                 t: TypeCoverage(c["discovered"], c["analysed"])
@@ -74,6 +79,13 @@ class Coverage:
                 types[name] = TypeCoverage(
                     prev.discovered + tc.discovered, prev.analysed + tc.analysed
                 )
+        flags = [i.discovery_complete for i in items]
+        if False in flags:
+            discovery: bool | None = False
+        elif all(f is True for f in flags):
+            discovery = True
+        else:
+            discovery = None
         rules = {i.selection for i in items}
         return Coverage(
             discovered=sum(i.discovered for i in items),
@@ -82,4 +94,5 @@ class Coverage:
             cost_data_available=all(i.cost_data_available for i in items),
             regions_covered=sorted({r for i in items for r in i.regions_covered}),
             types=types,
+            discovery_complete=discovery,
         )

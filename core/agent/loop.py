@@ -380,7 +380,12 @@ class AgentLoop:
         capped = [(r, costs.get(r.resource_id, 0.0)) for r in chosen]
         dropped = total_discovered - len(capped)
         self.coverage = _build_coverage(
-            resources, chosen, costs, selection_rule, total_discovered
+            resources,
+            chosen,
+            costs,
+            selection_rule,
+            total_discovered,
+            getattr(self._adapter, "discovery_complete", None),
         )
 
         if dropped > 0:
@@ -600,6 +605,7 @@ def _build_coverage(
     costs: dict[str, float],
     selection_rule: str,
     total: int,
+    discovery_complete: bool | None = None,
 ) -> Coverage:
     types: dict[str, TypeCoverage] = {}
     for rtype in {r.resource_type for r in discovered}:
@@ -614,6 +620,7 @@ def _build_coverage(
         cost_data_available=any(v > 0 for v in costs.values()),
         regions_covered=sorted({r.region for r in discovered if r.region}),
         types=types,
+        discovery_complete=discovery_complete,
     )
 
 

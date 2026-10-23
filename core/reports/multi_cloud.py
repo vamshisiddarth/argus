@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from core.models.coverage import Coverage
-from core.reports.generator import SCHEMA_VERSION
+from core.reports.generator import SCHEMA_VERSION, waste_breakdown
 
 RESOURCE_TAXONOMY: dict[str, str] = {
     # Compute
@@ -112,6 +112,7 @@ def merge_reports(reports: list[dict[str, Any]]) -> dict[str, Any]:
     all_findings.sort(key=lambda f: f["estimated_monthly_cost"], reverse=True)
     total_waste = sum(f["estimated_monthly_cost"] for f in all_findings)
 
+    waste_by_confidence, total_is_estimate = waste_breakdown(all_findings)
     coverages = [
         Coverage.from_dict(r["coverage"]) for r in reports if r.get("coverage")
     ]
@@ -132,6 +133,8 @@ def merge_reports(reports: list[dict[str, Any]]) -> dict[str, Any]:
         "agent_output_tokens": total_output_tokens,
         "cloud_breakdown": cloud_breakdown,
         "coverage": merged_coverage,
+        "waste_by_confidence": waste_by_confidence,
+        "total_is_estimate": total_is_estimate,
     }
 
 

@@ -927,3 +927,103 @@ class TestHtmlPreflight:
         out = self._html(self._pre("ok"))
         assert "Setup warnings" not in out
         assert "Preflight was skipped" not in out
+
+
+def _rated(rid, cost, confidence, basis="estimated"):
+    f = _finding(rid, cost=cost)
+    f.confidence = confidence
+    f.cost_basis = basis
+    return f
+
+
+class TestWasteBreakdown:
+    def _findings(self):
+        return [
+            _rated("a", 100.0, "high"),
+            _rated("b", 300.0, "medium"),
+            _rated("c", 200.0, "low"),
+            _rated("d", 5.0, None),
+        ]
+
+    def test_totals_are_split_by_confidence(self):
+        report = build_report(self._findings(), cloud="aws", executive_summary="x")
+
+        assert report["waste_by_confidence"] == {
+            "high": 100.0,
+            "medium": 300.0,
+            "low": 200.0,
+            "unrated": 5.0,
+        }
+        assert report["total_estimated_waste_usd"] == 605.0
+
+    def test_total_is_an_estimate_unless_every_finding_is_billed(self):
+        estimated = build_report(self._findings(), cloud="aws", executive_summary="x")
+        billed = build_report(
+            [_rated("a", 10.0, "high", "billed")], cloud="aws", executive_summary="x"
+        )
+        mixed = build_report(
+            [_rated("a", 10.0, "high", "billed"), _rated("b", 5.0, "low")],
+            cloud="aws",
+            executive_summary="x",
+        )
+
+        assert estimated["total_is_estimate"] is True
+        assert billed["total_is_estimate"] is False
+        assert mixed["total_is_estimate"] is True
+
+    def test_no_findings_is_all_zero_and_not_an_estimate(self):
+        report = build_report([], cloud="aws", executive_summary="x")
+
+        assert report["waste_by_confidence"] == {
+            "high": 0.0,
+            "medium": 0.0,
+            "low": 0.0,
+            "unrated": 0.0,
+        }
+        assert report["total_is_estimate"] is False
+
+    def test_slack_headline_says_estimate_and_shows_the_split(self):
+        report = build_report(self._findings(), cloud="aws", executive_summary="x")
+
+        text = str(build_slack_payload(report))
+
+        assert "estimated waste" in text
+        assert "not billed" in text
+        assert "$300.00 medium" in text and "$200.00 low" in text
+
+    def test_slack_headline_for_billed_totals_has_no_caveat(self):
+        report = build_report(
+            [_rated("a", 10.0, "high", "billed")], cloud="aws", executive_summary="x"
+        )
+
+        assert "not billed" not in str(build_slack_payload(report))
+
+    def test_html_headline_labels_the_estimate_and_splits_by_confidence(self):
+        report = build_report(self._findings(), cloud="aws", executive_summary="x")
+
+        out = build_html_report(report)
+
+        assert "estimated waste / month" in out
+        assert "not billed" in out
+        assert "$200.00 low" in out
+
+    def test_old_reports_without_the_fields_still_render(self):
+        report = build_report(self._findings(), cloud="aws", executive_summary="x")
+        del report["waste_by_confidence"]
+        del report["total_is_estimate"]
+
+        assert "estimated waste / month" in build_html_report(report)
+        assert build_slack_payload(report)
+
+
+class TestHtmlDiscovery:
+    def test_incomplete_discovery_is_called_out(self):
+        cov = {**_COVERAGE, "discovered": 3000, "analysed": 200, "dropped": 2800}
+        cov["discovery_complete"] = False
+        report = build_report(
+            _sample_findings(), cloud="aws", executive_summary="x", coverage=cov
+        )
+
+        out = build_html_report(report)
+
+        assert "Discovery incomplete" in out

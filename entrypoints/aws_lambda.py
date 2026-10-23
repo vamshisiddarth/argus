@@ -172,6 +172,12 @@ def _run_single_account(
     meta: ScanMeta | None = None,
 ) -> tuple[list[ResourceFinding], str, list[str], dict]:
     account_id = _get_current_account_id()
+    expected = get_settings().scan.expect_account
+    if expected and account_id != expected:
+        raise PreflightFailedError(
+            f"Expected account {expected} but the credentials are for "
+            f"{account_id}. Check AWS_PROFILE / the assumed role before scanning."
+        )
     adapter = AWSAdapter.for_account(account=None, region=primary_region)
     _run_preflight(adapter, account_id, meta)
     loop = AgentLoop(ai_provider=ai_provider, cloud_adapter=adapter)

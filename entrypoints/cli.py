@@ -137,6 +137,13 @@ def main(argv: list[str] | None = None) -> None:
         help="Fail the scan if the resource cap leaves resources unanalysed",
     )
     parser.add_argument(
+        "--expect-account",
+        default=None,
+        dest="expect_account",
+        metavar="ACCOUNT_ID",
+        help="Abort (exit 4) unless the credentials belong to this AWS account",
+    )
+    parser.add_argument(
         "--skip-preflight",
         action="store_true",
         dest="skip_preflight",
@@ -368,6 +375,13 @@ def main(argv: list[str] | None = None) -> None:
         help="Fail the scan if the resource cap leaves resources unanalysed",
     )
     scan_parser.add_argument(
+        "--expect-account",
+        default=argparse.SUPPRESS,
+        dest="expect_account",
+        metavar="ACCOUNT_ID",
+        help="Abort (exit 4) unless the credentials belong to this AWS account",
+    )
+    scan_parser.add_argument(
         "--skip-preflight",
         action="store_true",
         default=argparse.SUPPRESS,
@@ -496,6 +510,8 @@ def _run_scan(args: argparse.Namespace) -> None:
         os.environ["STRICT_COVERAGE"] = "true"
     if getattr(args, "skip_preflight", False):
         os.environ["ARGUS_SKIP_PREFLIGHT"] = "true"
+    if getattr(args, "expect_account", None):
+        os.environ["ARGUS_EXPECT_ACCOUNT"] = args.expect_account
 
     if args.accounts:
         _apply_accounts_config(args.accounts, args.cloud)
@@ -554,6 +570,8 @@ def _run_scan(args: argparse.Namespace) -> None:
             if cov.get("truncated")
             else ""
         )
+        if cov.get("discovery_complete") is False:
+            note += " [discovery incomplete: provider result limit hit]"
         print(
             f"Coverage: analysed {cov['analysed']} of {cov['discovered']} resources"
             f"{note}",

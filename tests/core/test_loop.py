@@ -723,3 +723,18 @@ class TestLoopCoverage:
 
         assert loop.coverage.discovered == 0
         assert loop.coverage.truncated is False
+
+
+class TestLoopDiscoveryStatus:
+    def test_adapter_discovery_flag_is_copied_into_coverage(self):
+        class Incomplete(FakeCloudAdapter):
+            discovery_complete = False
+
+        loop = AgentLoop(MagicMock(spec=AIProvider), Incomplete())
+        loop._prefilter_resources(IGNORE_REGIONS)
+        assert loop.coverage.discovery_complete is False
+
+    def test_adapter_without_the_flag_means_unknown(self):
+        loop = AgentLoop(MagicMock(spec=AIProvider), FakeCloudAdapter())
+        loop._prefilter_resources(IGNORE_REGIONS)
+        assert loop.coverage.discovery_complete is None

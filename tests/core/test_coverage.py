@@ -40,6 +40,7 @@ def test_to_dict_has_documented_keys():
         "truncated",
         "selection",
         "cost_data_available",
+        "discovery_complete",
         "regions_covered",
         "types",
     }
@@ -86,3 +87,23 @@ def test_merge_of_nothing_is_empty():
 def test_from_dict_round_trips():
     original = _cov(10, 4)
     assert Coverage.from_dict(original.to_dict()).to_dict() == original.to_dict()
+
+
+def test_discovery_complete_defaults_to_unknown_and_serialises():
+    cov = _cov()
+    assert cov.discovery_complete is None
+    assert cov.to_dict()["discovery_complete"] is None
+    cov.discovery_complete = False
+    assert Coverage.from_dict(cov.to_dict()).discovery_complete is False
+
+
+def test_merge_discovery_complete_is_false_if_any_false_true_only_if_all_true():
+    def with_flag(flag):
+        c = _cov()
+        c.discovery_complete = flag
+        return c
+
+    merged = Coverage.merge([with_flag(True), with_flag(False)])
+    assert merged.discovery_complete is False
+    assert Coverage.merge([with_flag(True), with_flag(True)]).discovery_complete is True
+    assert Coverage.merge([with_flag(True), with_flag(None)]).discovery_complete is None

@@ -65,6 +65,25 @@ the templates creates them for you.
 
 ### Dedicated read-only scan role
 
+Two ways to give a person or CI job a scan role that is not an administrator:
+
+| Option | Policy | When to use |
+|---|---|---|
+| Minimal (default) | Only the actions listed above | Least privilege; what Argus actually calls |
+| `ReadOnlyAccess` + additions | AWS managed `ReadOnlyAccess` plus the Resource Explorer and Cost Explorer actions | Easier to audit against a standard policy. `ReadOnlyAccess` alone is not enough: it does not include the Resource Explorer actions Argus needs |
+
+[`deploy/aws/read-only-scan-role.yaml`](https://github.com/vamshisiddarth/argus/blob/main/deploy/aws/read-only-scan-role.yaml)
+creates either variant (`UseAwsReadOnlyAccess=true|false`). Then scan with a guard
+against a wrong profile:
+
+```bash
+argus scan --cloud aws --expect-account 123456789012
+```
+
+`--expect-account` (or `ARGUS_EXPECT_ACCOUNT`) aborts with exit code 4 before any cloud
+or LLM call when the credentials belong to a different account. It applies to
+single-account scans.
+
 Do not scan with an administrator role. A copy-paste Terraform role with exactly
 the permissions above is in
 [`deploy/aws/terraform/read-only-scan-role.tf`](https://github.com/vamshisiddarth/argus/blob/main/deploy/aws/terraform/read-only-scan-role.tf);
