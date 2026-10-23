@@ -202,6 +202,14 @@ class ScanSettings(BaseSettings):
     llm_budget_usd: float = Field(2.0, alias="LLM_BUDGET_USD")
     strict_coverage: bool = Field(False, alias="STRICT_COVERAGE")
     baseline_rules: bool = Field(True, alias="ARGUS_BASELINE_RULES")
+    # "pipeline": evidence gathered in code, batched model triage (default).
+    # "react": the original tool-calling agent loop (also used by chat).
+    engine: str = Field("pipeline", alias="ARGUS_ENGINE", pattern="^(pipeline|react)$")
+    # Last-activity lookups: "auto" only where metrics could not decide
+    triage_batch_items: int = Field(60, alias="ARGUS_TRIAGE_BATCH_ITEMS", ge=1)
+    activity_lookup: str = Field(
+        "auto", alias="ARGUS_ACTIVITY_LOOKUP", pattern="^(auto|all|off)$"
+    )
     skip_preflight: bool = Field(False, alias="ARGUS_SKIP_PREFLIGHT")
     expect_account: str | None = Field(None, alias="ARGUS_EXPECT_ACCOUNT")
     exclude_tags: str = Field("", alias="EXCLUDE_TAGS")

@@ -41,6 +41,8 @@ def test_to_dict_has_documented_keys():
         "selection",
         "cost_data_available",
         "discovery_complete",
+        "stop_reason",
+        "skipped_by_reason",
         "regions_covered",
         "types",
     }
@@ -107,3 +109,16 @@ def test_merge_discovery_complete_is_false_if_any_false_true_only_if_all_true():
     assert merged.discovery_complete is False
     assert Coverage.merge([with_flag(True), with_flag(True)]).discovery_complete is True
     assert Coverage.merge([with_flag(True), with_flag(None)]).discovery_complete is None
+
+
+def test_skip_reasons_round_trip_and_merge():
+    a = _cov(10, 6)
+    a.stop_reason = "budget"
+    a.skipped_by_reason = {"budget": 4}
+    b = _cov(5, 3)
+    b.skipped_by_reason = {"budget": 1, "llm_failure": 1}
+
+    assert Coverage.from_dict(a.to_dict()).skipped_by_reason == {"budget": 4}
+    merged = Coverage.merge([a, b])
+    assert merged.skipped_by_reason == {"budget": 5, "llm_failure": 1}
+    assert merged.stop_reason == "budget"

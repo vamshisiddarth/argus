@@ -23,6 +23,9 @@ class Coverage:
     # False when the discovery API could not return everything (e.g. AWS Resource
     # Explorer's 1,000-result limit); None when the adapter does not say.
     discovery_complete: bool | None = None
+    # Why resources were not analysed: "budget", "cap" or "llm_failure"
+    stop_reason: str | None = None
+    skipped_by_reason: dict[str, int] = field(default_factory=dict)
 
     @property
     def dropped(self) -> int:
@@ -45,6 +48,8 @@ class Coverage:
             "selection": self.selection,
             "cost_data_available": self.cost_data_available,
             "discovery_complete": self.discovery_complete,
+            "stop_reason": self.stop_reason,
+            "skipped_by_reason": dict(sorted(self.skipped_by_reason.items())),
             "regions_covered": sorted(self.regions_covered),
             "types": {
                 t: {"discovered": c.discovered, "analysed": c.analysed}
@@ -60,6 +65,8 @@ class Coverage:
             selection=d.get("selection", "cost_desc"),
             cost_data_available=d.get("cost_data_available", False),
             discovery_complete=d.get("discovery_complete"),
+            stop_reason=d.get("stop_reason"),
+            skipped_by_reason=dict(d.get("skipped_by_reason", {})),
             regions_covered=list(d.get("regions_covered", [])),
             types={
                 t: TypeCoverage(c["discovered"], c["analysed"])
@@ -86,6 +93,11 @@ class Coverage:
             discovery = True
         else:
             discovery = None
+        skipped: dict[str, int] = {}
+        for item in items:
+            for reason, n in item.skipped_by_reason.items():
+                skipped[reason] = skipped.get(reason, 0) + n
+        stops = [i.stop_reason for i in items if i.stop_reason]
         rules = {i.selection for i in items}
         return Coverage(
             discovered=sum(i.discovered for i in items),
@@ -95,4 +107,6 @@ class Coverage:
             regions_covered=sorted({r for i in items for r in i.regions_covered}),
             types=types,
             discovery_complete=discovery,
+            stop_reason=stops[0] if stops else None,
+            skipped_by_reason=skipped,
         )
