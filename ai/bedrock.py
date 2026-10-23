@@ -24,14 +24,13 @@ class BedrockProvider(AIProvider):
 
     DEFAULT_MODEL = "anthropic.claude-sonnet-4-6"
     DEFAULT_REGION = "us-east-1"
-    DEFAULT_MAX_TOKENS = 4096
     DEFAULT_TEMPERATURE = 0.0
 
     def __init__(
         self,
         model_id: str | None = None,
         region: str | None = None,
-        max_tokens: int = DEFAULT_MAX_TOKENS,
+        max_tokens: int | None = None,
         temperature: float | None = None,
         session: Any = None,
     ) -> None:
@@ -40,7 +39,11 @@ class BedrockProvider(AIProvider):
         cfg = get_settings().ai
         self._model_id = model_id or cfg.resolved_model("bedrock")
         resolved_region = region or cfg.bedrock_region
-        self._max_tokens = max_tokens
+        self._max_tokens = (
+            max_tokens
+            if max_tokens is not None
+            else cfg.bedrock_max_tokens or cfg.max_tokens
+        )
         self._temperature = temperature if temperature is not None else cfg.temperature
 
         boto_session = session or boto3.Session(region_name=resolved_region)

@@ -45,7 +45,7 @@ class AISettings(BaseSettings):
         "anthropic.claude-sonnet-4-6", alias="BEDROCK_MODEL_ID"
     )
     bedrock_region: str = Field("us-east-1", alias="BEDROCK_REGION")
-    bedrock_max_tokens: int = Field(2048, alias="BEDROCK_MAX_TOKENS")
+    bedrock_max_tokens: int | None = Field(None, alias="BEDROCK_MAX_TOKENS")
 
     # Vertex AI
     vertexai_project: str | None = Field(None, alias="VERTEXAI_PROJECT")

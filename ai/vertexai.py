@@ -33,6 +33,9 @@ MAX_RETRIES = 3
 _BASE_DELAY = 1.0
 
 
+_DEFAULT_MODEL_MAX_OUTPUT = 8192  # gemini-1.5-pro-002 output limit
+
+
 class VertexAIProvider(AIProvider):
     """
     AI provider backed by Vertex AI Gemini models.
@@ -46,7 +49,6 @@ class VertexAIProvider(AIProvider):
 
     DEFAULT_MODEL = "google/gemini-1.5-pro-002"
     DEFAULT_LOCATION = "us-central1"
-    DEFAULT_MAX_TOKENS = 4096
     DEFAULT_TEMPERATURE = 0.0
 
     def __init__(
@@ -54,7 +56,7 @@ class VertexAIProvider(AIProvider):
         project: str | None = None,
         location: str | None = None,
         model: str | None = None,
-        max_tokens: int = DEFAULT_MAX_TOKENS,
+        max_tokens: int | None = None,
         temperature: float | None = None,
     ) -> None:
         from core.config import get_settings
@@ -68,7 +70,11 @@ class VertexAIProvider(AIProvider):
             )
         self._location = location or cfg.vertexai_location
         self._model = model or cfg.resolved_model("vertexai")
-        self._max_tokens = max_tokens
+        self._max_tokens = (
+            max_tokens
+            if max_tokens is not None
+            else min(cfg.max_tokens, _DEFAULT_MODEL_MAX_OUTPUT)
+        )
         self._temperature = temperature if temperature is not None else cfg.temperature
 
         # Use openai SDK with the Vertex AI endpoint.
