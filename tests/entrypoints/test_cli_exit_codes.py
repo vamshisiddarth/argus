@@ -19,6 +19,7 @@ _SCAN_ENV_VARS = (
     "ARGUS_SKIP_PREFLIGHT",
     "STRICT_COVERAGE",
     "METRICS_LOOKBACK_DAYS",
+    "MAX_RESOURCES_PER_SCAN",
 )
 
 
@@ -242,3 +243,45 @@ class TestDiscoveryCli:
         _scan()
 
         assert "discovery incomplete" in capsys.readouterr().err
+
+
+class TestMaxResourcesCli:
+    @patch("entrypoints.aws_lambda.handler")
+    def test_flag_absent_leaves_the_budget_scaled_default_alone(self, mock_handler):
+        import os
+
+        mock_handler.return_value = {"statusCode": 200}
+
+        _scan(["scan", "--cloud", "aws"])
+
+        assert "MAX_RESOURCES_PER_SCAN" not in os.environ
+
+    @patch("entrypoints.aws_lambda.handler")
+    def test_flag_after_subcommand_is_applied(self, mock_handler):
+        import os
+
+        mock_handler.return_value = {"statusCode": 200}
+
+        _scan(["scan", "--cloud", "aws", "--max-resources", "25"])
+
+        assert os.environ["MAX_RESOURCES_PER_SCAN"] == "25"
+
+    @patch("entrypoints.aws_lambda.handler")
+    def test_flag_before_subcommand_survives(self, mock_handler):
+        import os
+
+        mock_handler.return_value = {"statusCode": 200}
+
+        _scan(["--max-resources", "40", "scan", "--cloud", "aws"])
+
+        assert os.environ["MAX_RESOURCES_PER_SCAN"] == "40"
+
+    @patch("entrypoints.aws_lambda.handler")
+    def test_legacy_run_now_without_flag_does_not_pin_200(self, mock_handler):
+        import os
+
+        mock_handler.return_value = {"statusCode": 200}
+
+        _scan(["--cloud", "aws", "--run-now"])
+
+        assert "MAX_RESOURCES_PER_SCAN" not in os.environ

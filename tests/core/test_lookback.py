@@ -96,7 +96,10 @@ def test_scan_window_reports_real_window_and_cost_basis(monkeypatch):
     monkeypatch.setenv("METRICS_LOOKBACK_DAYS", "14")
     loop = _loop(RecordingAdapter(costs={"nat-1": 32.5}))
     loop._prefilter_resources([])
-    assert loop.scan_window == {
+    assert {
+        k: loop.scan_window[k]
+        for k in ("metrics_lookback_days", "cost_lookback_days", "cost_basis")
+    } == {
         "metrics_lookback_days": 14,
         "cost_lookback_days": 14,
         "cost_basis": "billed",
@@ -154,3 +157,20 @@ def test_finding_cost_basis_defaults_to_none_and_round_trips():
     )
     assert f.cost_basis == "billed"
     assert f.to_dict()["cost_basis"] == "billed"
+
+
+def test_scan_window_records_the_cap_and_where_it_came_from(monkeypatch):
+    monkeypatch.delenv("MAX_RESOURCES_PER_SCAN", raising=False)
+    loop = _loop(RecordingAdapter())
+    loop._prefilter_resources([])
+    assert loop.scan_window["max_resources"] == 300
+    assert loop.scan_window["max_resources_source"] == "budget"
+
+    monkeypatch.setenv("MAX_RESOURCES_PER_SCAN", "7")
+    from core.config import clear_settings_cache
+
+    clear_settings_cache()
+    loop = _loop(RecordingAdapter())
+    loop._prefilter_resources([])
+    assert loop.scan_window["max_resources"] == 7
+    assert loop.scan_window["max_resources_source"] == "explicit"

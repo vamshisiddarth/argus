@@ -375,7 +375,10 @@ class AgentLoop:
         self._costs = costs
         self._resource_tags = {r.resource_id: dict(r.tags) for r in resources}
         self.scan_window = _scan_window(has_cost=any(v > 0 for v in costs.values()))
-        cap = get_settings().scan.max_resources
+        scan_cfg = get_settings().scan
+        cap = scan_cfg.max_resources
+        self.scan_window["max_resources"] = cap
+        self.scan_window["max_resources_source"] = scan_cfg.max_resources_source
         chosen, selection_rule = select_candidates(resources, costs, cap)
         capped = [(r, costs.get(r.resource_id, 0.0)) for r in chosen]
         dropped = total_discovered - len(capped)
