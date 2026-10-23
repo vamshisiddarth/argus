@@ -122,6 +122,42 @@ class TestGetMetrics:
         assert summary.has_data is False
 
 
+class TestMetricStatus:
+    ARN = "arn:aws:ec2:us-east-1:123:instance/i-0abc"
+    EC2 = "AWS::EC2::Instance"
+
+    def test_data_present_is_ok(self):
+        results = [{"Id": f"m{i}", "Values": [1.0]} for i in range(3)]
+        session, _ = _make_mock_session(results)
+        summary = get_metrics(session, self.ARN, self.EC2, days=14)
+        assert summary.status == "ok"
+        assert "data_note" not in summary.to_dict()
+
+    def test_no_datapoints_is_no_data(self):
+        results = [{"Id": f"m{i}", "Values": []} for i in range(3)]
+        session, _ = _make_mock_session(results)
+        summary = get_metrics(session, self.ARN, self.EC2, days=14)
+        assert summary.status == "no_data"
+        assert "unavailable" in summary.to_dict()["data_note"]
+
+    def test_access_denied_is_error_not_no_data(self):
+        from botocore.exceptions import ClientError
+
+        client = MagicMock()
+        client.get_metric_data.side_effect = ClientError(
+            {"Error": {"Code": "AccessDenied", "Message": "nope"}}, "GetMetricData"
+        )
+        session = MagicMock()
+        session.client.return_value = client
+
+        summary = get_metrics(session, self.ARN, self.EC2, days=14)
+
+        assert summary.has_data is False
+        assert summary.status == "error"
+        assert "AccessDenied" in summary.error
+        assert "AccessDenied" in summary.to_dict()["data_note"]
+
+
 class TestEnrichInstanceDetails:
     """_enrich_instance_details injects instance size metadata into the metrics dict."""
 

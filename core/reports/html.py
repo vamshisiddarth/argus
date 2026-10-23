@@ -18,6 +18,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from core.registry import get_registry
+from core.reports.generator import waste_caveat
 
 
 def build_html_report(report: dict[str, Any]) -> str:
@@ -34,6 +35,29 @@ def build_html_report(report: dict[str, Any]) -> str:
     rows_html = _build_rows(findings)
     errors_html = _build_errors_banner(
         scan_errors, len(report.get("accounts_scanned", []))
+    )
+    window = report.get("scan_window") or {}
+    spend = window.get("llm_spent_usd")
+    spend_html = ""
+    if spend is not None:
+        budget = window.get("llm_budget_usd")
+        of = f" of ${budget:,.2f}" if budget else ""
+        spend_html = (
+            f'<div class="stat"><div class="stat-val">${spend:,.2f}</div>'
+            f'<div class="stat-lbl">LLM spend{of}</div></div>'
+        )
+    caveat = waste_caveat(report)
+    caveat_html = (
+        f'<br><span style="font-size:11px">{html.escape(caveat)}</span>'
+        if caveat
+        else ""
+    )
+    coverage_html = _build_coverage_block(report.get("coverage"))
+    preflight_html = _build_preflight_box(report.get("preflight"))
+    window_html = (
+        f" &nbsp;·&nbsp; {int(window['metrics_lookback_days'])}-day metrics window"
+        if window.get("metrics_lookback_days")
+        else ""
     )
     registry_warnings_html = _build_registry_warnings_banner(
         report.get("registry_warnings") or []
@@ -65,6 +89,8 @@ a:hover{{text-decoration:underline}}
 .error-banner{{background:#fff8e1;border:1px solid #f59e0b;border-radius:10px;padding:14px 18px;margin-bottom:16px}}
 .error-banner-title{{font-size:13px;font-weight:600;color:#92400e;margin-bottom:6px}}
 .error-banner ul{{margin:0;padding-left:18px;font-size:12px;color:#92400e;line-height:1.8}}
+.coverage{{font-size:12px;color:#444;margin-bottom:16px}}
+.coverage-warning{{background:#fff8e1;border:1px solid #f59e0b;border-radius:10px;padding:12px 18px;color:#92400e}}
 .error-banner code{{background:#fef3c7;border-radius:3px;padding:1px 4px;font-family:'SFMono-Regular',Consolas,monospace}}
 .filters{{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center}}
 .filters select,.filters input{{background:#fff;border:1px solid #d4d4d4;border-radius:6px;padding:6px 10px;font-size:13px;color:#111;outline:none}}
@@ -107,16 +133,17 @@ tbody tr:last-child td{{border-bottom:none}}
         <path d="M4 12l8 4 8-4M4 16l8 4 8-4" stroke="#E24B4A" stroke-width="1.5" stroke-linecap="round"/>
       </svg>
       <span class="title">Argus — {cloud} Waste Report</span>
-      <span class="meta">{generated_at} &nbsp;·&nbsp; Scan {scan_id[:8]} &nbsp;·&nbsp; Accounts: {html.escape(accounts)}</span>
+      <span class="meta">{generated_at} &nbsp;·&nbsp; Scan {scan_id[:8]} &nbsp;·&nbsp; Accounts: {html.escape(accounts)}{window_html}</span>
     </div>
     <div class="stats">
-      <div class="stat"><div class="stat-val red">${total:,.2f}</div><div class="stat-lbl">estimated waste / month</div></div>
+      <div class="stat"><div class="stat-val red">${total:,.2f}</div><div class="stat-lbl">estimated waste / month{caveat_html}</div></div>
       <div class="stat"><div class="stat-val">{count}</div><div class="stat-lbl">findings</div></div>
       <div class="stat"><div class="stat-val">{len(report.get("accounts_scanned", []))}</div><div class="stat-lbl">accounts scanned</div></div>
+      {spend_html}
     </div>
     <p class="summary">{summary}</p>
   </div>
-{errors_html}{registry_warnings_html}
+{errors_html}{preflight_html}{coverage_html}{registry_warnings_html}
   <div class="filters">
     <select id="f-priority" onchange="applyFilters()">
       <option value="">All priorities</option>
@@ -267,22 +294,41 @@ def _build_rows(findings: list[dict[str, Any]]) -> str:
 
         display_name = name or resource_id
         cost_class = f"cost-{priority}"
+        evidence_html = _evidence_html(f)
+        detected_by = html.escape(f.get("detected_by") or "")
+        detected_html = (
+            f'<br><span class="detail-label">Detected by:</span>{detected_by}'
+            if detected_by
+            else ""
+        )
+        confidence = html.escape(f.get("confidence") or "")
+        confidence_html = (
+            f'<br><span class="muted" style="font-size:11px">confidence: {confidence}</span>'
+            if confidence
+            else ""
+        )
+        est_label = (
+            ' <span class="muted" title="Estimated from list price, not billed">'
+            "est.</span>"
+            if f.get("cost_basis") not in (None, "billed")
+            else ""
+        )
         pill_class = f"pill-{priority}"
 
         parts.append(
             f"""<tr data-priority="{priority}" data-rtype="{rtype}" data-cost="{cost}" data-name="{display_name}">
   <td><button class="expand-btn" onclick="toggle(this)" aria-label="expand">›</button></td>
-  <td><span class="pill {pill_class}">{priority.upper()}</span></td>
+  <td><span class="pill {pill_class}">{priority.upper()}</span>{confidence_html}</td>
   <td><span class="mono">{display_name}</span>{"<br><span class='mono muted'>" + resource_id + "</span>" if name else ""}</td>
   <td class="muted">{rtype_label}</td>
   <td class="muted">{region}</td>
-  <td class="{cost_class}">${cost:,.2f}</td>
+  <td class="{cost_class}">${cost:,.2f}{est_label}</td>
   <td class="muted">{last_activity_str}</td>
 </tr>
 <tr class="detail-row">
   <td colspan="7"><div class="detail-inner">
     <span class="detail-label">Why idle:</span>{waste_reason}<br>
-    <span class="detail-label">Recommendation:</span>{recommendation}
+    <span class="detail-label">Recommendation:</span>{recommendation}{detected_html}{evidence_html}
   </div></td>
 </tr>"""
         )
@@ -307,6 +353,104 @@ def _build_errors_banner(
         f"account{'s' if total != 1 else ''} succeeded"
         f"</div>\n"
         f"    <ul>{items}</ul>\n"
+        f"  </div>\n"
+    )
+
+
+_EVIDENCE_SKIP = frozenset(
+    {"window_days", "has_data", "status", "metrics_status", "last_activity_checked"}
+)
+
+
+def _evidence_html(f: dict[str, Any]) -> str:
+    """One line of the facts a finding rests on, so a human can verify it fast."""
+    summary = f.get("metrics_summary") or {}
+    parts: list[str] = []
+
+    state = summary.get("state")
+    if isinstance(state, dict):
+        parts += [f"{k}={v}" for k, v in state.items() if v is not None and k != "kind"]
+
+    metrics = summary.get("metrics")
+    if metrics is None:  # reports written before schema 1.1.0 kept metrics flat
+        metrics = {
+            k: v
+            for k, v in summary.items()
+            if k not in _EVIDENCE_SKIP and k != "state" and not isinstance(v, dict)
+        }
+    parts += [f"{k}={v}" for k, v in metrics.items() if v is not None]
+
+    status = summary.get("metrics_status")
+    if status and status != "ok":
+        parts.append(f"metrics unavailable ({status})")
+    if summary.get("window_days"):
+        parts.append(f"{summary['window_days']}-day window")
+    if f.get("last_activity"):
+        parts.append(f"last activity {str(f['last_activity'])[:10]}")
+    elif summary.get("last_activity_checked"):
+        parts.append("no activity recorded")
+
+    if not parts:
+        return ""
+    text = html.escape("; ".join(parts))
+    return f'<br><span class="detail-label">Evidence:</span>{text}'
+
+
+def _build_preflight_box(preflight: dict[str, Any] | None) -> str:
+    if not preflight:
+        return ""
+    items = ""
+    for acct in preflight.get("accounts", []):
+        for c in acct.get("checks", []):
+            if c.get("status") != "warn":
+                continue
+            fix = f" Fix: {html.escape(c['fix'])}" if c.get("fix") else ""
+            items += (
+                f"<li><code>{html.escape(c['code'])}</code> — "
+                f"{html.escape(c['message'])}{fix}</li>"
+            )
+    skipped = (
+        "<div>Preflight was skipped; setup problems are not reported.</div>"
+        if preflight.get("skipped")
+        else ""
+    )
+    if not items and not skipped:
+        return ""
+    title = '<div class="error-banner-title">Setup warnings</div>' if items else ""
+    return (
+        '  <div class="error-banner">\n'
+        f"    {title}{skipped}<ul>{items}</ul>\n"
+        "  </div>\n"
+    )
+
+
+def _build_coverage_block(coverage: dict[str, Any] | None) -> str:
+    if not coverage:
+        return ""
+    analysed, discovered = coverage["analysed"], coverage["discovered"]
+    line = f"Analysed {analysed} of {discovered} resources"
+    free = coverage.get("free_config_skipped") or 0
+    if free:
+        line += f" (plus {free} free configuration objects skipped on purpose)"
+    incomplete = (
+        "<br><strong>Discovery incomplete:</strong> a search hit the provider's "
+        "result limit, so the inventory is understated."
+        if coverage.get("discovery_complete") is False
+        else ""
+    )
+    if not coverage.get("truncated") and not incomplete:
+        return f'  <div class="coverage">{line}.</div>\n'
+    if not coverage.get("truncated"):
+        return (
+            f'  <div class="coverage coverage-warning">\n'
+            f"    {line}.{incomplete}\n  </div>\n"
+        )
+    rule = html.escape(str(coverage.get("selection", "")))
+    return (
+        f'  <div class="coverage coverage-warning">\n'
+        f"    <strong>{line}</strong> — {coverage['dropped']} were not analysed "
+        f"(selection: {rule}). Raise MAX_RESOURCES_PER_SCAN to cover more."
+        f"{incomplete}\n"
         f"  </div>\n"
     )
 
@@ -337,7 +481,20 @@ def _build_type_options(findings: list[dict[str, Any]]) -> str:
     )
 
 
+_SCRIPT_UNSAFE = {
+    "<": "\\u003c",
+    ">": "\\u003e",
+    "&": "\\u0026",
+    "\u2028": "\\u2028",
+    "\u2029": "\\u2029",
+}
+
+
 def _json_data(report: dict[str, Any]) -> str:
+    """JSON for a <script> block: a value must never be able to close the tag."""
     import json
 
-    return json.dumps(report, default=str)
+    text = json.dumps(report, default=str)
+    for char, escaped in _SCRIPT_UNSAFE.items():
+        text = text.replace(char, escaped)
+    return text

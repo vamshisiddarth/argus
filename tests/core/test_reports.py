@@ -143,10 +143,10 @@ class TestBuildReport:
         assert report["agent_output_tokens"] == 0
         assert report["estimated_agent_cost_usd"] == 0.0
 
-    def test_schema_version_is_1_0_1(self):
-        # 1.0.1: findings gained optional account_id / account_name
+    def test_schema_version_is_1_1_0(self):
+        # 1.1.0: coverage, scan_window, preflight (all optional)
         report = build_report([], cloud="aws", executive_summary="x")
-        assert report["schema_version"] == "1.0.1"
+        assert report["schema_version"] == "1.1.0"
 
     def test_scan_id_is_unique_per_call(self):
         r1 = build_report([], cloud="aws", executive_summary="x")
@@ -785,3 +785,399 @@ class TestNotifyAll:
             result = notify_all(SAMPLE_PAYLOAD, dry_run=False)
 
         assert result is True  # second provider succeeded
+
+
+# ---------------------------------------------------------------------------
+# Schema 1.1.0 additions: coverage / scan_window / preflight
+# ---------------------------------------------------------------------------
+
+_COVERAGE = {
+    "discovered": 880,
+    "analysed": 200,
+    "dropped": 680,
+    "truncated": True,
+    "selection": "stratified_by_type",
+    "cost_data_available": False,
+    "regions_covered": ["us-east-1"],
+    "types": {"AWS::EC2::Volume": {"discovered": 880, "analysed": 200}},
+}
+
+
+class TestReportCoverageFields:
+    def test_new_keys_present_and_none_by_default(self):
+        report = build_report([], cloud="aws", executive_summary="x")
+        assert report["coverage"] is None
+        assert report["scan_window"] is None
+        assert report["preflight"] is None
+
+    def test_new_keys_carry_what_was_passed(self):
+        window = {"metrics_lookback_days": 14, "cost_basis": "unavailable"}
+        pre = {"skipped": False, "checks": []}
+        report = build_report(
+            [],
+            cloud="aws",
+            executive_summary="x",
+            coverage=_COVERAGE,
+            scan_window=window,
+            preflight=pre,
+        )
+        assert report["coverage"] == _COVERAGE
+        assert report["scan_window"] == window
+        assert report["preflight"] == pre
+
+    def test_old_report_still_diffs_against_new_report(self):
+        from core.reports.comparison import compare_scans
+
+        old = build_report(_sample_findings(), cloud="aws", executive_summary="x")
+        old["schema_version"] = "1.0.1"
+        for key in ("coverage", "scan_window", "preflight"):
+            old.pop(key, None)
+
+        labelled, diff = compare_scans(_sample_findings(), old)
+
+        assert len(labelled) == len(_sample_findings())
+        assert all(f.status == "recurring" for f in labelled)
+
+
+class TestHtmlCoverage:
+    def _html(self, **kw):
+        report = build_report(
+            _sample_findings(), cloud="aws", executive_summary="x", **kw
+        )
+        return build_html_report(report)
+
+    def test_truncation_warning_shows_numbers(self):
+        out = self._html(coverage=_COVERAGE)
+        assert "Analysed 200 of 880" in out
+        assert 'class="coverage coverage-warning"' in out
+        assert "MAX_RESOURCES_PER_SCAN" in out
+
+    def test_full_coverage_has_no_warning(self):
+        full = {**_COVERAGE, "discovered": 5, "analysed": 5, "dropped": 0}
+        full["truncated"] = False
+        out = self._html(coverage=full)
+        assert "Analysed 5 of 5" in out
+        assert 'class="coverage coverage-warning"' not in out
+
+    def test_zero_resources_renders(self):
+        empty = {**_COVERAGE, "discovered": 0, "analysed": 0, "dropped": 0}
+        empty["truncated"] = False
+        empty["types"] = {}
+        assert "Analysed 0 of 0" in self._html(coverage=empty)
+
+    def test_no_coverage_renders_unchanged(self):
+        out = self._html()
+        assert "Analysed" not in out
+
+    def test_window_is_shown_when_present(self):
+        out = self._html(scan_window={"metrics_lookback_days": 14})
+        assert "14-day" in out
+
+
+class TestHtmlCostBasis:
+    def _html_for(self, basis):
+        report = build_report(_sample_findings(), cloud="aws", executive_summary="x")
+        for f in report["findings"]:
+            f["cost_basis"] = basis
+        return build_html_report(report)
+
+    def test_estimated_cost_is_labelled(self):
+        assert "est.</span>" in self._html_for("model_estimate")
+
+    def test_billed_cost_has_no_label(self):
+        assert "est.</span>" not in self._html_for("billed")
+
+
+class TestHtmlPreflight:
+    def _html(self, preflight):
+        report = build_report(
+            _sample_findings(), cloud="aws", executive_summary="x", preflight=preflight
+        )
+        return build_html_report(report)
+
+    def _pre(self, status, skipped=False):
+        return {
+            "skipped": skipped,
+            "accounts": [
+                {
+                    "account_id": "1",
+                    "skipped": skipped,
+                    "checks": [
+                        {
+                            "code": "P6_VIEW_TAGS",
+                            "status": status,
+                            "message": "view lacks tags",
+                            "fix": "add tags property",
+                        }
+                    ],
+                }
+            ],
+        }
+
+    def test_warnings_box_lists_message_and_fix(self):
+        out = self._html(self._pre("warn"))
+        assert "Setup warnings" in out
+        assert "view lacks tags" in out
+        assert "add tags property" in out
+
+    def test_skipped_preflight_is_called_out(self):
+        assert "Preflight was skipped" in self._html(self._pre("ok", skipped=True))
+
+    def test_clean_preflight_shows_nothing(self):
+        out = self._html(self._pre("ok"))
+        assert "Setup warnings" not in out
+        assert "Preflight was skipped" not in out
+
+
+def _rated(rid, cost, confidence, basis="model_estimate"):
+    f = _finding(rid, cost=cost)
+    f.confidence = confidence
+    f.cost_basis = basis
+    return f
+
+
+class TestWasteBreakdown:
+    def _findings(self):
+        return [
+            _rated("a", 100.0, "high"),
+            _rated("b", 300.0, "medium"),
+            _rated("c", 200.0, "low"),
+            _rated("d", 5.0, None),
+        ]
+
+    def test_totals_are_split_by_confidence(self):
+        report = build_report(self._findings(), cloud="aws", executive_summary="x")
+
+        assert report["waste_by_confidence"] == {
+            "high": 100.0,
+            "medium": 300.0,
+            "low": 200.0,
+            "unrated": 5.0,
+        }
+        assert report["total_estimated_waste_usd"] == 605.0
+
+    def test_total_is_an_estimate_unless_every_finding_is_billed(self):
+        estimated = build_report(self._findings(), cloud="aws", executive_summary="x")
+        billed = build_report(
+            [_rated("a", 10.0, "high", "billed")], cloud="aws", executive_summary="x"
+        )
+        mixed = build_report(
+            [_rated("a", 10.0, "high", "billed"), _rated("b", 5.0, "low")],
+            cloud="aws",
+            executive_summary="x",
+        )
+
+        assert estimated["total_is_estimate"] is True
+        assert billed["total_is_estimate"] is False
+        assert mixed["total_is_estimate"] is True
+
+    def test_no_findings_is_all_zero_and_not_an_estimate(self):
+        report = build_report([], cloud="aws", executive_summary="x")
+
+        assert report["waste_by_confidence"] == {
+            "high": 0.0,
+            "medium": 0.0,
+            "low": 0.0,
+            "unrated": 0.0,
+        }
+        assert report["total_is_estimate"] is False
+
+    def test_slack_headline_says_estimate_and_shows_the_split(self):
+        report = build_report(self._findings(), cloud="aws", executive_summary="x")
+
+        text = str(build_slack_payload(report))
+
+        assert "estimated waste" in text
+        assert "not billed" in text
+        assert "$300.00 medium" in text and "$200.00 low" in text
+
+    def test_slack_headline_for_billed_totals_has_no_caveat(self):
+        report = build_report(
+            [_rated("a", 10.0, "high", "billed")], cloud="aws", executive_summary="x"
+        )
+
+        assert "not billed" not in str(build_slack_payload(report))
+
+    def test_html_headline_labels_the_estimate_and_splits_by_confidence(self):
+        report = build_report(self._findings(), cloud="aws", executive_summary="x")
+
+        out = build_html_report(report)
+
+        assert "estimated waste / month" in out
+        assert "not billed" in out
+        assert "$200.00 low" in out
+
+    def test_old_reports_without_the_fields_still_render(self):
+        report = build_report(self._findings(), cloud="aws", executive_summary="x")
+        del report["waste_by_confidence"]
+        del report["total_is_estimate"]
+
+        assert "estimated waste / month" in build_html_report(report)
+        assert build_slack_payload(report)
+
+
+class TestHtmlDiscovery:
+    def test_incomplete_discovery_is_called_out(self):
+        cov = {**_COVERAGE, "discovered": 3000, "analysed": 200, "dropped": 2800}
+        cov["discovery_complete"] = False
+        report = build_report(
+            _sample_findings(), cloud="aws", executive_summary="x", coverage=cov
+        )
+
+        out = build_html_report(report)
+
+        assert "Discovery incomplete" in out
+
+
+class TestHtmlDetectedBy:
+    def test_rule_findings_are_labelled_in_the_detail_row(self):
+        f = _finding("nat-1")
+        f.detected_by = "rule:nat-gateway-idle"
+        out = build_html_report(build_report([f], cloud="aws", executive_summary="x"))
+        assert "rule:nat-gateway-idle" in out
+        assert "Detected by" in out
+
+    def test_model_findings_say_so(self):
+        f = _finding("i-1")
+        f.detected_by = "model"
+        out = build_html_report(build_report([f], cloud="aws", executive_summary="x"))
+        assert "Detected by:</span>model" in out
+
+    def test_findings_without_the_field_render_without_the_line(self):
+        out = build_html_report(
+            build_report([_finding("i-1")], cloud="aws", executive_summary="x")
+        )
+        assert "Detected by" not in out
+
+
+class TestHtmlFreeConfig:
+    def test_skipped_free_config_objects_are_mentioned(self):
+        cov = {**_COVERAGE, "discovered": 4, "analysed": 4, "dropped": 0}
+        cov["truncated"] = False
+        cov["free_config_skipped"] = 77
+        report = build_report(
+            _sample_findings(), cloud="aws", executive_summary="x", coverage=cov
+        )
+
+        assert "77 free configuration objects" in build_html_report(report)
+
+
+class TestSpendInReports:
+    def _report(self):
+        return build_report(
+            _sample_findings(),
+            cloud="aws",
+            executive_summary="x",
+            scan_window={
+                "metrics_lookback_days": 14,
+                "llm_spent_usd": 0.31,
+                "llm_estimate_usd": 0.4,
+                "llm_budget_usd": 2.0,
+            },
+        )
+
+    def test_html_shows_what_the_scan_cost(self):
+        out = build_html_report(self._report())
+        assert "LLM spend" in out and "$0.31" in out and "$2.00" in out
+
+    def test_slack_digest_shows_spend(self):
+        assert "LLM spend $0.31" in str(build_slack_payload(self._report()))
+
+    def test_reports_without_spend_render_unchanged(self):
+        report = build_report([], cloud="aws", executive_summary="x")
+        assert "LLM spend" not in build_html_report(report)
+        assert "LLM spend" not in str(build_slack_payload(report))
+
+
+class TestHtmlEvidence:
+    def _html(self, finding):
+        return build_html_report(
+            build_report([finding], cloud="aws", executive_summary="x")
+        )
+
+    def test_model_finding_shows_the_metrics_it_rested_on(self):
+        f = _finding("i-1")
+        f.metrics_summary = {
+            "metrics": {"CPUUtilization": 0.4, "NetworkOut": 1200.0},
+            "metrics_status": "ok",
+            "window_days": 14,
+            "last_activity_checked": True,
+        }
+        f.last_activity = None
+
+        out = self._html(f)
+
+        assert "Evidence:" in out
+        assert "CPUUtilization=0.4" in out and "NetworkOut=1200.0" in out
+        assert "14-day window" in out
+        assert "no activity recorded" in out
+
+    def test_rule_finding_shows_the_configuration_it_rested_on(self):
+        f = _finding("vol-1")
+        f.metrics_summary = {
+            "state": {
+                "kind": "ebs_volume",
+                "state": "available",
+                "size_gb": 100,
+                "volume_type": "gp3",
+                "iops": None,
+            }
+        }
+
+        out = self._html(f)
+
+        assert "state=available" in out and "size_gb=100" in out
+        assert "volume_type=gp3" in out
+        assert "iops" not in out.split("Evidence:")[1].split("</div>")[0]
+
+    def test_legacy_flat_metrics_still_render(self):
+        f = _finding("i-1")  # metrics_summary={"CPUUtilization": 0.5}
+        assert "CPUUtilization=0.5" in self._html(f)
+
+    def test_unavailable_metrics_are_said_plainly(self):
+        f = _finding("i-1")
+        f.metrics_summary = {"metrics": {}, "metrics_status": "no_data"}
+
+        assert "metrics unavailable (no_data)" in self._html(f)
+
+    def test_values_are_escaped(self):
+        f = _finding("i-1")
+        f.metrics_summary = {"state": {"state": "<script>x</script>"}}
+
+        out = self._html(f)
+
+        assert "<script>x</script>" not in out
+
+
+class TestEmbeddedJsonCannotBreakOutOfTheScriptTag:
+    PAYLOAD = '</script><img src=x onerror="alert(1)">'
+
+    def _out(self, **finding_kw):
+        f = _finding("i-1")
+        for k, v in finding_kw.items():
+            setattr(f, k, v)
+        return build_html_report(
+            build_report([f], cloud="aws", executive_summary=self.PAYLOAD)
+        )
+
+    def test_script_close_in_a_tag_value_is_neutralised(self):
+        out = self._out(tags={"owner": self.PAYLOAD})
+        assert "</script><img" not in out
+        assert "\\u003c/script\\u003e" in out
+
+    def test_script_close_in_model_text_and_names_is_neutralised(self):
+        out = self._out(waste_reason=self.PAYLOAD, name=self.PAYLOAD)
+        assert "</script><img" not in out
+        assert 'onerror="alert(1)">' not in out.split("RAW_JSON = ")[1].split(";\n")[0]
+
+    def test_embedded_json_still_round_trips(self):
+        import json
+
+        out = self._out(tags={"owner": self.PAYLOAD})
+        blob = out.split("var RAW_JSON = ")[1].split(";\n")[0]
+
+        assert json.loads(blob)["findings"][0]["tags"]["owner"] == self.PAYLOAD
+
+    def test_line_separators_are_escaped_too(self):
+        out = self._out(tags={"k": "a\u2028b\u2029c"})
+        assert "\u2028" not in out and "\u2029" not in out

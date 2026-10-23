@@ -119,6 +119,7 @@ nav:
     - concepts/index.md
     - How It Works: concepts/how-it-works.md
     - AI Reasoning: concepts/ai-reasoning.md
+    - Baseline Rules: concepts/baseline-rules.md
     - Cloud Adapters: concepts/adapters.md
     - AI Providers: concepts/ai-providers.md
   - Remediation:
@@ -130,6 +131,7 @@ nav:
     - reference/index.md
     - Environment Variables: reference/env-vars.md
     - IAM Permissions: reference/iam-permissions.md
+    - Exit Codes: reference/exit-codes.md
     - Resource Types: reference/resource-types.md
     - Security Model: reference/security.md
     - Troubleshooting: reference/troubleshooting.md

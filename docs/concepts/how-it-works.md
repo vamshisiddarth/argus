@@ -8,11 +8,11 @@ Argus follows a clean separation of concerns called **Same brain. Different hand
 ┌─────────────────────────────────────────────────────────────────┐
 │  core/  — Pure Python, zero cloud imports                       │
 │                                                                 │
-│  AgentLoop.run()                                                │
-│   ├── Think: ai_provider.chat(messages, tools, system_prompt)   │
-│   ├── Act:   adapter.list_resources() / get_metrics() / ...     │
-│   ├── Observe: tool result appended to conversation             │
-│   └── Repeat until submit_findings()                            │
+│  AgentLoop.run()  (scan pipeline, the default engine)           │
+│   ├── Discover: adapter.list_resources() + costs                │
+│   ├── Decide by rule: idle NAT / ALB, unattached volumes, ...   │
+│   ├── Gather evidence in code: metrics, config, last activity   │
+│   └── Triage: batched, stateless model calls -> findings        │
 └──────────────────────────────┬──────────────────────────────────┘
                                │
             ┌──────────────────┼──────────────────┐
@@ -28,7 +28,19 @@ Argus follows a clean separation of concerns called **Same brain. Different hand
 
 **Home** = `entrypoints/` — thin runtime wrappers. No business logic.
 
-## :material-recycle: The ReAct loop
+## :material-pipe: The scan pipeline
+
+A scan runs in five steps. Everything that is a fact is gathered in code; the model only judges.
+
+1. **Discover.** The adapter lists resources. On AWS, Resource Explorer types such as `ec2:natgateway` are mapped to the registry's ids, and free configuration objects (security-group rules, subnets, IAM roles, task definitions, ...) are skipped on purpose and counted in `coverage.free_config_skipped`.
+2. **Decide by rule.** [Baseline rules](baseline-rules.md) flag the unambiguous cases (idle NAT gateways and load balancers from metrics; unattached volumes, unassociated Elastic IPs and stopped instances from configuration). They run over every resource, are priced from a list-price catalog, and win over the model.
+3. **Gather evidence.** For every remaining resource Argus collects metrics (over the configured window), cost, configuration, and, where metrics could not decide, last activity. Missing data stays missing; it is never turned into zero.
+4. **Triage.** Resources are ranked (billed cost, high-impact types first) and sent to the model in batches. Each batch is one stateless call, so spend grows linearly with the number of resources. Before the first call Argus estimates the cost; it stops before a batch that would overspend the budget and keeps everything found so far.
+5. **Report.** Findings carry their evidence, `confidence`, `cost_basis` and `detected_by`. The summary is generated from the findings, not by another model call.
+
+`ARGUS_ENGINE=react` switches back to the original tool-calling loop described below, which also powers `argus chat`.
+
+## :material-recycle: The ReAct loop (chat and the `react` engine)
 
 Argus uses **ReAct (Reason + Act)** — a pattern where the AI alternates between reasoning and tool use.
 

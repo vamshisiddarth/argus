@@ -339,12 +339,15 @@ def get_metrics(
             "cloudwatch_get_metric_data_failed",
             extra={"resource_id": resource_id, "error": str(exc)},
         )
+        code = exc.response.get("Error", {}).get("Code", "ClientError")
         return MetricSummary(
             resource_id=resource_id,
             resource_type=resource_type,
             period_days=days,
             metrics={},
             has_data=False,
+            status="error",
+            error=f"{code}: {exc.response.get('Error', {}).get('Message', '')}".strip(),
         )
 
     summary = _parse_results(

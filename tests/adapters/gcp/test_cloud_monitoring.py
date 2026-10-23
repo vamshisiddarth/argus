@@ -115,6 +115,8 @@ class TestGetMetrics:
             )
 
         assert summary.has_data is False
+        assert summary.status == "error"
+        assert "quota exceeded" in summary.error
 
 
 # ---------------------------------------------------------------------------

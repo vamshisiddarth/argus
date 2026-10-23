@@ -1,0 +1,88 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  Dedicated read-only role for running Argus scans (no Lambda, no resources besides
+  the role). Use it instead of an administrator role. Assume it from your laptop,
+  CI or a scheduler, then run `argus scan --expect-account <this account id>`.
+
+Parameters:
+  TrustedPrincipalArns:
+    Type: CommaDelimitedList
+    Description: ARNs allowed to assume the scan role (users, roles or the account root).
+  UseAwsReadOnlyAccess:
+    Type: String
+    AllowedValues: ["false", "true"]
+    Default: "false"
+    Description: >
+      "false" attaches only the minimal Argus policy below. "true" additionally
+      attaches the AWS managed ReadOnlyAccess policy (broader, simpler to audit).
+
+Conditions:
+  AttachReadOnlyAccess: !Equals [!Ref UseAwsReadOnlyAccess, "true"]
+
+Resources:
+  ArgusScanRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: argus-read-only-scan
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action: sts:AssumeRole
+            Principal:
+              AWS: !Ref TrustedPrincipalArns
+      ManagedPolicyArns: !If
+        - AttachReadOnlyAccess
+        - [arn:aws:iam::aws:policy/ReadOnlyAccess]
+        - !Ref AWS::NoValue
+      Policies:
+        - PolicyName: ArgusReadOnly
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: ResourceExplorer
+                Effect: Allow
+                Action:
+                  - resource-explorer-2:Search
+                  - resource-explorer-2:GetView
+                  - resource-explorer-2:GetDefaultView
+                  - resource-explorer-2:ListViews
+                  - resource-explorer-2:ListIndexes
+                  - resource-explorer-2:ListSupportedResourceTypes
+                  - resource-explorer-2:GetIndex
+                Resource: "*"
+              - Sid: CostExplorer
+                Effect: Allow
+                Action:
+                  - ce:GetCostAndUsage
+                  - ce:GetCostAndUsageWithResources
+                Resource: "*"
+              - Sid: MetricsAndActivity
+                Effect: Allow
+                Action:
+                  - cloudwatch:GetMetricData
+                  - cloudwatch:ListMetrics
+                  - cloudtrail:LookupEvents
+                  - tag:GetResources
+                  - sts:GetCallerIdentity
+                Resource: "*"
+              - Sid: InstanceSizeLookups
+                Effect: Allow
+                Action:
+                  - ec2:DescribeInstances
+                  - ec2:DescribeVolumes
+                  - ec2:DescribeAddresses
+                  - rds:DescribeDBInstances
+                  - rds:DescribeDBClusters
+                  - elasticache:DescribeCacheClusters
+                  - elasticache:DescribeReplicationGroups
+                  - redshift:DescribeClusters
+                  - es:DescribeDomain
+                  - lambda:GetFunctionConfiguration
+                  - dms:DescribeReplicationInstances
+                Resource: "*"
+
+Outputs:
+  RoleArn:
+    Value: !GetAtt ArgusScanRole.Arn
+    Description: Assume this role, then run argus scan with --expect-account.

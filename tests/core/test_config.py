@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from core.config import (
     AISettings,
     AWSSettings,
@@ -104,8 +106,10 @@ class TestScanSettings:
     def test_defaults(self, monkeypatch):
         monkeypatch.delenv("MAX_RESOURCES_PER_SCAN", raising=False)
         monkeypatch.delenv("ADAPTER_CONCURRENCY", raising=False)
+        monkeypatch.delenv("LLM_BUDGET_USD", raising=False)
         cfg = ScanSettings()
-        assert cfg.max_resources == 200
+        assert cfg.max_resources == 300  # scaled from the default $2.00 budget
+        assert cfg.max_resources_source == "budget"
         assert cfg.adapter_concurrency == 10
         assert cfg.metrics_lookback_days == 90
 
@@ -114,7 +118,29 @@ class TestScanSettings:
         monkeypatch.setenv("ADAPTER_CONCURRENCY", "20")
         cfg = ScanSettings()
         assert cfg.max_resources == 500
+        assert cfg.max_resources_source == "explicit"
         assert cfg.adapter_concurrency == 20
+
+    @pytest.mark.parametrize(
+        ("budget", "expected"),
+        [("0.1", 50), ("1.0", 150), ("2.0", 300), ("4.0", 600), ("50", 1000)],
+    )
+    def test_default_cap_scales_with_the_llm_budget(
+        self, monkeypatch, budget, expected
+    ):
+        monkeypatch.delenv("MAX_RESOURCES_PER_SCAN", raising=False)
+        monkeypatch.setenv("LLM_BUDGET_USD", budget)
+        assert ScanSettings().max_resources == expected
+
+    def test_unlimited_budget_uses_a_fixed_default_cap(self, monkeypatch):
+        monkeypatch.delenv("MAX_RESOURCES_PER_SCAN", raising=False)
+        monkeypatch.setenv("LLM_BUDGET_USD", "0")
+        assert ScanSettings().max_resources == 500
+
+    def test_explicit_cap_beats_the_budget_scaling(self, monkeypatch):
+        monkeypatch.setenv("MAX_RESOURCES_PER_SCAN", "20")
+        monkeypatch.setenv("LLM_BUDGET_USD", "50")
+        assert ScanSettings().max_resources == 20
 
     def test_exclude_resource_types_list(self, monkeypatch):
         monkeypatch.setenv("EXCLUDE_RESOURCE_TYPES", "EC2, RDS")

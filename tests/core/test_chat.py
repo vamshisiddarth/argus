@@ -459,3 +459,31 @@ class TestChatPrompts:
         assert "RIGHT-SIZING RULES" in chat
         assert "m5.4xlarge" in batch
         assert "m5.4xlarge" in chat
+
+
+class TestChatWindow:
+    def _session(self):
+        return ChatSession(
+            ai_provider=MagicMock(spec=AIProvider),
+            cloud_adapter=MagicMock(spec=CloudAdapter),
+            cloud="aws",
+            accounts=[{"id": "1", "name": "t"}],
+        )
+
+    def test_chat_tool_descriptions_state_the_configured_window(self, monkeypatch):
+        monkeypatch.setenv("METRICS_LOOKBACK_DAYS", "14")
+
+        tools = self._session()._tools
+
+        metrics = next(t for t in tools if t.name == "get_metrics")
+        assert "14 days" in metrics.description
+        assert "90" not in metrics.description
+
+    def test_metrics_display_uses_the_real_period(self):
+        import json
+
+        from core.agent.chat import _fmt_get_metrics
+
+        raw = json.dumps({"metrics": {}, "period_days": 30})
+        assert "30d" in _fmt_get_metrics(raw)
+        assert "14d" not in _fmt_get_metrics(raw)

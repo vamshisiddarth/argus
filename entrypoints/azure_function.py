@@ -36,6 +36,8 @@ import structlog
 
 from adapters.azure.adapter import AzureAdapter
 from core.agent.loop import AgentLoop
+from core.config import get_settings
+from core.errors import StrictCoverageError
 from core.log import configure_logging
 from core.registry import get_registry
 from core.reports.comparison import compare_scans
@@ -47,12 +49,13 @@ from core.reports.generator import build_report, build_slack_payload
 from core.reports.html import build_html_report
 from core.secrets import resolve_secrets
 from core.validation import ConfigurationError, validate_environment
+from entrypoints._meta import ScanMeta
 
 configure_logging()
 logger = structlog.get_logger(__name__)
 
 
-def main(mytimer: Any) -> None:
+def main(mytimer: Any) -> dict[str, Any] | None:
     """
     Azure Function timer trigger entry point.
 
@@ -69,7 +72,7 @@ def main(mytimer: Any) -> None:
         validate_environment(cloud)
     except ConfigurationError as exc:
         logger.error("startup_validation_failed", error=str(exc))
-        return
+        return None
 
     ignore_regions = [
         r.strip() for r in os.environ.get("IGNORE_REGIONS", "").split(",") if r.strip()
@@ -97,6 +100,14 @@ def main(mytimer: Any) -> None:
         ignore_regions=ignore_regions,
         accounts=accounts,
     )
+    meta = ScanMeta()
+    meta.add_loop(loop)
+    strict_error: Exception | None = None
+    try:
+        meta.enforce_strict(get_settings().scan.strict_coverage)
+    except StrictCoverageError as exc:
+        # Keep going: the scan was paid for, so write and deliver the report first.
+        strict_error = exc
 
     storage_account = os.environ.get("REPORT_STORAGE_ACCOUNT", "").strip()
     previous_report = _load_previous_report(cloud, storage_account)
@@ -113,6 +124,8 @@ def main(mytimer: Any) -> None:
         scan_diff=scan_diff,
         scan_errors=[],
         registry_warnings=get_registry().load_warnings,
+        coverage=meta.coverage_dict(),
+        scan_window=meta.scan_window,
     )
     report_url: str | None = None
     if storage_account:
@@ -141,16 +154,27 @@ def main(mytimer: Any) -> None:
         findings=report["findings_count"],
         total_waste_usd=round(report["total_estimated_waste_usd"], 2),
         budget_exceeded=budget_exceeded,
-        slack_delivered=delivered,
+        slack_delivered=delivered and not get_settings().report.dry_run,
     )
     if budget_exceeded:
         import sys
 
         sys.exit(2)
+    if strict_error is not None:
+        raise strict_error
     if not delivered:
         import sys
 
         sys.exit(1)
+    return {
+        "statusCode": 200,
+        "scan_id": report["scan_id"],
+        "findings_count": report["findings_count"],
+        "total_estimated_waste_usd": report["total_estimated_waste_usd"],
+        "budget_exceeded": False,
+        "coverage": meta.summary(),
+        "llm": meta.llm_summary(),
+    }
 
 
 def _get_subscription_ids() -> tuple[list[str], dict[str, str]]:

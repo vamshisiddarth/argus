@@ -314,9 +314,14 @@ argus --run-now --cloud aws [options]           # backward compat
   --ignore-regions REGIONS   Comma-separated regions to skip (e.g. ap-east-1,me-south-1)
   --ai-provider PROVIDER     anthropic | bedrock | vertexai | azure_openai (default: anthropic)
   --accounts PATH            Path to accounts.yaml for multi-account/project/subscription mode
-  --max-resources N          Maximum resources to analyze per scan (default: 200)
-  --lookback-days DAYS       Metrics lookback window in days (default: 90, use 14 for faster local dev)
+  --max-resources N          Maximum resources to analyze per scan (default: scaled from --llm-budget, 300 at $2.00)
+  --lookback-days DAYS       Metrics lookback window in days, applied to every metrics query and shown in the report (default: 90, use 14 for faster local dev)
   --llm-budget USD           Cost budget per scan/session (default: $2.00 scan, $1.00 chat)
+  --cost-days DAYS           Per-resource cost window in days (default: 14, the most AWS holds)
+  --activity-days DAYS       Last-activity (CloudTrail) window in days (default: 90, the most CloudTrail holds)
+  --expect-account ID        Abort (exit 4) unless the AWS credentials belong to this account
+  --strict-coverage          Fail (exit 1) if the cap or a search limit leaves resources unanalysed
+  --skip-preflight           Skip the AWS pre-scan environment checks (recorded in the report)
 ```
 
 ---
@@ -475,6 +480,10 @@ Argus needs **read-only** access. The Lambda execution role requires:
 ```
 resource-explorer-2:Search
 resource-explorer-2:GetView
+resource-explorer-2:GetDefaultView
+resource-explorer-2:ListViews
+resource-explorer-2:ListIndexes
+resource-explorer-2:GetIndex
 cloudwatch:GetMetricData
 ce:GetCostAndUsage
 ce:GetCostAndUsageWithResources
