@@ -117,6 +117,15 @@ class CloudAdapter(ABC):
         """
         ...
 
+    def collect_state(self, resources: list[Resource]) -> dict[str, dict[str, Any]]:
+        """Current configuration of resources whose waste has no metric signal.
+
+        Optional: returns {resource_id: state} for the resources it understands
+        (for example unattached volumes), and {} when the cloud has nothing to add.
+        A resource missing from the result is *unknown*, never "fine" or "wasteful".
+        """
+        return {}
+
     @abstractmethod
     def get_last_activity(
         self,

@@ -60,7 +60,7 @@ Every Argus scan produces a JSON report with the following top-level fields.
 | `metrics_summary` | `object` | Key metric signals the AI used to make its decision. |
 | `tags` | `object` | Resource tags as key-value pairs. |
 | `confidence` | `string \| null` | `"low"`, `"medium"` or `"high"`. Forced to `low` when the metrics behind the finding were unavailable; capped at `medium` for windows under 90 days. Added in 1.1.0. |
-| `cost_basis` | `string \| null` | `"billed"` (from Cost Explorer) or `"estimated"`. Added in 1.1.0. |
+| `cost_basis` | `string \| null` | Where the dollar figure comes from: `"billed"` (Cost Explorer), `"list_price"` (Argus price catalog, us-east-1 list prices), `"model_estimate"` (the AI's guess) or `"unknown"` (no figure). Added in 1.1.0. |
 | `detected_by` | `string \| null` | `"model"` or `"rule:<id>"` for a [baseline rule](../concepts/baseline-rules.md). Added in 1.1.0. |
 | `last_activity` | `string \| null` | ISO 8601 timestamp of the last detected activity, or `null`. |
 | `scan_time` | `string` | ISO 8601 timestamp of when the resource was scanned. |

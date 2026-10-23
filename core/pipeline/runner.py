@@ -89,6 +89,7 @@ def run_pipeline(
         activity_days=scan.activity_lookback_days,
         activity_mode=scan.activity_lookup,
         concurrency=scan.adapter_concurrency,
+        states=loop._baseline.states,
     )
     ranked = rank_for_triage(evidence)
 

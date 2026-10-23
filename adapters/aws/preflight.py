@@ -235,6 +235,7 @@ def run_preflight(
         re.search(QueryString="*", MaxResults=1)
         add(PreflightCheck("P7_SEARCH_PERMISSION", "ok", "Search is permitted."))
         _check_cost_data(session, add)
+        _check_state_access(session, aggregator_region, add)
     except (ClientError, BotoCoreError) as exc:
         if _denied(exc):
             add(
@@ -284,5 +285,31 @@ def _check_cost_data(session, add) -> None:
             "is unavailable.",
             "Enable resource-level data in the payer account's Cost Explorer "
             "settings, then re-run.",
+        )
+    )
+
+
+def _check_state_access(session, region: str, add) -> None:
+    """Rules for unattached volumes and unused IPs need two EC2 Describe calls."""
+    client = session.client("ec2", region_name=region, config=BOTO_TIMEOUT_CONFIG)
+    denied: list[str] = []
+    for action, call in (
+        ("ec2:DescribeVolumes", lambda: client.describe_volumes(MaxResults=5)),
+        ("ec2:DescribeAddresses", lambda: client.describe_addresses()),
+    ):
+        try:
+            call()
+        except (ClientError, BotoCoreError):
+            denied.append(action)
+    if not denied:
+        add(PreflightCheck("P9_STATE_ACCESS", "ok", "EC2 Describe access works."))
+        return
+    add(
+        PreflightCheck(
+            "P9_STATE_ACCESS",
+            "warn",
+            f"Missing {', '.join(denied)}: detection of unattached volumes, "
+            "unassociated Elastic IPs and stopped instances is off for this scan.",
+            f"Grant {', '.join(denied)}. " + _DOCS_HINT,
         )
     )

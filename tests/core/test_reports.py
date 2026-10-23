@@ -882,7 +882,7 @@ class TestHtmlCostBasis:
         return build_html_report(report)
 
     def test_estimated_cost_is_labelled(self):
-        assert "est.</span>" in self._html_for("estimated")
+        assert "est.</span>" in self._html_for("model_estimate")
 
     def test_billed_cost_has_no_label(self):
         assert "est.</span>" not in self._html_for("billed")
@@ -929,7 +929,7 @@ class TestHtmlPreflight:
         assert "Preflight was skipped" not in out
 
 
-def _rated(rid, cost, confidence, basis="estimated"):
+def _rated(rid, cost, confidence, basis="model_estimate"):
     f = _finding(rid, cost=cost)
     f.confidence = confidence
     f.cost_basis = basis

@@ -173,9 +173,27 @@ class AnthropicProvider(AIProvider):
             stop_reason=response.stop_reason,
             text=text,
             tool_calls=tool_calls,
-            input_tokens=getattr(usage, "input_tokens", 0) if usage else 0,
+            input_tokens=_billable_input_tokens(usage),
             output_tokens=getattr(usage, "output_tokens", 0) if usage else 0,
         )
+
+
+_CACHE_WRITE_FACTOR = 1.25  # cache writes bill at 125% of plain input
+_CACHE_READ_FACTOR = 0.10  # cache reads bill at 10%
+
+
+def _billable_input_tokens(usage: Any) -> int:
+    """Input tokens in plain-input equivalents, including cached prompt tokens.
+
+    The SDK's input_tokens excludes cache writes and reads, so using it alone
+    understates spend whenever the system prompt is cached.
+    """
+    if not usage:
+        return 0
+    plain = getattr(usage, "input_tokens", 0) or 0
+    written = getattr(usage, "cache_creation_input_tokens", 0) or 0
+    read = getattr(usage, "cache_read_input_tokens", 0) or 0
+    return int(round(plain + written * _CACHE_WRITE_FACTOR + read * _CACHE_READ_FACTOR))
 
 
 def _accepts_temperature(create: Any) -> bool:

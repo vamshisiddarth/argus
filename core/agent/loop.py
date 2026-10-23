@@ -666,7 +666,9 @@ def _attach_cost_basis(
     findings: list[ResourceFinding], costs: dict[str, float]
 ) -> list[ResourceFinding]:
     for f in findings:
-        f.cost_basis = "billed" if costs.get(f.resource_id, 0.0) > 0 else "estimated"
+        f.cost_basis = (
+            "billed" if costs.get(f.resource_id, 0.0) > 0 else "model_estimate"
+        )
     return findings
 
 

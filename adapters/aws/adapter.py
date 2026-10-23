@@ -7,6 +7,7 @@ import boto3
 
 from adapters.aws import auth, cloudtrail, cloudwatch, cost_explorer, resource_explorer
 from adapters.aws.preflight import run_preflight
+from adapters.aws.state import collect_state
 from adapters.base import CloudAdapter, MetricSummary, Resource
 from core.models.preflight import PreflightResult
 
@@ -52,6 +53,9 @@ class AWSAdapter(CloudAdapter):
         self.discovery_complete = found.complete
         self.filtered_by_type = found.filtered_by_type
         return found.resources
+
+    def collect_state(self, resources: list[Resource]) -> dict[str, dict]:
+        return collect_state(self._session, resources)
 
     def get_metrics(
         self,

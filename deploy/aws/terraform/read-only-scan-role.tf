@@ -40,6 +40,8 @@ resource "aws_iam_role_policy" "argus_scan" {
         "ce:GetCostAndUsageWithResources",
         "cloudtrail:LookupEvents",
         "ec2:DescribeInstances",
+        "ec2:DescribeVolumes",
+        "ec2:DescribeAddresses",
         "rds:DescribeDBInstances",
         "rds:DescribeDBClusters",
         "elasticache:DescribeCacheClusters",

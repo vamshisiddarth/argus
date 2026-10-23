@@ -220,6 +220,13 @@ resource-level data in the PAYER account: Cost Management > Cost Explorer settin
 Resource-level data. Resource-level data covers only the last 14 days, so Argus
 requests at most 14 days of it.
 
+### P9_STATE_ACCESS
+
+Warning: the scan role cannot call `ec2:DescribeVolumes` and/or `ec2:DescribeAddresses`.
+Scans still run, but the rules that find unattached EBS volumes, unassociated Elastic
+IPs and stopped instances are off, because those wastes leave no metric trace. Add the
+named actions to the role (see [IAM Permissions](iam-permissions.md)).
+
 ### Resource Explorer's 1,000-result limit
 
 Resource Explorer `Search` returns at most 1,000 results in total. On larger accounts Argus logs `resource_explorer_search_limit` and the report's `coverage.discovered` can understate the real inventory. Scan per aggregator scope or exclude regions (`IGNORE_REGIONS`) to stay under the limit.

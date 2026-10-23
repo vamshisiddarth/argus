@@ -20,6 +20,7 @@ from adapters.base import CloudAdapter, Resource
 
 logger = structlog.get_logger(__name__)
 
+_STATE_HIDDEN = frozenset({"kind", "created", "launched"})
 _MAX_TAGS = 6
 _MAX_TAG_VALUE = 40
 _ACTIVITY_WORKERS = 2  # CloudTrail LookupEvents allows about 2 requests/second
@@ -34,6 +35,7 @@ class Evidence:
     metrics_note: str | None = None
     last_activity: datetime | None = None
     activity_checked: bool = False
+    state: dict[str, Any] | None = None
 
     def to_prompt(self, index: int) -> dict[str, Any]:
         """Compact JSON line for the model. `i` is how the model refers back to it."""
@@ -57,6 +59,12 @@ class Evidence:
             line["m"] = usable
         if self.metrics_status != "ok":
             line["ms"] = self.metrics_status
+        if self.state:
+            line["st"] = {
+                k: v
+                for k, v in self.state.items()
+                if v is not None and k not in _STATE_HIDDEN
+            }
         if self.activity_checked:
             line["la"] = (
                 self.last_activity.date().isoformat()
@@ -76,6 +84,7 @@ def collect_evidence(
     activity_mode: str = "auto",
     activity_cap: int = 150,
     concurrency: int = 10,
+    states: dict[str, dict[str, Any]] | None = None,
 ) -> list[Evidence]:
     """Evidence for every resource, in input order.
 
@@ -89,6 +98,7 @@ def collect_evidence(
         ev = Evidence(
             resource=resource,
             billed_cost_usd=costs.get(resource.resource_id) or None,
+            state=(states or {}).get(resource.resource_id),
         )
         try:
             summary = adapter.get_metrics(
