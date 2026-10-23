@@ -60,7 +60,7 @@ configure_logging()
 logger = structlog.get_logger(__name__)
 
 
-def main() -> None:
+def main() -> dict[str, Any]:
     """Entry point for the Cloud Run Job. Runs once and exits."""
     cloud = "gcp"
     try:
@@ -164,6 +164,14 @@ def main() -> None:
         raise strict_error
     if not delivered:
         sys.exit(1)
+    return {
+        "statusCode": 200,
+        "scan_id": report["scan_id"],
+        "findings_count": report["findings_count"],
+        "total_estimated_waste_usd": report["total_estimated_waste_usd"],
+        "budget_exceeded": False,
+        "coverage": meta.summary(),
+    }
 
 
 # ---------------------------------------------------------------------------

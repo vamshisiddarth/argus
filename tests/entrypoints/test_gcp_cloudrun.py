@@ -689,3 +689,41 @@ class TestMultiProjectAgentFailure:
         )
 
         assert isinstance(exc, AgentDidNotSubmitError)
+
+
+class TestMainReturnsASummary:
+    def test_gcp_main_returns_scan_summary_with_coverage(self, monkeypatch):
+        from contextlib import ExitStack
+
+        from core.models.coverage import Coverage, TypeCoverage
+
+        monkeypatch.setenv("GCP_PROJECT_ID", "proj-a")
+        monkeypatch.delenv("GCP_PROJECT_IDS", raising=False)
+        monkeypatch.delenv("ACCOUNTS_MODE", raising=False)
+        with ExitStack() as stack:
+            stack.enter_context(patch("entrypoints.gcp_cloudrun.notify_all"))
+            stack.enter_context(
+                patch("entrypoints.gcp_cloudrun.build_slack_payload", return_value={})
+            )
+            stack.enter_context(
+                patch(
+                    "entrypoints.gcp_cloudrun.build_report",
+                    return_value=_fake_report(),
+                )
+            )
+            loop_cls = stack.enter_context(patch("entrypoints.gcp_cloudrun.AgentLoop"))
+            stack.enter_context(patch("entrypoints.gcp_cloudrun.GCPAdapter"))
+            stack.enter_context(patch("entrypoints.gcp_cloudrun._build_ai_provider"))
+            loop = _make_mock_loop()
+            loop.coverage = Coverage(
+                10, 4, "cost_desc", True, ["r"], {"T": TypeCoverage(10, 4)}
+            )
+            loop_cls.return_value = loop
+            from entrypoints.gcp_cloudrun import main
+
+            result = main()
+
+        assert result["statusCode"] == 200
+        assert result["coverage"]["discovered"] == 10
+        assert result["coverage"]["analysed"] == 4
+        assert result["budget_exceeded"] is False
