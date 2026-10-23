@@ -22,6 +22,9 @@ class AWSAdapter(CloudAdapter):
         adapter = AWSAdapter(session)
     """
 
+    # GetCostAndUsageWithResources only holds the last 14 days
+    max_cost_days: int | None = 14
+
     def __init__(
         self,
         session: boto3.Session,

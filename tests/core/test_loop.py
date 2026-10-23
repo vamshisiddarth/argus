@@ -207,8 +207,9 @@ class TestAgentLoopHappyPath:
         # Second call: AI-requested get_cost with its chosen IDs
         assert adapter.get_cost.call_count == 2
         # Verify the AI-requested call went through correctly
+        # the scan's cost window (default 14 days) overrides what the model asks for
         adapter.get_cost.assert_called_with(
-            resource_ids=["nat-0abc123", "alb-xyz"], days=30
+            resource_ids=["nat-0abc123", "alb-xyz"], days=14
         )
 
     def test_empty_findings_when_nothing_idle(self):

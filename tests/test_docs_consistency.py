@@ -150,3 +150,15 @@ def test_report_schema_documents_the_new_fields():
 
 def test_roadmap_no_longer_lists_fixed_gaps():
     assert "BEDROCK_MAX_TOKENS` is ignored" not in _read("docs/roadmap.md")
+
+
+def test_day_window_settings_are_documented():
+    env_vars = _read("docs/reference/env-vars.md")
+    readme = _read("README.md")
+    schema = _read("docs/reference/report-schema.md")
+    changelog = _read("CHANGELOG.md").split("## v0.7.0", 1)[1].split("\n## v", 1)[0]
+    for var in ("COST_LOOKBACK_DAYS", "ACTIVITY_LOOKBACK_DAYS"):
+        assert var in env_vars, var
+    for flag in ("--cost-days", "--activity-days"):
+        assert flag in readme and flag in changelog, flag
+    assert "activity_lookback_days" in schema

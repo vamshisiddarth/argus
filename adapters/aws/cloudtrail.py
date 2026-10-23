@@ -8,6 +8,7 @@ from botocore.exceptions import ClientError
 
 from adapters.aws.config import BOTO_TIMEOUT_CONFIG
 from adapters.aws.retry import retry_on_transient
+from core.config import get_settings
 
 logger = structlog.get_logger(__name__)
 
@@ -21,7 +22,8 @@ def get_last_activity(
 ) -> datetime | None:
     """
     Return the timestamp of the most recent CloudTrail event for a resource.
-    Returns None if no activity was found in the last 90 days.
+    Returns None if no activity was found in the configured window (default 90
+    days, the most CloudTrail LookupEvents can see).
 
     Uses the resource name (extracted from ARN) as the lookup attribute
     since CloudTrail indexes by resource name, not full ARN.
@@ -33,7 +35,8 @@ def get_last_activity(
     )
 
     end_time = datetime.now(tz=timezone.utc)
-    start_time = end_time - timedelta(days=_LOOKBACK_DAYS)
+    window = min(get_settings().scan.activity_lookback_days, _LOOKBACK_DAYS)
+    start_time = end_time - timedelta(days=window)
 
     try:
         response = retry_on_transient(
