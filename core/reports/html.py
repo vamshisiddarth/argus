@@ -284,6 +284,12 @@ def _build_rows(findings: list[dict[str, Any]]) -> str:
 
         display_name = name or resource_id
         cost_class = f"cost-{priority}"
+        detected_by = html.escape(f.get("detected_by") or "")
+        detected_html = (
+            f'<br><span class="detail-label">Detected by:</span>{detected_by}'
+            if detected_by
+            else ""
+        )
         confidence = html.escape(f.get("confidence") or "")
         confidence_html = (
             f'<br><span class="muted" style="font-size:11px">confidence: {confidence}</span>'
@@ -311,7 +317,7 @@ def _build_rows(findings: list[dict[str, Any]]) -> str:
 <tr class="detail-row">
   <td colspan="7"><div class="detail-inner">
     <span class="detail-label">Why idle:</span>{waste_reason}<br>
-    <span class="detail-label">Recommendation:</span>{recommendation}
+    <span class="detail-label">Recommendation:</span>{recommendation}{detected_html}
   </div></td>
 </tr>"""
         )

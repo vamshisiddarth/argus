@@ -197,6 +197,7 @@ class ScanSettings(BaseSettings):
     max_iterations: int = Field(50, alias="MAX_AGENT_ITERATIONS")
     llm_budget_usd: float = Field(2.0, alias="LLM_BUDGET_USD")
     strict_coverage: bool = Field(False, alias="STRICT_COVERAGE")
+    baseline_rules: bool = Field(True, alias="ARGUS_BASELINE_RULES")
     skip_preflight: bool = Field(False, alias="ARGUS_SKIP_PREFLIGHT")
     expect_account: str | None = Field(None, alias="ARGUS_EXPECT_ACCOUNT")
     exclude_tags: str = Field("", alias="EXCLUDE_TAGS")

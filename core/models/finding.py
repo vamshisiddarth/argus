@@ -41,6 +41,8 @@ class ResourceFinding:
     # "low" | "medium" | "high". Forced to "low" by the agent loop when the
     # metrics behind the finding were unavailable.
     confidence: str | None = None
+    # "model" for AI findings, "rule:<id>" for deterministic baseline rules.
+    detected_by: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -64,6 +66,7 @@ class ResourceFinding:
             "account_name": self.account_name,
             "cost_basis": self.cost_basis,
             "confidence": self.confidence,
+            "detected_by": self.detected_by,
         }
 
     @classmethod
@@ -91,4 +94,5 @@ class ResourceFinding:
             account_name=data.get("account_name"),
             cost_basis=data.get("cost_basis"),
             confidence=data.get("confidence"),
+            detected_by=data.get("detected_by"),
         )

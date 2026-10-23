@@ -99,11 +99,26 @@ the metrics are unavailable, which is NOT zero usage. For those resources write
 confidence to low, and lower the priority. Set confidence on every finding."""
 
 
+def _rule_findings_section(ids: list[str] | None) -> str:
+    if not ids:
+        return ""
+    shown = ", ".join(ids[:40])
+    more = f" (and {len(ids) - 40} more)" if len(ids) > 40 else ""
+    return f"""
+RULE-BASED FINDINGS
+───────────────────
+{len(ids)} resource(s) were already identified as idle by deterministic rules and
+are reported automatically: {shown}{more}.
+Do not call tools on them and do not include them in submit_findings.
+"""
+
+
 def build_system_prompt(
     cloud: str,
     ignore_regions: list[str],
     accounts: list[dict],
     lookback_days: int = 90,
+    rule_finding_ids: list[str] | None = None,
 ) -> str:
     """
     Build the agent system prompt. Injected once per scan — not per iteration.
@@ -149,7 +164,7 @@ WHAT TO LOOK FOR
 {_window_section(lookback_days)}
 
 {_NO_DATA_RULE}
-
+{_rule_findings_section(rule_finding_ids)}
 {_RIGHT_SIZING_RULES}
 
 {_PRIORITY_RULES}
