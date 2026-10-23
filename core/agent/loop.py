@@ -565,7 +565,7 @@ def _lookback_days() -> int:
     return get_settings().scan.metrics_lookback_days
 
 
-_COST_LOOKBACK_DAYS = 30  # adapter get_cost default
+_COST_LOOKBACK_DAYS = 14  # resource-level Cost Explorer data covers 14 days
 
 
 def _scan_window(has_cost: bool) -> dict[str, Any]:

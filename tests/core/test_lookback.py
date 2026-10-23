@@ -98,7 +98,7 @@ def test_scan_window_reports_real_window_and_cost_basis(monkeypatch):
     loop._prefilter_resources([])
     assert loop.scan_window == {
         "metrics_lookback_days": 14,
-        "cost_lookback_days": 30,
+        "cost_lookback_days": 14,
         "cost_basis": "billed",
     }
 
