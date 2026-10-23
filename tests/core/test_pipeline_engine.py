@@ -320,3 +320,33 @@ def test_scan_window_says_where_the_tags_came_from():
     )
 
     assert loop.scan_window["tags_source"] == "tagging_api"
+
+
+def test_the_pipeline_works_for_other_clouds_too():
+    class Gcp(Adapter):
+        pass
+
+    inst = Resource(
+        "//compute.googleapis.com/projects/p/zones/z/instances/vm1",
+        "compute.googleapis.com/Instance",
+        "gcp",
+        "us-central1-a",
+    )
+    adapter = Gcp(
+        [inst],
+        metrics={
+            inst.resource_id: MetricSummary(
+                inst.resource_id, inst.resource_type, 14, {"cpu": 0.1}
+            )
+        },
+    )
+    ai = MagicMock(spec=AIProvider)
+    ai.chat.side_effect = [_report(_f(0, estimated_monthly_cost=40.0))]
+
+    findings, summary = AgentLoop(ai, adapter).run(
+        "gcp", [], [{"id": "p", "name": "p"}]
+    )
+
+    assert [f.cloud for f in findings] == ["gcp"]
+    assert findings[0].resource_type == "compute.googleapis.com/Instance"
+    assert "GCP" in ai.chat.call_args.kwargs["system_prompt"]
