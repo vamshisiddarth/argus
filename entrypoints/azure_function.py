@@ -55,7 +55,7 @@ configure_logging()
 logger = structlog.get_logger(__name__)
 
 
-def main(mytimer: Any) -> None:
+def main(mytimer: Any) -> dict[str, Any] | None:
     """
     Azure Function timer trigger entry point.
 
@@ -166,6 +166,14 @@ def main(mytimer: Any) -> None:
         import sys
 
         sys.exit(1)
+    return {
+        "statusCode": 200,
+        "scan_id": report["scan_id"],
+        "findings_count": report["findings_count"],
+        "total_estimated_waste_usd": report["total_estimated_waste_usd"],
+        "budget_exceeded": False,
+        "coverage": meta.summary(),
+    }
 
 
 def _get_subscription_ids() -> tuple[list[str], dict[str, str]]:
