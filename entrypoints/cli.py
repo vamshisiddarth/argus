@@ -308,36 +308,38 @@ def main(argv: list[str] | None = None) -> None:
     )
     scan_parser.add_argument(
         "--cloud",
-        default=None,
+        default=argparse.SUPPRESS,
         choices=["aws", "gcp", "azure"],
         help="Cloud provider (auto-detected from env vars if omitted)",
     )
     scan_parser.add_argument(
         "--dry-run",
+        default=argparse.SUPPRESS,
         action="store_true",
         help="Log the Slack payload instead of posting it",
     )
     scan_parser.add_argument(
         "--ignore-regions",
-        default=os.environ.get("IGNORE_REGIONS", ""),
+        default=argparse.SUPPRESS,
         dest="ignore_regions",
         metavar="REGIONS",
         help="Comma-separated regions to exclude (default: none)",
     )
     scan_parser.add_argument(
         "--primary-region",
-        default=os.environ.get("PRIMARY_REGION", "us-east-1"),
+        default=argparse.SUPPRESS,
         dest="primary_region",
         help="AWS region for boto3/Bedrock (default: us-east-1)",
     )
     scan_parser.add_argument(
         "--ai-provider",
-        default=os.environ.get("AI_PROVIDER", "anthropic"),
+        default=argparse.SUPPRESS,
         choices=["anthropic", "bedrock", "vertexai", "azure_openai"],
         help="AI provider (default: anthropic)",
     )
     scan_parser.add_argument(
         "--accounts",
+        default=argparse.SUPPRESS,
         metavar="PATH",
         help="Path to accounts.yaml for multi-account mode",
     )
@@ -361,7 +363,7 @@ def main(argv: list[str] | None = None) -> None:
     )
     scan_parser.add_argument(
         "--llm-budget",
-        default=os.environ.get("LLM_BUDGET_USD", "2.0"),
+        default=argparse.SUPPRESS,
         dest="llm_budget",
         type=float,
         metavar="USD",
@@ -432,22 +434,22 @@ def main(argv: list[str] | None = None) -> None:
 
     args = parser.parse_args(argv)
 
-    # Backward compat: argus --run-now --cloud aws → treat as scan
+    # Backward compat: argus --run-now --cloud aws -> treat as scan
     if args.run_now and not args.command:
         args.command = "scan"
+
+    if args.command == "scan":
+        # Options may be given before or after "scan"; fill whatever is still unset.
         if args.ignore_regions is None:
             args.ignore_regions = os.environ.get("IGNORE_REGIONS", "")
         if args.primary_region is None:
             args.primary_region = os.environ.get("PRIMARY_REGION", "us-east-1")
         if args.ai_provider is None:
             args.ai_provider = os.environ.get("AI_PROVIDER", "anthropic")
-        if args.lookback_days is None:
+        if getattr(args, "lookback_days", None) is None:
             args.lookback_days = int(os.environ.get("METRICS_LOOKBACK_DAYS", "90"))
         if args.llm_budget is None:
             args.llm_budget = float(os.environ.get("LLM_BUDGET_USD", "2.0"))
-
-    if args.command == "scan" and getattr(args, "lookback_days", None) is None:
-        args.lookback_days = int(os.environ.get("METRICS_LOOKBACK_DAYS", "90"))
 
     if not args.command:
         parser.print_help()

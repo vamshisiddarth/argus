@@ -37,6 +37,7 @@ import structlog
 from adapters.azure.adapter import AzureAdapter
 from core.agent.loop import AgentLoop
 from core.config import get_settings
+from core.errors import StrictCoverageError
 from core.log import configure_logging
 from core.registry import get_registry
 from core.reports.comparison import compare_scans
@@ -101,7 +102,12 @@ def main(mytimer: Any) -> None:
     )
     meta = ScanMeta()
     meta.add_loop(loop)
-    meta.enforce_strict(get_settings().scan.strict_coverage)
+    strict_error: Exception | None = None
+    try:
+        meta.enforce_strict(get_settings().scan.strict_coverage)
+    except StrictCoverageError as exc:
+        # Keep going: the scan was paid for, so write and deliver the report first.
+        strict_error = exc
 
     storage_account = os.environ.get("REPORT_STORAGE_ACCOUNT", "").strip()
     previous_report = _load_previous_report(cloud, storage_account)
@@ -154,6 +160,8 @@ def main(mytimer: Any) -> None:
         import sys
 
         sys.exit(2)
+    if strict_error is not None:
+        raise strict_error
     if not delivered:
         import sys
 

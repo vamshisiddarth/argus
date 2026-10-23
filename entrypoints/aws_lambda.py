@@ -30,7 +30,11 @@ from botocore.exceptions import ClientError
 from adapters.aws.adapter import AWSAdapter
 from core.agent.loop import AgentLoop
 from core.config import get_settings
-from core.errors import AgentDidNotSubmitError, PreflightFailedError
+from core.errors import (
+    AgentDidNotSubmitError,
+    PreflightFailedError,
+    StrictCoverageError,
+)
 from core.log import configure_logging
 from core.models.finding import ResourceFinding
 from core.models.preflight import PreflightResult
@@ -92,7 +96,12 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
                 ai_provider, ignore_regions, primary_region, cloud, meta
             )
         )
-    meta.enforce_strict(get_settings().scan.strict_coverage)
+    strict_error: Exception | None = None
+    try:
+        meta.enforce_strict(get_settings().scan.strict_coverage)
+    except StrictCoverageError as exc:
+        # Keep going: the scan was paid for, so write and deliver the report first.
+        strict_error = exc
 
     s3_bucket = os.environ.get("REPORT_S3_BUCKET", "").strip()
     previous_report = _load_previous_report(cloud, s3_bucket)
@@ -141,6 +150,9 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         budget_exceeded=budget_exceeded,
         slack_delivered=delivered and not get_settings().report.dry_run,
     )
+
+    if strict_error is not None and not budget_exceeded:
+        raise strict_error
 
     if not delivered:
         raise RuntimeError(
