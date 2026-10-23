@@ -170,17 +170,34 @@ def discover(
     filtered = dict(first_filtered)
     complete = True
     regions = set(session.get_available_regions("resource-explorer-2")) | {"global"}
+    supported: dict[str, list[str]] | None | bool = False  # False = not fetched yet
     for region in sorted(regions - ignore_set):
         items, total, skipped = _search(client, f"region:{region}", ignore_set)
         by_arn.update({r.resource_id: r for r in items})
         filtered.update(skipped)
-        if total >= _SEARCH_RESULT_LIMIT:
+        if total < _SEARCH_RESULT_LIMIT:
+            continue
+        if supported is False:
+            supported = _supported_types(client)
+        logger.warning(
+            "resource_explorer_region_limit",
+            region=region,
+            results=total,
+            msg="Region has 1,000+ results; splitting by service.",
+        )
+        seen = {
+            n.split(":")[0]
+            for n in [r.native_type or "" for r in items] + list(skipped.values())
+        }
+        ok = _split_region(
+            client, region, ignore_set, supported or None, seen, by_arn, filtered
+        )
+        if not ok:
             complete = False
             logger.warning(
-                "resource_explorer_region_limit",
+                "resource_explorer_region_incomplete",
                 region=region,
-                results=total,
-                msg="Region still has 1,000+ results; some are not discovered.",
+                msg="Some services in this region still exceed 1,000 results.",
             )
 
     logger.info(
@@ -192,6 +209,53 @@ def discover(
         complete=complete,
     )
     return Discovery(list(by_arn.values()), complete, filtered)
+
+
+def _supported_types(client: Any) -> dict[str, list[str]] | None:
+    """{service: [resource types]} from Resource Explorer, or None if not allowed."""
+    out: dict[str, list[str]] = {}
+    try:
+        for page in client.get_paginator("list_supported_resource_types").paginate():
+            for entry in page.get("ResourceTypes", []):
+                out.setdefault(entry["Service"], []).append(entry["ResourceType"])
+    except ClientError:
+        return None
+    return out
+
+
+def _split_region(
+    client: Any,
+    region: str,
+    ignore_set: set[str],
+    supported: dict[str, list[str]] | None,
+    seen_services: set[str],
+    by_arn: dict[str, Resource],
+    filtered: dict[str, str],
+) -> bool:
+    """Search a full region service by service (then type by type). True if complete."""
+    services = sorted(supported) if supported else sorted(seen_services)
+    # Without the list of supported services we only know the ones already seen, so
+    # we can never prove nothing is missing.
+    complete = bool(supported)
+    for service in services:
+        items, total, skipped = _search(
+            client, f"region:{region} service:{service}", ignore_set
+        )
+        by_arn.update({r.resource_id: r for r in items})
+        filtered.update(skipped)
+        if total < _SEARCH_RESULT_LIMIT:
+            continue
+        for rtype in sorted((supported or {}).get(service, [])):
+            items, total, skipped = _search(
+                client, f"region:{region} resourcetype:{rtype}", ignore_set
+            )
+            by_arn.update({r.resource_id: r for r in items})
+            filtered.update(skipped)
+            if total >= _SEARCH_RESULT_LIMIT:
+                complete = False
+        if not (supported or {}).get(service):
+            complete = False
+    return complete
 
 
 def _search(

@@ -21,6 +21,7 @@ the templates creates them for you.
         "resource-explorer-2:Search",
         "resource-explorer-2:GetView",
         "resource-explorer-2:ListIndexes",
+        "resource-explorer-2:ListSupportedResourceTypes",
         "resource-explorer-2:GetIndex",
         "resource-explorer-2:GetDefaultView",
         "resource-explorer-2:ListViews",

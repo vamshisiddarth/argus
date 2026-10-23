@@ -48,6 +48,7 @@ Resources:
                   - resource-explorer-2:GetDefaultView
                   - resource-explorer-2:ListViews
                   - resource-explorer-2:ListIndexes
+                  - resource-explorer-2:ListSupportedResourceTypes
                   - resource-explorer-2:GetIndex
                 Resource: "*"
               - Sid: CostExplorer
