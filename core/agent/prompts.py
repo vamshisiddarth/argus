@@ -76,11 +76,12 @@ REGIONS
 {regions_note}"""
 
 
-def _window_section(lookback_days: int) -> str:
+def _window_section(lookback_days: int, activity_days: int = 90) -> str:
     text = (
         "WINDOW\n──────\n"
         f"Metrics cover the past {lookback_days} days. Always cite this window in "
-        "waste_reason (never a different number of days)."
+        "waste_reason (never a different number of days). The last-activity lookup "
+        f"covers the past {activity_days} days."
     )
     if lookback_days < 90:
         text += (
@@ -119,6 +120,7 @@ def build_system_prompt(
     accounts: list[dict],
     lookback_days: int = 90,
     rule_finding_ids: list[str] | None = None,
+    activity_days: int = 90,
 ) -> str:
     """
     Build the agent system prompt. Injected once per scan — not per iteration.
@@ -161,7 +163,7 @@ WHAT TO LOOK FOR
 - Over-provisioned resources (large instance, near-zero load) — see RIGHT-SIZING below
 - Duplicate or redundant resources (multiple similar resources, one unused)
 
-{_window_section(lookback_days)}
+{_window_section(lookback_days, activity_days)}
 
 {_NO_DATA_RULE}
 {_rule_findings_section(rule_finding_ids)}
@@ -266,7 +268,7 @@ Never recommend deletion without stating impact and cost savings.
 """
 
 
-def build_tool_schemas(lookback_days: int = 90) -> list[dict]:
+def build_tool_schemas(lookback_days: int = 90, cost_days: int = 14) -> list[dict]:
     """
     Return the tool definitions used to register tools with the AI provider.
     Kept here alongside the prompt so both evolve together.
@@ -336,7 +338,8 @@ def build_tool_schemas(lookback_days: int = 90) -> list[dict]:
         {
             "name": "get_cost",
             "description": (
-                "Get the actual cost in USD for one or more resources over the past N days. "
+                "Get the actual cost in USD for one or more resources over the past "
+                f"{cost_days} days (fixed for this scan). "
                 "ALWAYS batch multiple resource IDs into a single call — never call this "
                 "one resource at a time. Returns a dict mapping resource_id to monthly cost."
             ),
@@ -350,8 +353,11 @@ def build_tool_schemas(lookback_days: int = 90) -> list[dict]:
                     },
                     "days": {
                         "type": "integer",
-                        "description": "Lookback window in days (default: 30)",
-                        "default": 30,
+                        "description": (
+                            f"Optional. The scan fixes the window at {cost_days} "
+                            "days regardless of this value."
+                        ),
+                        "default": cost_days,
                     },
                 },
                 "required": ["resource_ids"],
@@ -475,8 +481,10 @@ def build_tool_schemas(lookback_days: int = 90) -> list[dict]:
     ]
 
 
-def build_chat_tool_schemas(lookback_days: int = 90) -> list[dict]:
+def build_chat_tool_schemas(lookback_days: int = 90, cost_days: int = 14) -> list[dict]:
     """Chat mode tools — same as batch minus submit_findings."""
     return [
-        t for t in build_tool_schemas(lookback_days) if t["name"] != "submit_findings"
+        t
+        for t in build_tool_schemas(lookback_days, cost_days)
+        if t["name"] != "submit_findings"
     ]

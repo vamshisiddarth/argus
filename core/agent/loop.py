@@ -107,7 +107,9 @@ class AgentLoop:
                 description=t["description"],
                 input_schema=t["input_schema"],
             )
-            for t in build_tool_schemas(lookback_days=_lookback_days())
+            for t in build_tool_schemas(
+                lookback_days=_lookback_days(), cost_days=_cost_days(cloud_adapter)
+            )
         ]
 
     def run(
@@ -137,6 +139,7 @@ class AgentLoop:
             ignore_regions=ignore_regions,
             accounts=accounts,
             lookback_days=_lookback_days(),
+            activity_days=get_settings().scan.activity_lookback_days,
             rule_finding_ids=sorted(self._baseline.finding_ids),
         )
 
@@ -377,14 +380,16 @@ class AgentLoop:
             self._prefiltered_payload = []
             self.coverage = Coverage.empty()
             self._baseline = BaselineResult()
-            self.scan_window = _scan_window(has_cost=False)
+            self.scan_window = _scan_window(has_cost=False, adapter=self._adapter)
             logger.info("prefilter_complete", discovered=0, sent_to_ai=0)
             return []
 
         # Batch cost fetch — one API call for all resource IDs
         resource_ids = [r.resource_id for r in resources]
         try:
-            costs = self._adapter.get_cost(resource_ids=resource_ids)
+            costs = self._adapter.get_cost(
+                resource_ids=resource_ids, days=_cost_days(self._adapter)
+            )
         except Exception as exc:  # noqa: BLE001
             logger.warning("prefilter_cost_fetch_failed", error=str(exc))
             costs = {}
@@ -392,7 +397,9 @@ class AgentLoop:
         # Deterministic cap: never drops a whole resource type (see selection.py)
         self._costs = costs
         self._resource_tags = {r.resource_id: dict(r.tags) for r in resources}
-        self.scan_window = _scan_window(has_cost=any(v > 0 for v in costs.values()))
+        self.scan_window = _scan_window(
+            has_cost=any(v > 0 for v in costs.values()), adapter=self._adapter
+        )
         scan_cfg = get_settings().scan
         cap = scan_cfg.max_resources
         self.scan_window["max_resources"] = cap
@@ -501,7 +508,8 @@ class AgentLoop:
                     )
 
                 case "get_cost":
-                    costs = self._adapter.get_cost(**tc.arguments)
+                    args = {**tc.arguments, "days": _cost_days(self._adapter)}
+                    costs = self._adapter.get_cost(**args)
                     return json.dumps(costs, default=str, separators=(",", ":")), False
 
                 case "get_last_activity":
@@ -609,13 +617,18 @@ def _lookback_days() -> int:
     return get_settings().scan.metrics_lookback_days
 
 
-_COST_LOOKBACK_DAYS = 14  # resource-level Cost Explorer data covers 14 days
+def _cost_days(adapter: Any) -> int:
+    """Configured cost window, capped by what the adapter's cost data can hold."""
+    days = get_settings().scan.cost_lookback_days
+    limit = getattr(adapter, "max_cost_days", None)
+    return min(days, limit) if isinstance(limit, int) else days
 
 
-def _scan_window(has_cost: bool) -> dict[str, Any]:
+def _scan_window(has_cost: bool, adapter: Any = None) -> dict[str, Any]:
     return {
         "metrics_lookback_days": _lookback_days(),
-        "cost_lookback_days": _COST_LOOKBACK_DAYS,
+        "cost_lookback_days": _cost_days(adapter),
+        "activity_lookback_days": get_settings().scan.activity_lookback_days,
         "cost_basis": "billed" if has_cost else "unavailable",
     }
 

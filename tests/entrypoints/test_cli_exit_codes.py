@@ -20,6 +20,8 @@ _SCAN_ENV_VARS = (
     "STRICT_COVERAGE",
     "METRICS_LOOKBACK_DAYS",
     "MAX_RESOURCES_PER_SCAN",
+    "COST_LOOKBACK_DAYS",
+    "ACTIVITY_LOOKBACK_DAYS",
     "IGNORE_REGIONS",
     "PRIMARY_REGION",
     "AI_PROVIDER",
@@ -337,3 +339,45 @@ class TestEveryScanFlagWorksBeforeTheSubcommand:
         assert os.environ["PRIMARY_REGION"] == "us-east-1"
         assert os.environ["LLM_BUDGET_USD"] == "2.0"
         assert os.environ["AI_PROVIDER"] == "anthropic"
+
+
+class TestDayWindowFlags:
+    CASES = [
+        (["--lookback-days", "14"], "METRICS_LOOKBACK_DAYS", "14"),
+        (["--cost-days", "7"], "COST_LOOKBACK_DAYS", "7"),
+        (["--activity-days", "30"], "ACTIVITY_LOOKBACK_DAYS", "30"),
+    ]
+
+    @patch("entrypoints.aws_lambda.handler")
+    def test_flags_work_before_and_after_the_subcommand(self, mock_handler):
+        import os
+
+        mock_handler.return_value = {"statusCode": 200}
+        for flags, var, expected in self.CASES:
+            for argv in (
+                [*flags, "scan", "--cloud", "aws"],
+                ["scan", "--cloud", "aws", *flags],
+            ):
+                os.environ.pop(var, None)
+                _scan(argv)
+                assert os.environ[var] == expected, argv
+
+    @patch("entrypoints.aws_lambda.handler")
+    def test_flags_absent_leave_the_environment_alone(self, mock_handler):
+        import os
+
+        mock_handler.return_value = {"statusCode": 200}
+        _scan(["scan", "--cloud", "aws"])
+
+        assert "COST_LOOKBACK_DAYS" not in os.environ
+        assert "ACTIVITY_LOOKBACK_DAYS" not in os.environ
+
+    @pytest.mark.parametrize("flag", ["--cost-days", "--activity-days"])
+    @pytest.mark.parametrize("value", ["0", "-1", "abc"])
+    @patch("entrypoints.aws_lambda.handler")
+    def test_invalid_values_are_rejected_by_the_parser(self, mock_handler, flag, value):
+        with pytest.raises(SystemExit) as exc:
+            _scan(["scan", "--cloud", "aws", flag, value])
+
+        assert exc.value.code == 2
+        mock_handler.assert_not_called()

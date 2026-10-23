@@ -10,7 +10,7 @@ import structlog
 
 from adapters.base import CloudAdapter
 from ai.base import AIProvider, Message, Tool, ToolResult
-from core.agent.loop import AgentLoop
+from core.agent.loop import AgentLoop, _cost_days
 from core.agent.prompts import build_chat_system_prompt, build_chat_tool_schemas
 from core.config import get_settings
 from core.registry import get_registry
@@ -70,7 +70,10 @@ class ChatSession:
                 description=t["description"],
                 input_schema=t["input_schema"],
             )
-            for t in build_chat_tool_schemas(get_settings().scan.metrics_lookback_days)
+            for t in build_chat_tool_schemas(
+                get_settings().scan.metrics_lookback_days,
+                _cost_days(cloud_adapter),
+            )
         ]
 
         self.tracker = TokenTracker(budget_usd=budget_usd, provider="anthropic")

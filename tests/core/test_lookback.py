@@ -71,8 +71,10 @@ def test_loop_fills_days_when_model_omits_it(monkeypatch):
 
 
 def test_prompt_contains_configured_window_and_no_hardcoded_90():
-    prompt = build_system_prompt("aws", [], ACCOUNTS, lookback_days=14)
-    schema = json.dumps(build_tool_schemas(lookback_days=14))
+    prompt = build_system_prompt(
+        "aws", [], ACCOUNTS, lookback_days=14, activity_days=30
+    )
+    schema = json.dumps(build_tool_schemas(lookback_days=14, cost_days=7))
 
     assert "past 14 days" in prompt
     for banned in ("Never set below 90", "Do NOT pass a days value less than 90"):

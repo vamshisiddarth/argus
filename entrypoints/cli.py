@@ -124,6 +124,24 @@ def main(argv: list[str] | None = None) -> None:
         metavar="DAYS",
     )
     parser.add_argument(
+        "--cost-days",
+        default=None,
+        dest="cost_days",
+        type=_positive_int,
+        metavar="DAYS",
+        help="Per-resource cost window in days (default: 14, the most AWS "
+        "resource-level cost data holds)",
+    )
+    parser.add_argument(
+        "--activity-days",
+        default=None,
+        dest="activity_days",
+        type=_positive_int,
+        metavar="DAYS",
+        help="Last-activity (CloudTrail) window in days (default: 90, the most "
+        "CloudTrail can look back)",
+    )
+    parser.add_argument(
         "--llm-budget",
         default=None,
         dest="llm_budget",
@@ -362,6 +380,24 @@ def main(argv: list[str] | None = None) -> None:
         help="Metrics lookback window in days (default: 90)",
     )
     scan_parser.add_argument(
+        "--cost-days",
+        default=argparse.SUPPRESS,
+        dest="cost_days",
+        type=_positive_int,
+        metavar="DAYS",
+        help="Per-resource cost window in days (default: 14, the most AWS "
+        "resource-level cost data holds)",
+    )
+    scan_parser.add_argument(
+        "--activity-days",
+        default=argparse.SUPPRESS,
+        dest="activity_days",
+        type=_positive_int,
+        metavar="DAYS",
+        help="Last-activity (CloudTrail) window in days (default: 90, the most "
+        "CloudTrail can look back)",
+    )
+    scan_parser.add_argument(
         "--llm-budget",
         default=argparse.SUPPRESS,
         dest="llm_budget",
@@ -497,6 +533,16 @@ def main(argv: list[str] | None = None) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _positive_int(value: str) -> int:
+    try:
+        number = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"{value!r} is not a whole number") from None
+    if number < 1:
+        raise argparse.ArgumentTypeError("must be at least 1")
+    return number
+
+
 def _run_scan(args: argparse.Namespace) -> None:
     os.environ["IGNORE_REGIONS"] = args.ignore_regions
     os.environ["PRIMARY_REGION"] = args.primary_region
@@ -511,6 +557,10 @@ def _run_scan(args: argparse.Namespace) -> None:
         os.environ["STRICT_COVERAGE"] = "true"
     if getattr(args, "skip_preflight", False):
         os.environ["ARGUS_SKIP_PREFLIGHT"] = "true"
+    if getattr(args, "cost_days", None):
+        os.environ["COST_LOOKBACK_DAYS"] = str(args.cost_days)
+    if getattr(args, "activity_days", None):
+        os.environ["ACTIVITY_LOOKBACK_DAYS"] = str(args.activity_days)
     if getattr(args, "expect_account", None):
         os.environ["ARGUS_EXPECT_ACCOUNT"] = args.expect_account
 
