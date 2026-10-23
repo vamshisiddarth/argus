@@ -77,4 +77,5 @@ class ScanMeta:
             "truncated": cov.truncated,
             "selection": cov.selection,
             "discovery_complete": cov.discovery_complete,
+            "free_config_skipped": cov.free_config_skipped,
         }

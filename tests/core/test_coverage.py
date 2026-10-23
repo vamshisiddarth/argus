@@ -43,6 +43,7 @@ def test_to_dict_has_documented_keys():
         "discovery_complete",
         "stop_reason",
         "skipped_by_reason",
+        "free_config_skipped",
         "regions_covered",
         "types",
     }
@@ -122,3 +123,14 @@ def test_skip_reasons_round_trip_and_merge():
     merged = Coverage.merge([a, b])
     assert merged.skipped_by_reason == {"budget": 5, "llm_failure": 1}
     assert merged.stop_reason == "budget"
+
+
+def test_free_config_count_round_trips_and_merges():
+    a = _cov(10, 10)
+    a.free_config_skipped = 70
+    b = _cov(5, 5)
+    b.free_config_skipped = 7
+
+    assert Coverage.from_dict(a.to_dict()).free_config_skipped == 70
+    assert Coverage.merge([a, b]).free_config_skipped == 77
+    assert Coverage.empty().free_config_skipped == 0

@@ -450,6 +450,7 @@ class AgentLoop:
             selection_rule,
             total_discovered,
             getattr(self._adapter, "discovery_complete", None),
+            _free_config_count(self._adapter),
         )
 
         if dropped > 0:
@@ -669,6 +670,11 @@ def _attach_cost_basis(
     return findings
 
 
+def _free_config_count(adapter: Any) -> int:
+    skipped = getattr(adapter, "filtered_by_type", None)
+    return sum(skipped.values()) if isinstance(skipped, dict) else 0
+
+
 def _build_coverage(
     discovered: list[Any],
     chosen: list[Any],
@@ -676,6 +682,7 @@ def _build_coverage(
     selection_rule: str,
     total: int,
     discovery_complete: bool | None = None,
+    free_config_skipped: int = 0,
 ) -> Coverage:
     types: dict[str, TypeCoverage] = {}
     for rtype in {r.resource_type for r in discovered}:
@@ -691,6 +698,7 @@ def _build_coverage(
         regions_covered=sorted({r.region for r in discovered if r.region}),
         types=types,
         discovery_complete=discovery_complete,
+        free_config_skipped=free_config_skipped,
     )
 
 

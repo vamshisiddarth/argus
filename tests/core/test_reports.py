@@ -1048,3 +1048,15 @@ class TestHtmlDetectedBy:
             build_report([_finding("i-1")], cloud="aws", executive_summary="x")
         )
         assert "Detected by" not in out
+
+
+class TestHtmlFreeConfig:
+    def test_skipped_free_config_objects_are_mentioned(self):
+        cov = {**_COVERAGE, "discovered": 4, "analysed": 4, "dropped": 0}
+        cov["truncated"] = False
+        cov["free_config_skipped"] = 77
+        report = build_report(
+            _sample_findings(), cloud="aws", executive_summary="x", coverage=cov
+        )
+
+        assert "77 free configuration objects" in build_html_report(report)

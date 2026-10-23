@@ -739,3 +739,13 @@ class TestLoopDiscoveryStatus:
         loop = AgentLoop(MagicMock(spec=AIProvider), FakeCloudAdapter())
         loop._prefilter_resources(IGNORE_REGIONS)
         assert loop.coverage.discovery_complete is None
+
+
+def test_react_engine_also_reports_skipped_free_config_objects():
+    class Filtering(FakeCloudAdapter):
+        filtered_by_type = {"ec2:subnet": 5}
+
+    loop = AgentLoop(MagicMock(spec=AIProvider), Filtering())
+    loop._prefilter_resources(IGNORE_REGIONS)
+
+    assert loop.coverage.free_config_skipped == 5

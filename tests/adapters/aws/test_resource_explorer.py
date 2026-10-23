@@ -7,6 +7,7 @@ from adapters.aws.resource_explorer import (
     _is_billable,
     _parse_resource,
     _parse_tags,
+    discover,
     list_resources,
     list_resources_with_status,
 )
@@ -371,3 +372,46 @@ class TestPerRegionDiscovery:
         session, _ = self._session({"*": self._raw("us-east-1", 3, "a")})
 
         assert len(list_resources(session)) == 3
+
+
+class TestFreeConfigObjectsAreCountedNotHidden:
+    def _session(self, raws):
+        client = MagicMock()
+        client.get_paginator.return_value.paginate.return_value = [{"Resources": raws}]
+        session = MagicMock()
+        session.client.return_value = client
+        session.get_available_regions.return_value = []
+        return session
+
+    def test_skipped_types_are_reported_by_type(self):
+        raws = [
+            _make_raw_resource(
+                arn="arn:aws:ec2:r:1:volume/v1", resource_type="ec2:volume"
+            ),
+            _make_raw_resource(
+                arn="arn:aws:ec2:r:1:subnet/s1", resource_type="ec2:subnet"
+            ),
+            _make_raw_resource(
+                arn="arn:aws:ec2:r:1:subnet/s2", resource_type="ec2:subnet"
+            ),
+            _make_raw_resource(arn="arn:aws:iam::1:role/r", resource_type="iam:role"),
+        ]
+
+        found = discover(self._session(raws))
+
+        assert [r.native_type for r in found.resources] == ["ec2:volume"]
+        assert found.filtered_by_type == {"ec2:subnet": 2, "iam:role": 1}
+        assert found.complete is True
+
+    def test_ignored_regions_are_not_counted_as_skipped(self):
+        raws = [
+            _make_raw_resource(
+                arn="arn:aws:ec2:eu:1:subnet/s1",
+                resource_type="ec2:subnet",
+                region="eu-west-1",
+            )
+        ]
+
+        found = discover(self._session(raws), ignore_regions=["eu-west-1"])
+
+        assert found.filtered == {}
