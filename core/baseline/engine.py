@@ -90,7 +90,9 @@ def run_baseline(
             )
     logger.info(
         "baseline_complete",
+        candidates=len(candidates),
         evaluated=len(result.evaluated_ids),
+        undecided=len(candidates) - len(result.evaluated_ids),
         findings=len(result.findings),
     )
     return result
