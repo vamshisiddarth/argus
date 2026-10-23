@@ -39,6 +39,7 @@ def run_pipeline(
     from core.agent.loop import (
         _attach_accounts,
         _build_coverage,
+        _free_config_count,
         _lookback_days,
         _resolve_confidence,
     )
@@ -137,6 +138,7 @@ def run_pipeline(
         "risk_ranked",
         len(resources),
         getattr(loop._adapter, "discovery_complete", None),
+        _free_config_count(loop._adapter),
     )
     skipped: dict[str, int] = {}
     for _, reason in triage.skipped:
@@ -213,6 +215,11 @@ def _summarise(
     tracker: TokenTracker,
 ) -> str:
     analysed = f"Analysed {coverage.analysed} of {coverage.discovered} resources."
+    if coverage.free_config_skipped:
+        analysed += (
+            f" {coverage.free_config_skipped} free configuration objects were "
+            "skipped on purpose."
+        )
     if not findings:
         body = f"No wasteful resources were identified. {analysed}"
     else:

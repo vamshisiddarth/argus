@@ -272,3 +272,17 @@ def test_the_react_engine_is_still_available(monkeypatch):
     _, summary = AgentLoop(ai, Adapter([_vol(0)])).run("aws", [], ACCOUNTS)
 
     assert summary == "react ran"
+
+
+def test_free_config_objects_skipped_by_the_adapter_are_reported():
+    class Filtering(Adapter):
+        filtered_by_type = {"ec2:subnet": 3, "iam:role": 4}
+
+    res = [_vol(0)]
+    adapter = Filtering(res, metrics={"vol-000": _ok("vol-000")})
+
+    _, summary, loop, _ = _run(adapter, [_report()])
+
+    assert loop.coverage.free_config_skipped == 7
+    assert loop.coverage.to_dict()["free_config_skipped"] == 7
+    assert "7 free configuration objects" in summary

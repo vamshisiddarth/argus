@@ -621,6 +621,10 @@ def _run_scan(args: argparse.Namespace) -> None:
             if cov.get("truncated")
             else ""
         )
+        if cov.get("free_config_skipped"):
+            note += (
+                f" [{cov['free_config_skipped']} free configuration objects skipped]"
+            )
         if cov.get("discovery_complete") is False:
             note += " [discovery incomplete: provider result limit hit]"
         print(

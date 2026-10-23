@@ -94,3 +94,47 @@ def test_timeout_is_raised_after_max_retries(mock_sleep):
 
     with pytest.raises(anthropic_sdk.APITimeoutError):
         provider.chat([Message(role="user", text="x")], [])
+
+
+class TestCachedPromptTokensAreCounted:
+    """usage.input_tokens excludes cached prompt tokens; spend must not."""
+
+    def _usage_response(self, **usage):
+        block = MagicMock(type="text", text="hi")
+        return MagicMock(
+            stop_reason="end_turn",
+            content=[block],
+            usage=MagicMock(
+                input_tokens=usage.get("input", 500),
+                output_tokens=usage.get("output", 50),
+                cache_creation_input_tokens=usage.get("creation", 0),
+                cache_read_input_tokens=usage.get("read", 0),
+            ),
+        )
+
+    def _chat(self, **usage):
+        create = MagicMock(return_value=self._usage_response(**usage))
+        provider, _, _ = _provider(create=create)
+        return provider.chat([Message(role="user", text="x")], [])
+
+    def test_uncached_usage_is_unchanged(self):
+        assert self._chat().input_tokens == 500
+
+    def test_cache_writes_cost_a_quarter_more_than_plain_input(self):
+        # 500 plain + 2000 written to cache -> 500 + 2000 * 1.25
+        assert self._chat(creation=2000).input_tokens == 3000
+
+    def test_cache_reads_cost_a_tenth(self):
+        # 500 plain + 2000 read from cache -> 500 + 2000 * 0.1
+        assert self._chat(read=2000).input_tokens == 700
+
+    def test_missing_cache_fields_do_not_break(self):
+        block = MagicMock(type="text", text="hi")
+        usage = MagicMock(spec=["input_tokens", "output_tokens"])
+        usage.input_tokens, usage.output_tokens = 10, 5
+        create = MagicMock(
+            return_value=MagicMock(stop_reason="end_turn", content=[block], usage=usage)
+        )
+        provider, _, _ = _provider(create=create)
+
+        assert provider.chat([Message(role="user", text="x")], []).input_tokens == 10

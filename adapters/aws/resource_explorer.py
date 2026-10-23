@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass, field
 from typing import Any
 
 import boto3
@@ -97,13 +98,28 @@ def _is_billable(resource_type: str) -> bool:
     return not any(lower.startswith(prefix) for prefix in _NON_BILLABLE_PREFIXES)
 
 
+@dataclass
+class Discovery:
+    resources: list[Resource]
+    complete: bool
+    # ARN -> native type of free configuration objects that were skipped on purpose
+    filtered: dict[str, str] = field(default_factory=dict)
+
+    @property
+    def filtered_by_type(self) -> dict[str, int]:
+        counts: dict[str, int] = {}
+        for native in self.filtered.values():
+            counts[native] = counts.get(native, 0) + 1
+        return dict(sorted(counts.items()))
+
+
 def list_resources(
     session: boto3.Session,
     ignore_regions: list[str] | None = None,
     aggregator_region: str = DEFAULT_AGGREGATOR_REGION,
 ) -> list[Resource]:
-    """See list_resources_with_status; returns only the resources."""
-    return list_resources_with_status(session, ignore_regions, aggregator_region)[0]
+    """See discover; returns only the resources."""
+    return discover(session, ignore_regions, aggregator_region).resources
 
 
 def list_resources_with_status(
@@ -111,13 +127,22 @@ def list_resources_with_status(
     ignore_regions: list[str] | None = None,
     aggregator_region: str = DEFAULT_AGGREGATOR_REGION,
 ) -> tuple[list[Resource], bool]:
-    """
-    Return (resources, complete) for the whole account, minus ignore_regions.
+    found = discover(session, ignore_regions, aggregator_region)
+    return found.resources, found.complete
 
-    Uses the Resource Explorer v2 aggregator index. Search returns at most 1,000
-    results per query, so when the first query comes back full the search is
-    repeated once per region (plus "global") and the results are merged by ARN.
-    `complete` is False if any single query still hit the limit.
+
+def discover(
+    session: boto3.Session,
+    ignore_regions: list[str] | None = None,
+    aggregator_region: str = DEFAULT_AGGREGATOR_REGION,
+) -> Discovery:
+    """
+    Find the account's resources through the Resource Explorer aggregator index.
+
+    Search returns at most 1,000 results per query, so when the first query comes
+    back full the search is repeated once per region (plus "global") and merged
+    by ARN. `complete` is False if any single query still hit the limit. Free
+    configuration objects are skipped and counted in `filtered`.
 
     Requires: Resource Explorer aggregator index set up in aggregator_region.
     """
@@ -126,14 +151,15 @@ def list_resources_with_status(
     )
     ignore_set = set(ignore_regions) if ignore_regions else set()
 
-    first, first_total = _search(client, "*", ignore_set)
+    first, first_total, first_filtered = _search(client, "*", ignore_set)
     if first_total < _SEARCH_RESULT_LIMIT:
         logger.info(
             "resource_explorer_search_complete",
             total=len(first),
+            filtered_free_config=len(first_filtered),
             ignored_regions=list(ignore_set),
         )
-        return first, True
+        return Discovery(first, True, first_filtered)
 
     logger.warning(
         "resource_explorer_search_limit",
@@ -141,11 +167,13 @@ def list_resources_with_status(
         msg="Search reached the 1,000-result limit; searching region by region.",
     )
     by_arn = {r.resource_id: r for r in first}
+    filtered = dict(first_filtered)
     complete = True
     regions = set(session.get_available_regions("resource-explorer-2")) | {"global"}
     for region in sorted(regions - ignore_set):
-        items, total = _search(client, f"region:{region}", ignore_set)
+        items, total, skipped = _search(client, f"region:{region}", ignore_set)
         by_arn.update({r.resource_id: r for r in items})
+        filtered.update(skipped)
         if total >= _SEARCH_RESULT_LIMIT:
             complete = False
             logger.warning(
@@ -158,18 +186,20 @@ def list_resources_with_status(
     logger.info(
         "resource_explorer_search_complete",
         total=len(by_arn),
+        filtered_free_config=len(filtered),
         ignored_regions=list(ignore_set),
         per_region=True,
         complete=complete,
     )
-    return list(by_arn.values()), complete
+    return Discovery(list(by_arn.values()), complete, filtered)
 
 
 def _search(
     client: Any, query: str, ignore_set: set[str]
-) -> tuple[list[Resource], int]:
-    """One paginated Search. Returns (billable resources, raw result count)."""
+) -> tuple[list[Resource], int, dict[str, str]]:
+    """One paginated Search: (billable resources, raw result count, skipped config)."""
     resources: list[Resource] = []
+    filtered: dict[str, str] = {}
     raw_total = 0
     try:
         paginator = client.get_paginator("search")
@@ -178,7 +208,9 @@ def _search(
                 raw_total += 1
                 if raw.get("Region") in ignore_set:
                     continue
-                if not _is_billable(raw.get("ResourceType", "")):
+                native = raw.get("ResourceType", "")
+                if not _is_billable(native):
+                    filtered[raw.get("Arn", "")] = native
                     continue
                 parsed = _parse_resource(raw)
                 if parsed:
@@ -196,7 +228,7 @@ def _search(
                 "or enable Resource Explorer manually in the AWS console."
             ) from exc
         raise
-    return resources, raw_total
+    return resources, raw_total, filtered
 
 
 def _parse_resource(raw: dict[str, Any]) -> Resource | None:

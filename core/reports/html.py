@@ -379,6 +379,9 @@ def _build_coverage_block(coverage: dict[str, Any] | None) -> str:
         return ""
     analysed, discovered = coverage["analysed"], coverage["discovered"]
     line = f"Analysed {analysed} of {discovered} resources"
+    free = coverage.get("free_config_skipped") or 0
+    if free:
+        line += f" (plus {free} free configuration objects skipped on purpose)"
     incomplete = (
         "<br><strong>Discovery incomplete:</strong> a search hit the provider's "
         "result limit, so the inventory is understated."

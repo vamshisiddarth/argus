@@ -381,3 +381,23 @@ class TestDayWindowFlags:
 
         assert exc.value.code == 2
         mock_handler.assert_not_called()
+
+
+class TestFreeConfigCli:
+    @patch("entrypoints.aws_lambda.handler")
+    def test_summary_mentions_skipped_free_config_objects(self, mock_handler, capsys):
+        mock_handler.return_value = {
+            "statusCode": 200,
+            "coverage": {
+                "discovered": 4,
+                "analysed": 4,
+                "dropped": 0,
+                "truncated": False,
+                "selection": "risk_ranked",
+                "free_config_skipped": 77,
+            },
+        }
+
+        _scan()
+
+        assert "77 free configuration objects skipped" in capsys.readouterr().err
