@@ -273,3 +273,21 @@ def test_two_runs_with_a_silent_model_give_identical_findings():
         f.to_dict()["resource_id"] for f in second
     ]
     assert len(first) == 3
+
+
+def test_baseline_log_says_how_many_candidates_could_not_be_decided():
+    from structlog.testing import capture_logs
+
+    resources = [_res("nat-1"), _res("nat-2"), _res("nat-3")]
+    answers = {
+        "nat-1": _ok("nat-1", NAT, **IDLE_NAT),
+        "nat-2": _no_data("nat-2", NAT),
+        "nat-3": RuntimeError("timeout"),
+    }
+
+    with capture_logs() as logs:
+        _run(resources, answers)
+
+    done = next(e for e in logs if e["event"] == "baseline_complete")
+    assert (done["candidates"], done["evaluated"], done["findings"]) == (3, 1, 1)
+    assert done["undecided"] == 2
