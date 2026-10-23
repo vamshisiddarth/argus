@@ -294,6 +294,7 @@ def _build_rows(findings: list[dict[str, Any]]) -> str:
 
         display_name = name or resource_id
         cost_class = f"cost-{priority}"
+        evidence_html = _evidence_html(f)
         detected_by = html.escape(f.get("detected_by") or "")
         detected_html = (
             f'<br><span class="detail-label">Detected by:</span>{detected_by}'
@@ -327,7 +328,7 @@ def _build_rows(findings: list[dict[str, Any]]) -> str:
 <tr class="detail-row">
   <td colspan="7"><div class="detail-inner">
     <span class="detail-label">Why idle:</span>{waste_reason}<br>
-    <span class="detail-label">Recommendation:</span>{recommendation}{detected_html}
+    <span class="detail-label">Recommendation:</span>{recommendation}{detected_html}{evidence_html}
   </div></td>
 </tr>"""
         )
@@ -354,6 +355,45 @@ def _build_errors_banner(
         f"    <ul>{items}</ul>\n"
         f"  </div>\n"
     )
+
+
+_EVIDENCE_SKIP = frozenset(
+    {"window_days", "has_data", "status", "metrics_status", "last_activity_checked"}
+)
+
+
+def _evidence_html(f: dict[str, Any]) -> str:
+    """One line of the facts a finding rests on, so a human can verify it fast."""
+    summary = f.get("metrics_summary") or {}
+    parts: list[str] = []
+
+    state = summary.get("state")
+    if isinstance(state, dict):
+        parts += [f"{k}={v}" for k, v in state.items() if v is not None and k != "kind"]
+
+    metrics = summary.get("metrics")
+    if metrics is None:  # reports written before schema 1.1.0 kept metrics flat
+        metrics = {
+            k: v
+            for k, v in summary.items()
+            if k not in _EVIDENCE_SKIP and k != "state" and not isinstance(v, dict)
+        }
+    parts += [f"{k}={v}" for k, v in metrics.items() if v is not None]
+
+    status = summary.get("metrics_status")
+    if status and status != "ok":
+        parts.append(f"metrics unavailable ({status})")
+    if summary.get("window_days"):
+        parts.append(f"{summary['window_days']}-day window")
+    if f.get("last_activity"):
+        parts.append(f"last activity {str(f['last_activity'])[:10]}")
+    elif summary.get("last_activity_checked"):
+        parts.append("no activity recorded")
+
+    if not parts:
+        return ""
+    text = html.escape("; ".join(parts))
+    return f'<br><span class="detail-label">Evidence:</span>{text}'
 
 
 def _build_preflight_box(preflight: dict[str, Any] | None) -> str:
@@ -441,7 +481,20 @@ def _build_type_options(findings: list[dict[str, Any]]) -> str:
     )
 
 
+_SCRIPT_UNSAFE = {
+    "<": "\\u003c",
+    ">": "\\u003e",
+    "&": "\\u0026",
+    "\u2028": "\\u2028",
+    "\u2029": "\\u2029",
+}
+
+
 def _json_data(report: dict[str, Any]) -> str:
+    """JSON for a <script> block: a value must never be able to close the tag."""
     import json
 
-    return json.dumps(report, default=str)
+    text = json.dumps(report, default=str)
+    for char, escaped in _SCRIPT_UNSAFE.items():
+        text = text.replace(char, escaped)
+    return text
