@@ -86,6 +86,7 @@ Resources:
                 Effect: Allow
                 Action:
                   - cloudtrail:LookupEvents
+                  - tag:GetResources
                 Resource: "*"
 
               # Describe APIs — fetch current instance size for right-sizing recommendations

@@ -195,7 +195,8 @@ def run_preflight(
                 (
                     f"No default view in {aggregator_region}, so search results "
                     "carry no tags and the environment:prod and argus-exempt "
-                    "safeguards cannot work."
+                    "safeguards depend on the Tagging API fallback "
+                    "(tag:GetResources) being allowed."
                     if none
                     else f"Could not read the default view ({view_problem}); "
                     "tag availability is unknown."
@@ -223,7 +224,8 @@ def run_preflight(
                 "warn",
                 "The default view does not include the tags property, so every "
                 "resource looks untagged and the environment:prod and "
-                "argus-exempt safeguards cannot work.",
+                "argus-exempt safeguards depend on the Tagging API fallback "
+                "(tag:GetResources) being allowed.",
                 "Edit the default view and add the tags included property.",
             )
         )

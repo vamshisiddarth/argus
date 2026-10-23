@@ -8,6 +8,7 @@ import boto3
 from adapters.aws import auth, cloudtrail, cloudwatch, cost_explorer, resource_explorer
 from adapters.aws.preflight import run_preflight
 from adapters.aws.state import collect_state
+from adapters.aws.tags import fetch_tags
 from adapters.base import CloudAdapter, MetricSummary, Resource
 from core.models.preflight import PreflightResult
 
@@ -34,6 +35,8 @@ class AWSAdapter(CloudAdapter):
         self._session = session
         self.discovery_complete: bool | None = None
         self.filtered_by_type: dict[str, int] = {}
+        # Where the tags came from: "resource_explorer", "tagging_api", "unavailable"
+        self.tags_source: str | None = None
         self._aggregator_region: str = (
             aggregator_region
             or os.environ.get("RESOURCE_EXPLORER_REGION")
@@ -52,7 +55,26 @@ class AWSAdapter(CloudAdapter):
         )
         self.discovery_complete = found.complete
         self.filtered_by_type = found.filtered_by_type
+        self._fill_missing_tags(found.resources)
         return found.resources
+
+    def _fill_missing_tags(self, resources: list[Resource]) -> None:
+        """If Resource Explorer gave no tags at all, ask the Tagging API."""
+        if not resources:
+            return
+        if any(r.tags for r in resources):
+            self.tags_source = "resource_explorer"
+            return
+        fetched = fetch_tags(self._session, resources, self._aggregator_region)
+        if fetched is None:
+            self.tags_source = "unavailable"
+            return
+        self.tags_source = "tagging_api"
+        for r in resources:
+            tags = fetched.get(r.resource_id)
+            if tags:
+                r.tags = tags
+                r.name = r.name or tags.get("Name")
 
     def collect_state(self, resources: list[Resource]) -> dict[str, dict]:
         return collect_state(self._session, resources)

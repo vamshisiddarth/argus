@@ -63,6 +63,7 @@ Resources:
                   - cloudwatch:GetMetricData
                   - cloudwatch:ListMetrics
                   - cloudtrail:LookupEvents
+                  - tag:GetResources
                   - sts:GetCallerIdentity
                 Resource: "*"
               - Sid: InstanceSizeLookups

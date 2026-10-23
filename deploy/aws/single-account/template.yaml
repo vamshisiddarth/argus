@@ -210,6 +210,7 @@ Resources:
               - Sid: StsGetCallerIdentity
                 Effect: Allow
                 Action:
+                  - tag:GetResources
                   - sts:GetCallerIdentity
                 Resource: "*"
 
