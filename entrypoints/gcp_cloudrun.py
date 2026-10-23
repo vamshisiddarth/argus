@@ -171,6 +171,7 @@ def main() -> dict[str, Any]:
         "total_estimated_waste_usd": report["total_estimated_waste_usd"],
         "budget_exceeded": False,
         "coverage": meta.summary(),
+        "llm": meta.llm_summary(),
     }
 
 

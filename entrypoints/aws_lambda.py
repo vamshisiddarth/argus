@@ -167,6 +167,7 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         "total_estimated_waste_usd": report["total_estimated_waste_usd"],
         "budget_exceeded": budget_exceeded,
         "coverage": meta.summary(),
+        "llm": meta.llm_summary(),
         "preflight": meta.preflight_summary(),
     }
 

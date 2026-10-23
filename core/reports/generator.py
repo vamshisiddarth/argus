@@ -221,6 +221,8 @@ def build_slack_payload(
     generated_at = report["generated_at"][:10]  # YYYY-MM-DD
     accounts = len(report.get("accounts_scanned", []))
     caveat = waste_caveat(report)
+    spend = (report.get("scan_window") or {}).get("llm_spent_usd")
+    spend_line = f"LLM spend ${spend:,.2f}" if spend is not None else ""
 
     _PRIORITY_EMOJI = {
         "HIGH": ":red_circle:",
@@ -265,6 +267,11 @@ def build_slack_payload(
         },
         {"type": "divider"},
     ]
+    if spend_line:
+        blocks.insert(
+            -1,
+            {"type": "context", "elements": [{"type": "mrkdwn", "text": spend_line}]},
+        )
 
     skipped_types = report.get("skipped_resource_types") or []
     if skipped_types:

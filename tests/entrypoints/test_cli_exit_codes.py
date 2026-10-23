@@ -401,3 +401,29 @@ class TestFreeConfigCli:
         _scan()
 
         assert "77 free configuration objects skipped" in capsys.readouterr().err
+
+
+class TestSpendCli:
+    @patch("entrypoints.aws_lambda.handler")
+    def test_summary_shows_spend_estimate_and_budget(self, mock_handler, capsys):
+        mock_handler.return_value = {
+            "statusCode": 200,
+            "llm": {"spent_usd": 0.31, "estimate_usd": 0.4, "budget_usd": 2.0},
+        }
+
+        _scan()
+
+        err = capsys.readouterr().err
+        assert "LLM spend: $0.31 of $2.00 budget" in err
+        assert "estimated $0.40 before the run" in err
+
+    @patch("entrypoints.aws_lambda.handler")
+    def test_unlimited_budget_is_stated(self, mock_handler, capsys):
+        mock_handler.return_value = {
+            "statusCode": 200,
+            "llm": {"spent_usd": 0.31, "estimate_usd": 0.4, "budget_usd": 0},
+        }
+
+        _scan()
+
+        assert "no budget cap" in capsys.readouterr().err

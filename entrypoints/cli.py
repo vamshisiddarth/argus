@@ -614,6 +614,18 @@ def _run_scan(args: argparse.Namespace) -> None:
             )
         for warning in pre.get("warnings", []):
             print(f"Preflight warning: {warning}", file=sys.stderr)
+    if isinstance(result, dict) and result.get("llm"):
+        llm = result["llm"]
+        budget = (
+            f"${llm['budget_usd']:,.2f} budget"
+            if llm.get("budget_usd")
+            else "no budget cap"
+        )
+        print(
+            f"LLM spend: ${llm['spent_usd']:,.2f} of {budget} "
+            f"(estimated ${llm.get('estimate_usd', 0):,.2f} before the run)",
+            file=sys.stderr,
+        )
     if isinstance(result, dict) and result.get("coverage"):
         cov = result["coverage"]
         note = (

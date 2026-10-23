@@ -36,6 +36,16 @@ def build_html_report(report: dict[str, Any]) -> str:
     errors_html = _build_errors_banner(
         scan_errors, len(report.get("accounts_scanned", []))
     )
+    window = report.get("scan_window") or {}
+    spend = window.get("llm_spent_usd")
+    spend_html = ""
+    if spend is not None:
+        budget = window.get("llm_budget_usd")
+        of = f" of ${budget:,.2f}" if budget else ""
+        spend_html = (
+            f'<div class="stat"><div class="stat-val">${spend:,.2f}</div>'
+            f'<div class="stat-lbl">LLM spend{of}</div></div>'
+        )
     caveat = waste_caveat(report)
     caveat_html = (
         f'<br><span style="font-size:11px">{html.escape(caveat)}</span>'
@@ -44,7 +54,6 @@ def build_html_report(report: dict[str, Any]) -> str:
     )
     coverage_html = _build_coverage_block(report.get("coverage"))
     preflight_html = _build_preflight_box(report.get("preflight"))
-    window = report.get("scan_window") or {}
     window_html = (
         f" &nbsp;·&nbsp; {int(window['metrics_lookback_days'])}-day metrics window"
         if window.get("metrics_lookback_days")
@@ -130,6 +139,7 @@ tbody tr:last-child td{{border-bottom:none}}
       <div class="stat"><div class="stat-val red">${total:,.2f}</div><div class="stat-lbl">estimated waste / month{caveat_html}</div></div>
       <div class="stat"><div class="stat-val">{count}</div><div class="stat-lbl">findings</div></div>
       <div class="stat"><div class="stat-val">{len(report.get("accounts_scanned", []))}</div><div class="stat-lbl">accounts scanned</div></div>
+      {spend_html}
     </div>
     <p class="summary">{summary}</p>
   </div>
