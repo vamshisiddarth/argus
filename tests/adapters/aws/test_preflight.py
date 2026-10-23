@@ -142,14 +142,31 @@ def test_populating_index_warns_p4(state):
     assert "partial" in check.message
 
 
-def test_missing_default_view_fails_p5():
+def test_missing_default_view_warns_p5_and_still_checks_search():
+    # Live finding: Search works without a default view, it just returns no tags.
+    session = _session(get_default_view_error=_err("ResourceNotFoundException"))
+
+    result = run_preflight(session, "us-east-1")
+
+    check = _by_code(result)["P5_DEFAULT_VIEW"]
+    assert check.status == "warn"
+    assert "tags" in check.message
+    assert result.failed == []
+    assert _by_code(result)["P7_SEARCH_PERMISSION"].status == "ok"
+    session.client("resource-explorer-2").get_view.assert_not_called()
+
+
+def test_missing_default_view_and_search_denied_still_fails():
     result = run_preflight(
-        _session(get_default_view_error=_err("ResourceNotFoundException")),
+        _session(
+            get_default_view_error=_err("ResourceNotFoundException"),
+            search_error=_err("UnauthorizedException"),
+        ),
         "us-east-1",
     )
 
-    assert _by_code(result)["P5_DEFAULT_VIEW"].status == "fail"
-    assert "P6_VIEW_TAGS" not in _by_code(result)
+    assert _by_code(result)["P5_DEFAULT_VIEW"].status == "warn"
+    assert _by_code(result)["P7_SEARCH_PERMISSION"].status == "fail"
 
 
 def test_view_without_tags_warns_p6_and_mentions_safeguards():
@@ -199,14 +216,14 @@ def test_sts_failure_does_not_crash_preflight():
     assert result.failed == []
 
 
-def test_default_view_returning_no_arn_fails_p5_instead_of_crashing():
+def test_default_view_returning_no_arn_warns_p5_instead_of_crashing():
     session = _session()
     re = session.client("resource-explorer-2")
     re.get_default_view.return_value = {}
 
     result = run_preflight(session, "us-east-1")
 
-    assert _by_code(result)["P5_DEFAULT_VIEW"].status == "fail"
+    assert _by_code(result)["P5_DEFAULT_VIEW"].status == "warn"
     re.get_view.assert_not_called()
 
 

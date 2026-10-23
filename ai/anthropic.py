@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 import random
 import time
 from typing import Any
@@ -46,6 +47,7 @@ class AnthropicProvider(AIProvider):
         self._model = model or cfg.resolved_model("anthropic")
         self._max_tokens = max_tokens
         self._temperature = temperature if temperature is not None else cfg.temperature
+        self._send_temperature = _accepts_temperature(self._client.messages.create)
 
     def chat(
         self,
@@ -56,10 +58,11 @@ class AnthropicProvider(AIProvider):
         kwargs: dict[str, Any] = {
             "model": self._model,
             "max_tokens": self._max_tokens,
-            "temperature": self._temperature,
             "messages": [self._to_anthropic_message(m) for m in messages],
             "tools": [self._to_anthropic_tool(t) for t in tools],
         }
+        if self._send_temperature:
+            kwargs["temperature"] = self._temperature
         if system_prompt:
             # cache_control pins the system prompt in Anthropic's prompt cache.
             # After the first iteration it's served from cache — no reprocessing charge.
@@ -171,3 +174,14 @@ class AnthropicProvider(AIProvider):
             input_tokens=getattr(usage, "input_tokens", 0) if usage else 0,
             output_tokens=getattr(usage, "output_tokens", 0) if usage else 0,
         )
+
+
+def _accepts_temperature(create: Any) -> bool:
+    """Anthropic SDK 2.x removed `temperature` from Messages.create; 0.x/1.x have it."""
+    try:
+        params = inspect.signature(create).parameters
+    except (TypeError, ValueError):
+        return True
+    return "temperature" in params or any(
+        p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values()
+    )

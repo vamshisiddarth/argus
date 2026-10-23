@@ -200,8 +200,10 @@ until it is `ACTIVE`, then re-run.
 
 ### P5_DEFAULT_VIEW
 
-There is no default view in the aggregator region, or it cannot be read. Create
-one and associate it as the default (first section of this page).
+Warning: there is no default view in the aggregator region (or it cannot be read).
+Search still works, but results carry no tags, so policy excludes such as
+`environment: prod` and `argus-exempt` cannot work. Create a view that includes the
+`tags` property and associate it as the default (first section of this page).
 
 ### P6_VIEW_TAGS
 

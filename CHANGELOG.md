@@ -10,7 +10,7 @@ A trust release. Argus now tells you what it covered, fails loudly when it could
 ### Behaviour changes
 
 - **A scan whose model never submits findings now fails** with exit code 3 instead of exiting 0 with zero findings. Argus reminds the model once to call `submit_findings`; a second miss raises `AgentDidNotSubmitError`. An explicit empty submission is still a valid clean scan.
-- **AWS preflight can stop a scan** with exit code 4 before any LLM budget is spent: no Resource Explorer aggregator index (a local-only index silently searched one region), no default view, no Search permission. `--skip-preflight` / `ARGUS_SKIP_PREFLIGHT=true` bypasses it and is recorded in the report. In multi-account runs one failing account is recorded in `scan_errors` and the others continue.
+- **AWS preflight can stop a scan** with exit code 4 before any LLM budget is spent: no Resource Explorer aggregator index (a local-only index silently searched one region) or no Search permission. A missing default view is a warning (results carry no tags). `--skip-preflight` / `ARGUS_SKIP_PREFLIGHT=true` bypasses it and is recorded in the report. In multi-account runs one failing account is recorded in `scan_errors` and the others continue.
 - **`--lookback-days` is now actually applied.** The prompt and tool schema used to tell the model never to use less than 90 days, so the model asked for 90 whatever you set. The configured window now overrides every metrics query.
 - **The resource cap no longer drops whole resource types.** With no cost data the old selection was arbitrary; selection is now a deterministic round-robin across types (cost order with a per-type floor when costs exist).
 

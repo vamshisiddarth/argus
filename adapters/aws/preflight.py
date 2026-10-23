@@ -151,45 +151,47 @@ def run_preflight(
     elif state:
         add(PreflightCheck("P4_INDEX_STATE", "ok", f"Index state is {state}."))
 
-    # P5 + P6: default view exists and carries tags
+    # P5 + P6: default view exists and carries tags. A missing view is a warning,
+    # not a failure: live testing showed Search still works without one, it just
+    # returns no tags. P7 below is what decides whether the scan can run.
+    view_arn: str | None = None
     try:
         view_arn = re.get_default_view().get("ViewArn")
+        view_problem = None if view_arn else "none"
     except (ClientError, BotoCoreError) as exc:
-        missing = _code(exc) == "ResourceNotFoundException"
+        view_problem = _code(exc)
+    if view_problem is None:
+        add(PreflightCheck("P5_DEFAULT_VIEW", "ok", "A default view exists."))
+    else:
+        none = view_problem in ("none", "ResourceNotFoundException")
         add(
             PreflightCheck(
                 "P5_DEFAULT_VIEW",
-                "fail",
+                "warn",
                 (
-                    f"No default view in {aggregator_region}."
-                    if missing
-                    else f"Cannot read the default view ({_code(exc)})."
+                    f"No default view in {aggregator_region}, so search results "
+                    "carry no tags and the environment:prod and argus-exempt "
+                    "safeguards cannot work."
+                    if none
+                    else f"Could not read the default view ({view_problem}); "
+                    "tag availability is unknown."
                 ),
                 (
-                    "Create a default view that includes the tags property."
-                    if missing
+                    "Create a default view that includes the tags property and "
+                    "associate it as the default."
+                    if none
                     else f"Grant {_ACTION_LIST}."
                 ),
             )
         )
-        return result
-    if not view_arn:
-        add(
-            PreflightCheck(
-                "P5_DEFAULT_VIEW",
-                "fail",
-                f"No default view in {aggregator_region}.",
-                "Create a default view that includes the tags property.",
-            )
-        )
-        return result
-    add(PreflightCheck("P5_DEFAULT_VIEW", "ok", "A default view exists."))
 
-    try:
-        props = re.get_view(ViewArn=view_arn)["View"].get("IncludedProperties", [])
-        has_tags = any(p.get("Name") == "tags" for p in props)
-    except (ClientError, BotoCoreError):
-        has_tags = None
+    has_tags: bool | None = None
+    if view_arn:
+        try:
+            props = re.get_view(ViewArn=view_arn)["View"].get("IncludedProperties", [])
+            has_tags = any(p.get("Name") == "tags" for p in props)
+        except (ClientError, BotoCoreError):
+            has_tags = None
     if has_tags is False:
         add(
             PreflightCheck(
