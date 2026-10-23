@@ -127,6 +127,11 @@ class AgentLoop:
             executive_summary: AI-written 3-5 sentence summary for managers
         """
 
+        if get_settings().scan.engine == "pipeline":
+            from core.pipeline.runner import run_pipeline
+
+            return run_pipeline(self, cloud, ignore_regions, accounts)
+
         # ------------------------------------------------------------------
         # Phase 0 — pre-filter (outside AI context, no tokens consumed)
         # Fetch all resources + batch cost, then hand only the top-N by cost
@@ -353,6 +358,41 @@ class AgentLoop:
 
         return results
 
+    def _discover_and_cost(
+        self, ignore_regions: list[str]
+    ) -> tuple[list[Any], dict[str, float]]:
+        """Discover resources, apply exclusion filters and fetch costs in one batch.
+
+        Sets self._costs, self._resource_tags, self.scan_window and, when nothing
+        was found, an empty coverage. Shared by both scan engines.
+        """
+        resources = self._adapter.list_resources(ignore_regions=ignore_regions or None)
+        resources = _apply_exclusion_filters(resources)
+        logger.info("resources_discovered", count=len(resources))
+
+        if not resources:
+            self.coverage = Coverage.empty()
+            self._baseline = BaselineResult()
+            self.scan_window = _scan_window(has_cost=False, adapter=self._adapter)
+            return [], {}
+
+        # Batch cost fetch: one API call for all resource IDs
+        try:
+            costs = self._adapter.get_cost(
+                resource_ids=[r.resource_id for r in resources],
+                days=_cost_days(self._adapter),
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("prefilter_cost_fetch_failed", error=str(exc))
+            costs = {}
+
+        self._costs = costs
+        self._resource_tags = {r.resource_id: dict(r.tags) for r in resources}
+        self.scan_window = _scan_window(
+            has_cost=any(v > 0 for v in costs.values()), adapter=self._adapter
+        )
+        return resources, costs
+
     def _prefilter_resources(self, ignore_regions: list[str]) -> list[dict]:
         """
         Phase 0: enumerate all resources + batch-fetch cost outside the AI loop.
@@ -371,35 +411,13 @@ class AgentLoop:
         """
         logger.info("prefilter_start")
 
-        resources = self._adapter.list_resources(ignore_regions=ignore_regions or None)
-        resources = _apply_exclusion_filters(resources)
+        resources, costs = self._discover_and_cost(ignore_regions)
         total_discovered = len(resources)
-        logger.info("resources_discovered", count=total_discovered)
-
         if not resources:
             self._prefiltered_payload = []
-            self.coverage = Coverage.empty()
-            self._baseline = BaselineResult()
-            self.scan_window = _scan_window(has_cost=False, adapter=self._adapter)
             logger.info("prefilter_complete", discovered=0, sent_to_ai=0)
             return []
 
-        # Batch cost fetch — one API call for all resource IDs
-        resource_ids = [r.resource_id for r in resources]
-        try:
-            costs = self._adapter.get_cost(
-                resource_ids=resource_ids, days=_cost_days(self._adapter)
-            )
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("prefilter_cost_fetch_failed", error=str(exc))
-            costs = {}
-
-        # Deterministic cap: never drops a whole resource type (see selection.py)
-        self._costs = costs
-        self._resource_tags = {r.resource_id: dict(r.tags) for r in resources}
-        self.scan_window = _scan_window(
-            has_cost=any(v > 0 for v in costs.values()), adapter=self._adapter
-        )
         scan_cfg = get_settings().scan
         cap = scan_cfg.max_resources
         self.scan_window["max_resources"] = cap

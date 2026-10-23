@@ -488,3 +488,110 @@ def build_chat_tool_schemas(lookback_days: int = 90, cost_days: int = 14) -> lis
         for t in build_tool_schemas(lookback_days, cost_days)
         if t["name"] != "submit_findings"
     ]
+
+
+# ---------------------------------------------------------------------------
+# Evidence-first triage (the default scan engine)
+# ---------------------------------------------------------------------------
+
+REPORT_FINDINGS_TOOL = {
+    "name": "report_findings",
+    "description": (
+        "Report which resources in this batch are wasteful. Call it exactly once "
+        "per batch. Use an empty list when none are."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "findings": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "required": ["i", "waste_reason", "recommendation", "priority"],
+                    "properties": {
+                        "i": {
+                            "type": "integer",
+                            "description": "The resource's `i` from the batch.",
+                        },
+                        "waste_reason": {
+                            "type": "string",
+                            "description": "Why it is wasteful, citing the evidence. "
+                            "Under 200 characters.",
+                        },
+                        "recommendation": {
+                            "type": "string",
+                            "description": "Specific action: delete, downsize, "
+                            "snapshot then delete, tag for review, ...",
+                        },
+                        "priority": {
+                            "type": "string",
+                            "enum": ["high", "medium", "low"],
+                        },
+                        "confidence": {
+                            "type": "string",
+                            "enum": ["low", "medium", "high"],
+                        },
+                        "estimated_monthly_cost": {
+                            "type": "number",
+                            "description": "USD per month. Omit if the line has "
+                            "`cost` (that is the billed figure) or you do not know.",
+                        },
+                    },
+                },
+            }
+        },
+        "required": ["findings"],
+    },
+}
+
+
+def build_triage_prompt(
+    cloud: str,
+    ignore_regions: list[str],
+    accounts: list[dict],
+    lookback_days: int = 90,
+    activity_days: int = 90,
+    rule_finding_ids: list[str] | None = None,
+) -> str:
+    """System prompt for batch triage. Stateless: every batch gets the same prompt."""
+    context = _build_context_header(cloud, ignore_regions, accounts)
+    return f"""You are Argus, an AI Cloud Detective.
+
+MISSION
+───────
+Decide which {cloud.upper()} resources are idle, unused, orphaned or over-provisioned
+and are costing real money. Argus has already gathered the evidence in code: you
+need no tools except report_findings.
+
+{context}
+
+HOW YOU WORK
+────────────
+You receive a batch of resources, one JSON object per line:
+  i     index to cite in your findings
+  id    resource id (short)       t   resource type        r   region
+  name, tags                      cost  billed USD for the cost window (if known)
+  m     metric values over the metrics window (a missing metric means no data)
+  ms    metric status when it is not ok: no_data or error
+  la    last activity date, or none_in_window if nothing was recorded
+
+Call report_findings exactly once with a finding for each resource the evidence
+shows is wasteful (empty list if none). Never invent resources or indexes.
+
+EVIDENCE RULES
+──────────────
+- Absence of data is NOT evidence of waste. A resource with ms=no_data and no
+  activity record is "unknown": report it only if its name, tags or type strongly
+  suggest abandonment, and then with confidence low.
+- Cite the numbers you relied on in waste_reason (for example "0 requests in 14d").
+- Prefer fewer, well-supported findings over many guesses.
+
+{_window_section(lookback_days, activity_days)}
+
+{_NO_DATA_RULE}
+{_rule_findings_section(rule_finding_ids)}
+{_RIGHT_SIZING_RULES}
+
+{_PRIORITY_RULES}
+
+{actions_section(cloud)}"""
