@@ -283,7 +283,14 @@ class TestPerRegionDiscovery:
         client = MagicMock()
         queries = []
 
-        def paginate(QueryString, **kw):
+        def paginate(QueryString=None, **kw):
+            if QueryString is None:  # ListSupportedResourceTypes: not permitted here
+                from botocore.exceptions import ClientError
+
+                raise ClientError(
+                    {"Error": {"Code": "AccessDeniedException", "Message": "x"}},
+                    "ListSupportedResourceTypes",
+                )
             queries.append(QueryString)
             items = per_query.get(QueryString, [])
             pages = range(0, len(items), 500)
@@ -415,3 +422,144 @@ class TestFreeConfigObjectsAreCountedNotHidden:
         found = discover(self._session(raws), ignore_regions=["eu-west-1"])
 
         assert found.filtered == {}
+
+
+class TestSplittingAnOverflowingRegion:
+    """A region with 1000+ resources is split by service, then by resource type."""
+
+    def _raw(self, region, service, rtype, n, tag=""):
+        return [
+            _make_raw_resource(
+                arn=f"arn:aws:{service}:{region}:1:{rtype}/{tag}{i}",
+                resource_type=f"{service}:{rtype}",
+                region=region,
+            )
+            for i in range(n)
+        ]
+
+    def _session(self, per_query, supported=None, supported_error=None):
+        client = MagicMock()
+        queries = []
+
+        def paginate(QueryString, **kw):
+            queries.append(QueryString)
+            items = per_query.get(QueryString, [])
+            return [
+                {"Resources": items[i : i + 500]} for i in range(0, len(items), 500)
+            ]
+
+        client.get_paginator.return_value.paginate.side_effect = paginate
+
+        def get_paginator(name):
+            pag = MagicMock()
+            if name == "list_supported_resource_types":
+                if supported_error:
+                    pag.paginate.side_effect = supported_error
+                else:
+                    pag.paginate.return_value = [
+                        {
+                            "ResourceTypes": [
+                                {"Service": s, "ResourceType": f"{s}:{t}"}
+                                for s, t in (supported or [])
+                            ]
+                        }
+                    ]
+            else:
+                pag.paginate.side_effect = paginate
+            return pag
+
+        client.get_paginator.side_effect = get_paginator
+        session = MagicMock()
+        session.client.return_value = client
+        session.get_available_regions.return_value = ["us-east-1"]
+        return session, queries
+
+    def test_overflowing_region_is_split_by_service_and_completes(self):
+        ec2 = self._raw("us-east-1", "ec2", "volume", 900, "v")
+        logs = self._raw("us-east-1", "logs", "log-group", 400, "l")
+        full = (ec2 + logs)[:1000]
+        session, queries = self._session(
+            {
+                "*": full,
+                "region:us-east-1": full,
+                "region:us-east-1 service:ec2": ec2,
+                "region:us-east-1 service:logs": logs,
+            },
+            supported=[("ec2", "volume"), ("logs", "log-group")],
+        )
+
+        found = discover(session)
+
+        assert found.complete is True
+        assert len(found.resources) == 1300
+        assert "region:us-east-1 service:ec2" in queries
+        assert "region:us-east-1 service:logs" in queries
+
+    def test_an_overflowing_service_is_split_by_resource_type(self):
+        a = self._raw("us-east-1", "ec2", "snapshot", 1000, "s")
+        b = self._raw("us-east-1", "ec2", "volume", 300, "v")
+        session, queries = self._session(
+            {
+                "*": a,
+                "region:us-east-1": a,
+                "region:us-east-1 service:ec2": a,
+                "region:us-east-1 resourcetype:ec2:snapshot": a[:700],
+                "region:us-east-1 resourcetype:ec2:volume": b,
+            },
+            supported=[("ec2", "snapshot"), ("ec2", "volume")],
+        )
+
+        found = discover(session)
+
+        assert found.complete is True
+        assert "region:us-east-1 resourcetype:ec2:snapshot" in queries
+        assert len(found.resources) == 1000 + 300
+
+    def test_a_resource_type_that_still_overflows_marks_discovery_incomplete(self):
+        a = self._raw("us-east-1", "ec2", "snapshot", 1000, "s")
+        session, _ = self._session(
+            {
+                "*": a,
+                "region:us-east-1": a,
+                "region:us-east-1 service:ec2": a,
+                "region:us-east-1 resourcetype:ec2:snapshot": a,
+            },
+            supported=[("ec2", "snapshot")],
+        )
+
+        assert discover(session).complete is False
+
+    def test_without_the_supported_types_api_services_seen_so_far_are_used(self):
+        from botocore.exceptions import ClientError
+
+        ec2 = self._raw("us-east-1", "ec2", "volume", 1000, "v")
+        session, queries = self._session(
+            {
+                "*": ec2,
+                "region:us-east-1": ec2,
+                "region:us-east-1 service:ec2": ec2[:600],
+            },
+            supported_error=ClientError(
+                {"Error": {"Code": "AccessDeniedException", "Message": "x"}},
+                "ListSupportedResourceTypes",
+            ),
+        )
+
+        found = discover(session)
+
+        assert "region:us-east-1 service:ec2" in queries
+        assert len(found.resources) == 1000  # union with the first full query
+        assert found.complete is False  # services we have not seen cannot be ruled out
+
+    def test_regions_that_did_not_overflow_are_not_split(self):
+        small = self._raw("us-east-1", "ec2", "volume", 5, "v")
+        full = self._raw("eu-west-1", "ec2", "volume", 1000, "w")
+        session, queries = self._session(
+            {"*": full, "region:us-east-1": small, "region:eu-west-1": full[:10]},
+            supported=[("ec2", "volume")],
+        )
+        session.get_available_regions.return_value = ["us-east-1", "eu-west-1"]
+
+        discover(session)
+
+        assert not [q for q in queries if q.startswith("region:us-east-1 ")]

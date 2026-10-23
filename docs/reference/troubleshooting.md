@@ -229,7 +229,7 @@ named actions to the role (see [IAM Permissions](iam-permissions.md)).
 
 ### Resource Explorer's 1,000-result limit
 
-Resource Explorer `Search` returns at most 1,000 results in total. On larger accounts Argus logs `resource_explorer_search_limit` and the report's `coverage.discovered` can understate the real inventory. Scan per aggregator scope or exclude regions (`IGNORE_REGIONS`) to stay under the limit.
+Resource Explorer `Search` returns at most 1,000 results in total. On larger accounts Argus logs `resource_explorer_search_limit` and the report's `coverage.discovered` can understate the real inventory. Argus then searches region by region, and splits a region that is still full by service and resource type (this needs `resource-explorer-2:ListSupportedResourceTypes`; without it `coverage.discovery_complete` is reported as `false` because services it has not seen cannot be ruled out). If a single resource type in one region still exceeds 1,000 resources, `discovery_complete` is `false`.
 
 ### P7_SEARCH_PERMISSION
 

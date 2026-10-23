@@ -15,6 +15,7 @@ RE_ACTIONS = [
     "resource-explorer-2:ListViews",
     "resource-explorer-2:ListIndexes",
     "resource-explorer-2:GetIndex",
+    "resource-explorer-2:ListSupportedResourceTypes",
 ]
 
 IAM_FILES = [

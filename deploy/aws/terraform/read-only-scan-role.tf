@@ -33,6 +33,7 @@ resource "aws_iam_role_policy" "argus_scan" {
         "resource-explorer-2:GetDefaultView",
         "resource-explorer-2:ListViews",
         "resource-explorer-2:ListIndexes",
+        "resource-explorer-2:ListSupportedResourceTypes",
         "resource-explorer-2:GetIndex",
         "cloudwatch:GetMetricData",
         "cloudwatch:ListMetrics",
