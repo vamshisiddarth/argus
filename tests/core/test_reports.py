@@ -1087,3 +1087,97 @@ class TestSpendInReports:
         report = build_report([], cloud="aws", executive_summary="x")
         assert "LLM spend" not in build_html_report(report)
         assert "LLM spend" not in str(build_slack_payload(report))
+
+
+class TestHtmlEvidence:
+    def _html(self, finding):
+        return build_html_report(
+            build_report([finding], cloud="aws", executive_summary="x")
+        )
+
+    def test_model_finding_shows_the_metrics_it_rested_on(self):
+        f = _finding("i-1")
+        f.metrics_summary = {
+            "metrics": {"CPUUtilization": 0.4, "NetworkOut": 1200.0},
+            "metrics_status": "ok",
+            "window_days": 14,
+            "last_activity_checked": True,
+        }
+        f.last_activity = None
+
+        out = self._html(f)
+
+        assert "Evidence:" in out
+        assert "CPUUtilization=0.4" in out and "NetworkOut=1200.0" in out
+        assert "14-day window" in out
+        assert "no activity recorded" in out
+
+    def test_rule_finding_shows_the_configuration_it_rested_on(self):
+        f = _finding("vol-1")
+        f.metrics_summary = {
+            "state": {
+                "kind": "ebs_volume",
+                "state": "available",
+                "size_gb": 100,
+                "volume_type": "gp3",
+                "iops": None,
+            }
+        }
+
+        out = self._html(f)
+
+        assert "state=available" in out and "size_gb=100" in out
+        assert "volume_type=gp3" in out
+        assert "iops" not in out.split("Evidence:")[1].split("</div>")[0]
+
+    def test_legacy_flat_metrics_still_render(self):
+        f = _finding("i-1")  # metrics_summary={"CPUUtilization": 0.5}
+        assert "CPUUtilization=0.5" in self._html(f)
+
+    def test_unavailable_metrics_are_said_plainly(self):
+        f = _finding("i-1")
+        f.metrics_summary = {"metrics": {}, "metrics_status": "no_data"}
+
+        assert "metrics unavailable (no_data)" in self._html(f)
+
+    def test_values_are_escaped(self):
+        f = _finding("i-1")
+        f.metrics_summary = {"state": {"state": "<script>x</script>"}}
+
+        out = self._html(f)
+
+        assert "<script>x</script>" not in out
+
+
+class TestEmbeddedJsonCannotBreakOutOfTheScriptTag:
+    PAYLOAD = '</script><img src=x onerror="alert(1)">'
+
+    def _out(self, **finding_kw):
+        f = _finding("i-1")
+        for k, v in finding_kw.items():
+            setattr(f, k, v)
+        return build_html_report(
+            build_report([f], cloud="aws", executive_summary=self.PAYLOAD)
+        )
+
+    def test_script_close_in_a_tag_value_is_neutralised(self):
+        out = self._out(tags={"owner": self.PAYLOAD})
+        assert "</script><img" not in out
+        assert "\\u003c/script\\u003e" in out
+
+    def test_script_close_in_model_text_and_names_is_neutralised(self):
+        out = self._out(waste_reason=self.PAYLOAD, name=self.PAYLOAD)
+        assert "</script><img" not in out
+        assert 'onerror="alert(1)">' not in out.split("RAW_JSON = ")[1].split(";\n")[0]
+
+    def test_embedded_json_still_round_trips(self):
+        import json
+
+        out = self._out(tags={"owner": self.PAYLOAD})
+        blob = out.split("var RAW_JSON = ")[1].split(";\n")[0]
+
+        assert json.loads(blob)["findings"][0]["tags"]["owner"] == self.PAYLOAD
+
+    def test_line_separators_are_escaped_too(self):
+        out = self._out(tags={"k": "a\u2028b\u2029c"})
+        assert "\u2028" not in out and "\u2029" not in out
