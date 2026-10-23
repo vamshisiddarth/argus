@@ -52,10 +52,18 @@ class ScanMeta:
 
     def enforce_strict(self, strict: bool) -> None:
         cov = self.coverage
-        if strict and cov is not None and cov.truncated:
+        if not strict or cov is None:
+            return
+        if cov.truncated:
             raise StrictCoverageError(
                 f"Coverage truncated: analysed {cov.analysed} of {cov.discovered} "
                 f"resources. Raise MAX_RESOURCES_PER_SCAN or drop STRICT_COVERAGE."
+            )
+        if cov.discovery_complete is False:
+            raise StrictCoverageError(
+                "Resource discovery was incomplete (a search hit the provider's "
+                "result limit). Narrow the scan with IGNORE_REGIONS or drop "
+                "STRICT_COVERAGE."
             )
 
     def summary(self) -> dict[str, Any] | None:
@@ -68,4 +76,5 @@ class ScanMeta:
             "dropped": cov.dropped,
             "truncated": cov.truncated,
             "selection": cov.selection,
+            "discovery_complete": cov.discovery_complete,
         }

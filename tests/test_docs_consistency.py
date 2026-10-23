@@ -22,6 +22,7 @@ IAM_FILES = [
     "deploy/aws/single-account/template.yaml",
     "deploy/aws/multi-account/spoke-role.yaml",
     "deploy/aws/terraform/read-only-scan-role.tf",
+    "deploy/aws/read-only-scan-role.yaml",
 ]
 
 
@@ -108,3 +109,10 @@ def test_changelog_lists_known_gaps_for_deferred_items():
     assert "Known gaps" in section
     for item in ("confidence", "--expect-account", "deterministic"):
         assert item in section
+
+
+def test_standalone_scan_role_template_and_guard_are_documented():
+    iam = _read("docs/reference/iam-permissions.md")
+    assert "read-only-scan-role.yaml" in iam
+    assert "--expect-account" in iam
+    assert "ReadOnlyAccess" in iam

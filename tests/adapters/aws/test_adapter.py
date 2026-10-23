@@ -26,8 +26,8 @@ class TestAWSAdapterDelegation:
         expected = [Resource(SAMPLE_ARN, SAMPLE_TYPE, "aws", "us-east-1")]
 
         with patch(
-            "adapters.aws.adapter.resource_explorer.list_resources",
-            return_value=expected,
+            "adapters.aws.adapter.resource_explorer.list_resources_with_status",
+            return_value=(expected, True),
         ) as mock_fn:
             result = adapter.list_resources(ignore_regions=[])
 
@@ -112,3 +112,20 @@ class TestForAccountClassMethod:
             adapter = AWSAdapter.for_account(account=None, region="eu-west-1")
 
         assert adapter._aggregator_region == "us-east-1"
+
+
+def test_list_resources_records_whether_discovery_was_complete():
+    from unittest.mock import MagicMock, patch
+
+    from adapters.aws.adapter import AWSAdapter
+
+    adapter = AWSAdapter(MagicMock(), aggregator_region="us-east-1")
+    assert adapter.discovery_complete is None
+
+    with patch(
+        "adapters.aws.adapter.resource_explorer.list_resources_with_status",
+        return_value=([], False),
+    ):
+        adapter.list_resources()
+
+    assert adapter.discovery_complete is False

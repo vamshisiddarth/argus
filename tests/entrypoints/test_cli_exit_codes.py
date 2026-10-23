@@ -14,6 +14,21 @@ from core.errors import (
     PreflightFailedError,
 )
 
+_SCAN_ENV_VARS = (
+    "ARGUS_EXPECT_ACCOUNT",
+    "ARGUS_SKIP_PREFLIGHT",
+    "STRICT_COVERAGE",
+    "METRICS_LOOKBACK_DAYS",
+)
+
+
+@pytest.fixture(autouse=True)
+def _restore_scan_env(monkeypatch):
+    """main() writes these straight into os.environ; make teardown remove them."""
+    for var in _SCAN_ENV_VARS:
+        monkeypatch.setenv(var, "placeholder")
+        monkeypatch.delenv(var)
+
 
 def _scan(argv=None):
     from entrypoints.cli import main
@@ -181,3 +196,49 @@ class TestFlagsBeforeSubcommand:
 
         assert os.environ["METRICS_LOOKBACK_DAYS"] == "90"
         monkeypatch.delenv("METRICS_LOOKBACK_DAYS", raising=False)
+
+
+class TestExpectAccountCli:
+    @patch("entrypoints.aws_lambda.handler")
+    def test_expect_account_flag_sets_env(self, mock_handler, monkeypatch):
+        import os
+
+        monkeypatch.delenv("ARGUS_EXPECT_ACCOUNT", raising=False)
+        mock_handler.return_value = {"statusCode": 200}
+
+        _scan(["--cloud", "aws", "--run-now", "--expect-account", "297805609304"])
+
+        assert os.environ["ARGUS_EXPECT_ACCOUNT"] == "297805609304"
+        monkeypatch.delenv("ARGUS_EXPECT_ACCOUNT", raising=False)
+
+    @patch("entrypoints.aws_lambda.handler")
+    def test_expect_account_before_subcommand_survives(self, mock_handler, monkeypatch):
+        import os
+
+        monkeypatch.delenv("ARGUS_EXPECT_ACCOUNT", raising=False)
+        mock_handler.return_value = {"statusCode": 200}
+
+        _scan(["--expect-account", "111111111111", "scan", "--cloud", "aws"])
+
+        assert os.environ["ARGUS_EXPECT_ACCOUNT"] == "111111111111"
+        monkeypatch.delenv("ARGUS_EXPECT_ACCOUNT", raising=False)
+
+
+class TestDiscoveryCli:
+    @patch("entrypoints.aws_lambda.handler")
+    def test_summary_mentions_incomplete_discovery(self, mock_handler, capsys):
+        mock_handler.return_value = {
+            "statusCode": 200,
+            "coverage": {
+                "discovered": 1000,
+                "analysed": 200,
+                "dropped": 800,
+                "truncated": True,
+                "selection": "stratified_by_type",
+                "discovery_complete": False,
+            },
+        }
+
+        _scan()
+
+        assert "discovery incomplete" in capsys.readouterr().err

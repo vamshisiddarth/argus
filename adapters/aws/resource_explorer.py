@@ -96,34 +96,83 @@ def list_resources(
     ignore_regions: list[str] | None = None,
     aggregator_region: str = DEFAULT_AGGREGATOR_REGION,
 ) -> list[Resource]:
+    """See list_resources_with_status; returns only the resources."""
+    return list_resources_with_status(session, ignore_regions, aggregator_region)[0]
+
+
+def list_resources_with_status(
+    session: boto3.Session,
+    ignore_regions: list[str] | None = None,
+    aggregator_region: str = DEFAULT_AGGREGATOR_REGION,
+) -> tuple[list[Resource], bool]:
     """
-    Return every resource in the account across ALL regions,
-    minus any in ignore_regions.
-    Uses AWS Resource Explorer v2 aggregator index — returns all resource
-    types in a single paginated API call. No per-type enumeration needed.
+    Return (resources, complete) for the whole account, minus ignore_regions.
+
+    Uses the Resource Explorer v2 aggregator index. Search returns at most 1,000
+    results per query, so when the first query comes back full the search is
+    repeated once per region (plus "global") and the results are merged by ARN.
+    `complete` is False if any single query still hit the limit.
 
     Requires: Resource Explorer aggregator index set up in aggregator_region.
-    The CloudFormation template handles this automatically.
-
-    Any region not in ignore_regions is scanned automatically — including newly
-    launched AWS regions — so regional failures never block the scan.
     """
     client = session.client(
         "resource-explorer-2", region_name=aggregator_region, config=BOTO_TIMEOUT_CONFIG
     )
     ignore_set = set(ignore_regions) if ignore_regions else set()
+
+    first, first_total = _search(client, "*", ignore_set)
+    if first_total < _SEARCH_RESULT_LIMIT:
+        logger.info(
+            "resource_explorer_search_complete",
+            total=len(first),
+            ignored_regions=list(ignore_set),
+        )
+        return first, True
+
+    logger.warning(
+        "resource_explorer_search_limit",
+        results=first_total,
+        msg="Search reached the 1,000-result limit; searching region by region.",
+    )
+    by_arn = {r.resource_id: r for r in first}
+    complete = True
+    regions = set(session.get_available_regions("resource-explorer-2")) | {"global"}
+    for region in sorted(regions - ignore_set):
+        items, total = _search(client, f"region:{region}", ignore_set)
+        by_arn.update({r.resource_id: r for r in items})
+        if total >= _SEARCH_RESULT_LIMIT:
+            complete = False
+            logger.warning(
+                "resource_explorer_region_limit",
+                region=region,
+                results=total,
+                msg="Region still has 1,000+ results; some are not discovered.",
+            )
+
+    logger.info(
+        "resource_explorer_search_complete",
+        total=len(by_arn),
+        ignored_regions=list(ignore_set),
+        per_region=True,
+        complete=complete,
+    )
+    return list(by_arn.values()), complete
+
+
+def _search(
+    client: Any, query: str, ignore_set: set[str]
+) -> tuple[list[Resource], int]:
+    """One paginated Search. Returns (billable resources, raw result count)."""
     resources: list[Resource] = []
     raw_total = 0
-
     try:
         paginator = client.get_paginator("search")
-        for page in paginator.paginate(QueryString="*"):
+        for page in paginator.paginate(QueryString=query):
             for raw in page.get("Resources", []):
                 raw_total += 1
                 if raw.get("Region") in ignore_set:
                     continue
-                resource_type = raw.get("ResourceType", "")
-                if not _is_billable(resource_type):
+                if not _is_billable(raw.get("ResourceType", "")):
                     continue
                 parsed = _parse_resource(raw)
                 if parsed:
@@ -141,23 +190,7 @@ def list_resources(
                 "or enable Resource Explorer manually in the AWS console."
             ) from exc
         raise
-
-    if raw_total >= _SEARCH_RESULT_LIMIT:
-        # Resource Explorer's Search returns at most 1,000 results in total, so
-        # discovery (and the report's coverage numbers) may be incomplete.
-        logger.warning(
-            "resource_explorer_search_limit",
-            results=raw_total,
-            msg="Search reached the 1,000-result limit; resources beyond it were "
-            "not discovered and coverage may be understated.",
-        )
-
-    logger.info(
-        "resource_explorer_search_complete",
-        total=len(resources),
-        ignored_regions=list(ignore_set),
-    )
-    return resources
+    return resources, raw_total
 
 
 def _parse_resource(raw: dict[str, Any]) -> Resource | None:

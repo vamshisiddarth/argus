@@ -757,3 +757,73 @@ class TestDryRunLogging:
 
         done = next(e for e in logs if e["event"] == "scan_complete")
         assert done["slack_delivered"] is False
+
+
+class TestExpectAccount:
+    def _run(self, monkeypatch, expect, actual="123456789012"):
+        from contextlib import ExitStack
+        from unittest.mock import patch
+
+        monkeypatch.setenv("ACCOUNTS_MODE", "single")
+        monkeypatch.setenv("SLACK_WEBHOOK_URL", "https://hooks.slack.com/test")
+        if expect:
+            monkeypatch.setenv("ARGUS_EXPECT_ACCOUNT", expect)
+        with ExitStack() as stack:
+            stack.enter_context(patch("entrypoints.aws_lambda.notify_all"))
+            stack.enter_context(
+                patch("entrypoints.aws_lambda.build_slack_payload", return_value={})
+            )
+            stack.enter_context(
+                patch(
+                    "entrypoints.aws_lambda.build_report", return_value=_fake_report()
+                )
+            )
+            loop_cls = stack.enter_context(patch("entrypoints.aws_lambda.AgentLoop"))
+            adapter_cls = stack.enter_context(
+                patch("entrypoints.aws_lambda.AWSAdapter")
+            )
+            stack.enter_context(
+                patch(
+                    "entrypoints.aws_lambda._get_current_account_id",
+                    return_value=actual,
+                )
+            )
+            stack.enter_context(patch("entrypoints.aws_lambda._build_ai_provider"))
+            loop_cls.return_value.run.return_value = ([], "ok")
+            from entrypoints.aws_lambda import handler
+
+            try:
+                return handler({}, None), loop_cls, adapter_cls
+            except Exception as exc:  # noqa: BLE001
+                return exc, loop_cls, adapter_cls
+
+    def test_mismatch_fails_before_any_cloud_or_llm_call(self, monkeypatch):
+        from core.errors import PreflightFailedError
+
+        exc, loop_cls, adapter_cls = self._run(monkeypatch, "999999999999")
+
+        assert isinstance(exc, PreflightFailedError)
+        assert "999999999999" in str(exc) and "123456789012" in str(exc)
+        loop_cls.return_value.run.assert_not_called()
+        adapter_cls.for_account.assert_not_called()
+
+    def test_match_runs_normally(self, monkeypatch):
+        result, _, _ = self._run(monkeypatch, "123456789012")
+        assert result["statusCode"] == 200
+
+    def test_unset_means_no_guard(self, monkeypatch):
+        result, _, _ = self._run(monkeypatch, None)
+        assert result["statusCode"] == 200
+
+    def test_unknown_identity_with_a_guard_fails_closed(self, monkeypatch):
+        from core.errors import PreflightFailedError
+
+        exc, _, _ = self._run(monkeypatch, "123456789012", actual="unknown")
+        assert isinstance(exc, PreflightFailedError)
+
+    def test_guard_still_applies_when_preflight_is_skipped(self, monkeypatch):
+        from core.errors import PreflightFailedError
+
+        monkeypatch.setenv("ARGUS_SKIP_PREFLIGHT", "true")
+        exc, _, _ = self._run(monkeypatch, "999999999999")
+        assert isinstance(exc, PreflightFailedError)

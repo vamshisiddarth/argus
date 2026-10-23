@@ -189,6 +189,7 @@ class ScanSettings(BaseSettings):
     llm_budget_usd: float = Field(2.0, alias="LLM_BUDGET_USD")
     strict_coverage: bool = Field(False, alias="STRICT_COVERAGE")
     skip_preflight: bool = Field(False, alias="ARGUS_SKIP_PREFLIGHT")
+    expect_account: str | None = Field(None, alias="ARGUS_EXPECT_ACCOUNT")
     exclude_tags: str = Field("", alias="EXCLUDE_TAGS")
     exclude_resource_types: str = Field("", alias="EXCLUDE_RESOURCE_TYPES")
 

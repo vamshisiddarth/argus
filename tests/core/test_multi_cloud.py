@@ -184,3 +184,17 @@ def test_merge_reports_merges_coverage_when_present():
 def test_merge_reports_without_coverage_has_none():
     merged = merge_reports([_make_report("aws", []), _make_report("gcp", [])])
     assert merged["coverage"] is None
+
+
+def test_merged_report_carries_waste_breakdown():
+    a = _make_report("aws", [_finding("aws", "AWS::EC2::Instance", 100.0)])
+    a["findings"][0]["confidence"] = "high"
+    a["findings"][0]["cost_basis"] = "billed"
+    g = _make_report("gcp", [_finding("gcp", "GCP::Compute::Instance", 40.0)])
+    g["findings"][0]["confidence"] = "low"
+
+    merged = merge_reports([a, g])
+
+    assert merged["waste_by_confidence"]["high"] == 100.0
+    assert merged["waste_by_confidence"]["low"] == 40.0
+    assert merged["total_is_estimate"] is True

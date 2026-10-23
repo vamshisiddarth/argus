@@ -18,9 +18,7 @@ def _response():
 def _provider(create=None, **env):
     client = MagicMock()
     client.messages.create = create or MagicMock(return_value=_response())
-    with patch(
-        "ai.anthropic.anthropic_sdk.Anthropic", return_value=client
-    ) as sdk_cls:
+    with patch("ai.anthropic.anthropic_sdk.Anthropic", return_value=client) as sdk_cls:
         provider = AnthropicProvider(api_key="test-key")
     return provider, client, sdk_cls
 
@@ -68,7 +66,9 @@ def test_timeout_comes_from_ai_timeout_seconds(monkeypatch):
 @pytest.mark.parametrize(
     "error_factory",
     [
-        lambda: anthropic_sdk.APITimeoutError(request=httpx.Request("POST", "http://x")),
+        lambda: anthropic_sdk.APITimeoutError(
+            request=httpx.Request("POST", "http://x")
+        ),
         lambda: anthropic_sdk.APIConnectionError(
             request=httpx.Request("POST", "http://x")
         ),

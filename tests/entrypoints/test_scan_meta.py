@@ -39,6 +39,7 @@ def test_meta_merges_loops_across_accounts():
         "dropped": 6,
         "truncated": True,
         "selection": "cost_desc",
+        "discovery_complete": None,
     }
     assert meta.scan_window == {"metrics_lookback_days": 14}
 
@@ -65,3 +66,14 @@ def test_strict_off_or_full_coverage_does_not_raise():
     full = ScanMeta()
     full.add_loop(_loop(5, 5))
     full.enforce_strict(True)
+
+
+def test_strict_also_fails_when_discovery_was_incomplete():
+    loop = _loop(5, 5)
+    loop.coverage.discovery_complete = False
+    meta = ScanMeta()
+    meta.add_loop(loop)
+
+    with pytest.raises(StrictCoverageError, match="discovery"):
+        meta.enforce_strict(True)
+    meta.enforce_strict(False)

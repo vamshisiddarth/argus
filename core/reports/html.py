@@ -18,6 +18,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from core.registry import get_registry
+from core.reports.generator import waste_caveat
 
 
 def build_html_report(report: dict[str, Any]) -> str:
@@ -34,6 +35,12 @@ def build_html_report(report: dict[str, Any]) -> str:
     rows_html = _build_rows(findings)
     errors_html = _build_errors_banner(
         scan_errors, len(report.get("accounts_scanned", []))
+    )
+    caveat = waste_caveat(report)
+    caveat_html = (
+        f'<br><span style="font-size:11px">{html.escape(caveat)}</span>'
+        if caveat
+        else ""
     )
     coverage_html = _build_coverage_block(report.get("coverage"))
     preflight_html = _build_preflight_box(report.get("preflight"))
@@ -120,7 +127,7 @@ tbody tr:last-child td{{border-bottom:none}}
       <span class="meta">{generated_at} &nbsp;·&nbsp; Scan {scan_id[:8]} &nbsp;·&nbsp; Accounts: {html.escape(accounts)}{window_html}</span>
     </div>
     <div class="stats">
-      <div class="stat"><div class="stat-val red">${total:,.2f}</div><div class="stat-lbl">estimated waste / month</div></div>
+      <div class="stat"><div class="stat-val red">${total:,.2f}</div><div class="stat-lbl">estimated waste / month{caveat_html}</div></div>
       <div class="stat"><div class="stat-val">{count}</div><div class="stat-lbl">findings</div></div>
       <div class="stat"><div class="stat-val">{len(report.get("accounts_scanned", []))}</div><div class="stat-lbl">accounts scanned</div></div>
     </div>
@@ -366,13 +373,25 @@ def _build_coverage_block(coverage: dict[str, Any] | None) -> str:
         return ""
     analysed, discovered = coverage["analysed"], coverage["discovered"]
     line = f"Analysed {analysed} of {discovered} resources"
-    if not coverage.get("truncated"):
+    incomplete = (
+        "<br><strong>Discovery incomplete:</strong> a search hit the provider's "
+        "result limit, so the inventory is understated."
+        if coverage.get("discovery_complete") is False
+        else ""
+    )
+    if not coverage.get("truncated") and not incomplete:
         return f'  <div class="coverage">{line}.</div>\n'
+    if not coverage.get("truncated"):
+        return (
+            f'  <div class="coverage coverage-warning">\n'
+            f"    {line}.{incomplete}\n  </div>\n"
+        )
     rule = html.escape(str(coverage.get("selection", "")))
     return (
         f'  <div class="coverage coverage-warning">\n'
         f"    <strong>{line}</strong> — {coverage['dropped']} were not analysed "
-        f"(selection: {rule}). Raise MAX_RESOURCES_PER_SCAN to cover more.\n"
+        f"(selection: {rule}). Raise MAX_RESOURCES_PER_SCAN to cover more."
+        f"{incomplete}\n"
         f"  </div>\n"
     )
 

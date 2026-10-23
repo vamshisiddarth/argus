@@ -8,6 +8,7 @@ from adapters.aws.resource_explorer import (
     _parse_resource,
     _parse_tags,
     list_resources,
+    list_resources_with_status,
 )
 
 
@@ -248,6 +249,7 @@ class TestSearchLimit:
         ]
         session = MagicMock()
         session.client.return_value = client
+        session.get_available_regions.return_value = ["us-east-1"]
         return session
 
     def test_warns_when_search_hits_the_1000_result_limit(self):
@@ -268,3 +270,104 @@ class TestSearchLimit:
             list_resources(self._session(999))
 
         assert not [e for e in logs if e["event"] == "resource_explorer_search_limit"]
+
+
+class TestPerRegionDiscovery:
+    """A full first query (1000 results) falls back to one query per region."""
+
+    REGIONS = ["us-east-1", "eu-west-1"]
+
+    def _session(self, per_query, regions=None):
+        """per_query maps a QueryString to the list of raw resources it returns."""
+        client = MagicMock()
+        queries = []
+
+        def paginate(QueryString, **kw):
+            queries.append(QueryString)
+            items = per_query.get(QueryString, [])
+            pages = range(0, len(items), 500)
+            return [{"Resources": items[i : i + 500]} for i in pages]
+
+        client.get_paginator.return_value.paginate.side_effect = paginate
+        session = MagicMock()
+        session.client.return_value = client
+        session.get_available_regions.return_value = regions or self.REGIONS
+        return session, queries
+
+    def _raw(self, region, n, tag):
+        return [
+            _make_raw_resource(
+                arn=f"arn:aws:ec2:{region}:1:volume/{tag}-{i}", region=region
+            )
+            for i in range(n)
+        ]
+
+    def test_small_account_uses_one_query_and_is_complete(self):
+        session, queries = self._session({"*": self._raw("us-east-1", 10, "a")})
+
+        resources, complete = list_resources_with_status(session)
+
+        assert queries == ["*"]
+        assert len(resources) == 10 and complete is True
+
+    def test_full_first_query_falls_back_to_one_query_per_region(self):
+        first = self._raw("us-east-1", 1000, "a")
+        session, queries = self._session(
+            {
+                "*": first,
+                "region:us-east-1": first[:700],
+                "region:eu-west-1": self._raw("eu-west-1", 600, "b"),
+                "region:global": self._raw("global", 5, "g"),
+            }
+        )
+
+        resources, complete = list_resources_with_status(session)
+
+        assert queries[0] == "*"
+        assert set(queries[1:]) == {
+            "region:us-east-1",
+            "region:eu-west-1",
+            "region:global",
+        }
+        # union with the first (truncated) query: 1000 + 600 + 5, nothing double counted
+        assert len(resources) == 1000 + 600 + 5
+        assert complete is True
+
+    def test_a_region_that_still_hits_the_limit_marks_discovery_incomplete(self):
+        from structlog.testing import capture_logs
+
+        full = self._raw("us-east-1", 1000, "a")
+        session, _ = self._session(
+            {"*": full, "region:us-east-1": full, "region:eu-west-1": []}
+        )
+
+        with capture_logs() as logs:
+            resources, complete = list_resources_with_status(session)
+
+        assert complete is False
+        assert len(resources) == 1000
+        assert [e for e in logs if e["event"] == "resource_explorer_region_limit"]
+
+    def test_results_are_deduplicated_by_arn_across_queries(self):
+        first = self._raw("us-east-1", 1000, "a")
+        session, _ = self._session(
+            {"*": first, "region:us-east-1": first[:10], "region:eu-west-1": first[:5]}
+        )
+
+        resources, _ = list_resources_with_status(session)
+
+        assert len({r.resource_id for r in resources}) == len(resources) == 1000
+
+    def test_ignored_regions_are_not_queried(self):
+        first = self._raw("us-east-1", 1000, "a")
+        session, queries = self._session({"*": first, "region:us-east-1": first[:3]})
+
+        list_resources_with_status(session, ignore_regions=["eu-west-1", "global"])
+
+        assert "region:eu-west-1" not in queries
+        assert "region:global" not in queries
+
+    def test_list_resources_still_returns_a_plain_list(self):
+        session, _ = self._session({"*": self._raw("us-east-1", 3, "a")})
+
+        assert len(list_resources(session)) == 3
