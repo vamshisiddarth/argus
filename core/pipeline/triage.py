@@ -21,6 +21,7 @@ from core.agent.prompts import REPORT_FINDINGS_TOOL
 from core.agent.selection import HIGH_IMPACT_TYPES
 from core.errors import AgentDidNotSubmitError
 from core.pipeline.evidence import Evidence
+from core.pricing.aws import list_price_proxy
 from core.token_tracker import (
     _DEFAULT_PRICING,
     _PRICING,
@@ -69,18 +70,43 @@ class TriageResult:
     calibration: list[dict[str, int]] = field(default_factory=list)
 
 
+def _dollars(e: Evidence) -> float:
+    """Billed cost if there is one, else a list-price stand-in. For ordering only."""
+    if e.billed_cost_usd:
+        return e.billed_cost_usd
+    return list_price_proxy(e.resource.resource_type, e.state)
+
+
+def _idle_rank(e: Evidence) -> int:
+    """0 looks idle, 1 unknown, 2 shows activity. Ordering only."""
+    if e.metrics_status != "ok":
+        return 1
+    numbers = [abs(v) for v in e.metrics.values() if isinstance(v, (int, float))]
+    return 0 if numbers and sum(numbers) == 0 else 2
+
+
 def rank_for_triage(evidence: list[Evidence]) -> list[Evidence]:
     """Most worth the model's attention first; fully deterministic."""
 
     def key(e: Evidence) -> tuple:
         return (
-            -(e.billed_cost_usd or 0.0),
+            -_dollars(e),
+            _idle_rank(e),
             0 if e.resource.resource_type in HIGH_IMPACT_TYPES else 1,
             e.resource.resource_type,
             e.resource.resource_id,
         )
 
     return sorted(evidence, key=key)
+
+
+def ranking_basis(evidence: list[Evidence]) -> str:
+    """What the order was built on: billed_cost, list_price or type_risk."""
+    if any(e.billed_cost_usd for e in evidence):
+        return "billed_cost"
+    if any(_dollars(e) for e in evidence):
+        return "list_price"
+    return "type_risk"
 
 
 def _tokens(text: str) -> int:

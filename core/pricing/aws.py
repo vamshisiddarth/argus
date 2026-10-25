@@ -53,3 +53,23 @@ def ebs_volume_monthly(
                 throughput_mbps - _GP3_FREE_THROUGHPUT_MBPS
             ) * _GP3_THROUGHPUT_MONTH
     return round(cost, 2)
+
+
+def list_price_proxy(resource_type: str, state: dict | None = None) -> float:
+    """Monthly list price for ordering candidates only; 0.0 when there is none."""
+    if resource_type == "AWS::EC2::NatGateway":
+        return NAT_GATEWAY_MONTHLY
+    if resource_type == "AWS::ElasticLoadBalancingV2::LoadBalancer":
+        return ALB_MONTHLY
+    if resource_type == "AWS::ElasticLoadBalancing::LoadBalancer":
+        return CLB_MONTHLY
+    if resource_type == "AWS::EC2::EIP":
+        return EIP_MONTHLY
+    if resource_type == "AWS::EC2::Volume" and state:
+        return ebs_volume_monthly(
+            state.get("size_gb"),
+            state.get("volume_type", "gp2"),
+            state.get("iops"),
+            state.get("throughput"),
+        )
+    return 0.0
