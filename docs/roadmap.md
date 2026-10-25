@@ -52,8 +52,6 @@ Small, known issues in what has shipped. Not scheduled; contributions welcome.
 - **No decision tracing.** There is no trace of the agent's tool calls and reasoning per finding (Langfuse-style). Debugging a wrong "idle" call relies on logs and the report's AI reasoning text.
 - **Logs, not metrics.** Remediation outcomes are structured log lines only; there are no counters exported to CloudWatch / Cloud Monitoring / Azure Monitor.
 - **`SLACK_WEBHOOK_URL` is always required.** Startup validation insists on it (unless `DRY_RUN=true`) even when `NOTIFICATION_PROVIDER` only lists `teams` or `webhook`.
-- **`BEDROCK_MAX_TOKENS` is ignored.** The Bedrock provider always requests up to 4096 output tokens.
-- **AWS template doesn't expose `RESOURCE_EXPLORER_REGION`.** Deployed Lambdas assume the aggregator index is in `us-east-1` unless you add the variable by hand.
 - **GCP deploy script doesn't enable the Vertex AI API** even though Vertex AI is the default provider on Cloud Run.
 - **Bundled policies aren't in the PyPI package.** `pip install` users don't get `config/policies/`; copy it from the repository (or write your own) and point `ARGUS_POLICY_DIR` at it.
 

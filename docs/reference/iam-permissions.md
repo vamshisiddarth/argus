@@ -21,12 +21,19 @@ the templates creates them for you.
         "resource-explorer-2:Search",
         "resource-explorer-2:GetView",
         "resource-explorer-2:ListIndexes",
+        "resource-explorer-2:ListSupportedResourceTypes",
+        "resource-explorer-2:GetIndex",
+        "resource-explorer-2:GetDefaultView",
+        "resource-explorer-2:ListViews",
         "cloudwatch:GetMetricData",
         "cloudwatch:ListMetrics",
         "ce:GetCostAndUsage",
         "ce:GetCostAndUsageWithResources",
         "cloudtrail:LookupEvents",
+        "tag:GetResources",
         "ec2:DescribeInstances",
+        "ec2:DescribeVolumes",
+        "ec2:DescribeAddresses",
         "rds:DescribeDBInstances",
         "rds:DescribeDBClusters",
         "elasticache:DescribeCacheClusters",
@@ -52,6 +59,41 @@ the templates creates them for you.
   ]
 }
 ```
+
+!!! info "Why the extra Resource Explorer permissions?"
+    Before every scan Argus runs a preflight that checks the aggregator index
+    (`ListIndexes`, `GetIndex`), the default view and its `tags` property
+    (`GetDefaultView`, `GetView`), and that `Search` works. Without them the
+    scan stops with exit code 4 and a message naming what is missing. See
+    [Troubleshooting](troubleshooting.md#preflight-checks).
+
+### Dedicated read-only scan role
+
+Two ways to give a person or CI job a scan role that is not an administrator:
+
+| Option | Policy | When to use |
+|---|---|---|
+| Minimal (default) | Only the actions listed above | Least privilege; what Argus actually calls |
+| `ReadOnlyAccess` + additions | AWS managed `ReadOnlyAccess` plus the Resource Explorer and Cost Explorer actions | Easier to audit against a standard policy. `ReadOnlyAccess` alone is not enough: it does not include the Resource Explorer actions Argus needs |
+
+[`deploy/aws/read-only-scan-role.yaml`](https://github.com/vamshisiddarth/argus/blob/main/deploy/aws/read-only-scan-role.yaml)
+creates either variant (`UseAwsReadOnlyAccess=true|false`). Then scan with a guard
+against a wrong profile:
+
+```bash
+argus scan --cloud aws --expect-account 123456789012
+```
+
+`--expect-account` (or `ARGUS_EXPECT_ACCOUNT`) aborts with exit code 4 before any cloud
+or LLM call when the credentials belong to a different account. It applies to
+single-account scans.
+
+Do not scan with an administrator role. A copy-paste Terraform role with exactly
+the permissions above is in
+[`deploy/aws/terraform/read-only-scan-role.tf`](https://github.com/vamshisiddarth/argus/blob/main/deploy/aws/terraform/read-only-scan-role.tf);
+the CloudFormation templates in `deploy/aws/` create the same set. Argus prints
+the identity it runs as at the start of every scan and warns when the name
+looks like `Administrator*` or `*FullAccess`.
 
 !!! info "Why the describe permissions?"
     Argus uses these read-only `Describe*` calls to fetch the **current instance size**

@@ -294,6 +294,7 @@ def get_metrics(
     resource_filter = _resource_filter(resource_id, resource_type)
     metrics: dict[str, Any] = {}
     has_data = False
+    errors: list[str] = []
 
     for metric_type, stat in metric_defs:
         filter_str = f'metric.type="{metric_type}"'
@@ -320,6 +321,7 @@ def get_metrics(
                     "error": str(exc),
                 },
             )
+            errors.append(str(exc))
             metrics[metric_type] = None
             continue
 
@@ -338,12 +340,15 @@ def get_metrics(
             sum(values) / len(values) if stat == "mean" else sum(values), 4
         )
 
+    failed_outright = not has_data and bool(errors)
     return MetricSummary(
         resource_id=resource_id,
         resource_type=resource_type,
         period_days=days,
         metrics=metrics,
         has_data=has_data,
+        status="error" if failed_outright else None,
+        error=errors[0][:300] if failed_outright else None,
     )
 
 

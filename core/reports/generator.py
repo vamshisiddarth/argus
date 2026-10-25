@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import uuid
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
@@ -19,10 +20,76 @@ def _registry() -> ResourceRegistry:
 
 # Report JSON schema version (see docs/reference/report-schema.md).
 # 1.0.1: findings gained optional account_id / account_name.
-SCHEMA_VERSION = "1.0.1"
+SCHEMA_VERSION = "1.1.0"
 
 # Maximum findings shown as individual rows in the Slack digest
 SLACK_DIGEST_LIMIT = 5
+
+
+_CONFIDENCE_ORDER = ("high", "medium", "low", "unrated")
+
+
+def waste_breakdown(findings: list[dict[str, Any]]) -> tuple[dict[str, float], bool]:
+    """(USD by confidence, whether the total is an unbilled estimate)."""
+    by_conf = {k: 0.0 for k in _CONFIDENCE_ORDER}
+    for f in findings:
+        conf = f.get("confidence")
+        key = conf if isinstance(conf, str) and conf in by_conf else "unrated"
+        by_conf[key] += float(f.get("estimated_monthly_cost") or 0.0)
+    is_estimate = any(f.get("cost_basis") != "billed" for f in findings)
+    return {k: round(v, 2) for k, v in by_conf.items()}, is_estimate
+
+
+REVIEW_COST_USD = 1000.0
+
+_PROD_TOKENS = frozenset({"prod", "prd", "production", "live", "critical"})
+_PROD_PHRASES = ("do not touch", "do-not-touch", "donottouch")
+
+
+def review_reasons(finding: dict[str, Any]) -> list[str]:
+    """Why a finding needs a human look before anyone acts on it."""
+    reasons: list[str] = []
+    text = f"{finding.get('name') or ''} {finding.get('resource_id') or ''}".lower()
+    tokens = set(re.split(r"[^a-z0-9]+", text))
+    if tokens & _PROD_TOKENS or any(p in text for p in _PROD_PHRASES):
+        reasons.append("prod_like_name")
+    cost = float(finding.get("estimated_monthly_cost") or 0.0)
+    if finding.get("cost_basis") != "billed" and cost >= REVIEW_COST_USD:
+        reasons.append("high_unbilled_estimate")
+    return reasons
+
+
+def review_summary(findings: list[dict[str, Any]]) -> tuple[int, float]:
+    """(findings that need review, their summed monthly USD)."""
+    flagged = [f for f in findings if review_reasons(f)]
+    total = sum(float(f.get("estimated_monthly_cost") or 0.0) for f in flagged)
+    return len(flagged), round(total, 2)
+
+
+def waste_caveat(report: dict[str, Any]) -> str:
+    """Short text for headlines: empty when the total is billed, else the split."""
+    by_conf = report.get("waste_by_confidence")
+    is_estimate = report.get("total_is_estimate")
+    if by_conf is None or is_estimate is None:
+        by_conf, is_estimate = waste_breakdown(report.get("findings", []))
+    findings = report.get("findings") or []
+    review_n = report.get("findings_needing_review")
+    review_usd = report.get("waste_needs_review_usd")
+    if review_n is None or review_usd is None:
+        review_n, review_usd = review_summary(findings)
+    if not findings or not (is_estimate or review_n):
+        return ""
+    parts = [f"${by_conf[k]:,.2f} {k}" for k in _CONFIDENCE_ORDER if by_conf.get(k)]
+    text = ""
+    if is_estimate:
+        text = "estimate only, not billed, unverified"
+        if parts:
+            text += ": " + ", ".join(parts)
+    if review_n:
+        noun = "finding needs" if review_n == 1 else "findings needs"
+        text += "; " if text else ""
+        text += f"${review_usd:,.2f} in {review_n} {noun} human review"
+    return text
 
 
 def build_report(
@@ -36,6 +103,9 @@ def build_report(
     scan_errors: list[dict[str, str]] | None = None,
     skipped_resource_types: list[str] | None = None,
     registry_warnings: list[str] | None = None,
+    coverage: dict[str, Any] | None = None,
+    scan_window: dict[str, Any] | None = None,
+    preflight: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """
     Convert a list of ResourceFinding objects into the canonical JSON report.
@@ -45,11 +115,20 @@ def build_report(
         for accounts/projects/subscriptions that failed to scan.
     registry_warnings: list of warning strings from get_registry().load_warnings;
         non-empty means the registry loaded with invalid specs skipped.
+    coverage / scan_window / preflight: schema 1.1.0 provenance blocks; None when
+        the caller does not have them (older entrypoints, chat mode).
     """
     sorted_findings = sorted(
         findings, key=lambda f: f.estimated_monthly_cost, reverse=True
     )
     total_waste = sum(f.estimated_monthly_cost for f in sorted_findings)
+    finding_dicts = [f.to_dict() for f in sorted_findings]
+    waste_by_confidence, total_is_estimate = waste_breakdown(finding_dicts)
+    for d in finding_dicts:
+        reasons = review_reasons(d)
+        d["review_required"] = bool(reasons)
+        d["review_reasons"] = reasons
+    review_count, review_usd = review_summary(finding_dicts)
 
     return {
         "schema_version": SCHEMA_VERSION,
@@ -59,7 +138,11 @@ def build_report(
         "accounts_scanned": accounts_scanned or [],
         "total_estimated_waste_usd": round(total_waste, 2),
         "findings_count": len(sorted_findings),
-        "findings": [f.to_dict() for f in sorted_findings],
+        "findings": finding_dicts,
+        "waste_by_confidence": waste_by_confidence,
+        "total_is_estimate": total_is_estimate,
+        "findings_needing_review": review_count,
+        "waste_needs_review_usd": review_usd,
         "executive_summary": executive_summary,
         "agent_input_tokens": agent_input_tokens,
         "agent_output_tokens": agent_output_tokens,
@@ -70,6 +153,9 @@ def build_report(
         "scan_errors": scan_errors or [],
         "skipped_resource_types": skipped_resource_types or [],
         "registry_warnings": registry_warnings or [],
+        "coverage": coverage,
+        "scan_window": scan_window,
+        "preflight": preflight,
     }
 
 
@@ -183,6 +269,9 @@ def build_slack_payload(
     count = report["findings_count"]
     generated_at = report["generated_at"][:10]  # YYYY-MM-DD
     accounts = len(report.get("accounts_scanned", []))
+    caveat = waste_caveat(report)
+    spend = (report.get("scan_window") or {}).get("llm_spent_usd")
+    spend_line = f"LLM spend ${spend:,.2f}" if spend is not None else ""
 
     _PRIORITY_EMOJI = {
         "HIGH": ":red_circle:",
@@ -203,7 +292,10 @@ def build_slack_payload(
             "fields": [
                 {
                     "type": "mrkdwn",
-                    "text": f":money_with_wings: *${total:,.2f}/month* estimated waste",
+                    "text": (
+                        f":money_with_wings: *${total:,.2f}/month* estimated waste"
+                        + (f" ({caveat})" if caveat else "")
+                    ),
                 },
                 {
                     "type": "mrkdwn",
@@ -224,6 +316,11 @@ def build_slack_payload(
         },
         {"type": "divider"},
     ]
+    if spend_line:
+        blocks.insert(
+            -1,
+            {"type": "context", "elements": [{"type": "mrkdwn", "text": spend_line}]},
+        )
 
     skipped_types = report.get("skipped_resource_types") or []
     if skipped_types:

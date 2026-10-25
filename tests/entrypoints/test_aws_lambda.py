@@ -448,3 +448,448 @@ class TestHandlerSlackDeliveryFailureRaises:
 
         with pytest.raises(RuntimeError, match="Slack delivery failed"):
             handler({}, None)
+
+
+class TestHandlerCoverage:
+    def _run(self, monkeypatch, strict: bool, coverage):
+        from unittest.mock import patch
+
+        monkeypatch.setenv("ACCOUNTS_MODE", "single")
+        monkeypatch.setenv("SLACK_WEBHOOK_URL", "https://hooks.slack.com/test")
+        if strict:
+            monkeypatch.setenv("STRICT_COVERAGE", "true")
+        with (
+            patch("entrypoints.aws_lambda.notify_all"),
+            patch("entrypoints.aws_lambda.build_slack_payload", return_value={"b": []}),
+            patch(
+                "entrypoints.aws_lambda.build_report", return_value=_fake_report()
+            ) as mock_build,
+            patch("entrypoints.aws_lambda.AgentLoop") as mock_loop_cls,
+            patch("entrypoints.aws_lambda.AWSAdapter"),
+            patch(
+                "entrypoints.aws_lambda._get_current_account_id",
+                return_value="123456789012",
+            ),
+            patch("entrypoints.aws_lambda._build_ai_provider"),
+        ):
+            loop = mock_loop_cls.return_value
+            loop.run.return_value = ([], "ok")
+            loop.coverage = coverage
+            from entrypoints.aws_lambda import handler
+
+            result = handler({}, None)
+        return result, mock_build
+
+    def _truncated(self):
+        from core.models.coverage import Coverage, TypeCoverage
+
+        return Coverage(
+            880, 200, "cost_desc", True, ["us-east-1"], {"T": TypeCoverage(880, 200)}
+        )
+
+    def test_coverage_passed_to_report_and_result(self, monkeypatch):
+        result, mock_build = self._run(monkeypatch, False, self._truncated())
+
+        assert mock_build.call_args.kwargs["coverage"]["dropped"] == 680
+        assert result["coverage"]["truncated"] is True
+
+    def test_strict_coverage_fails_when_truncated(self, monkeypatch):
+        import pytest
+
+        from core.errors import StrictCoverageError
+
+        with pytest.raises(StrictCoverageError):
+            self._run(monkeypatch, True, self._truncated())
+
+
+class TestHandlerPreflight:
+    def _result(self, status="fail", account="123456789012"):
+        from core.models.preflight import PreflightCheck, PreflightResult
+
+        return PreflightResult(
+            account_id=account,
+            checks=[
+                PreflightCheck(
+                    "P3_AGGREGATOR_INDEX", status, "no aggregator index", "create one"
+                )
+            ],
+        )
+
+    def _patches(self):
+        from unittest.mock import patch
+
+        return (
+            patch("entrypoints.aws_lambda.notify_all"),
+            patch("entrypoints.aws_lambda.build_slack_payload", return_value={"b": []}),
+            patch("entrypoints.aws_lambda.build_report", return_value=_fake_report()),
+            patch("entrypoints.aws_lambda.AgentLoop"),
+            patch("entrypoints.aws_lambda.AWSAdapter"),
+            patch(
+                "entrypoints.aws_lambda._get_current_account_id",
+                return_value="123456789012",
+            ),
+            patch("entrypoints.aws_lambda._build_ai_provider"),
+        )
+
+    def _run(self, monkeypatch, mode, adapter_setup, accounts=None, skip=False):
+        from contextlib import ExitStack
+
+        monkeypatch.setenv("ARGUS_SKIP_PREFLIGHT", "true" if skip else "false")
+        monkeypatch.setenv("ACCOUNTS_MODE", mode)
+        monkeypatch.setenv("SLACK_WEBHOOK_URL", "https://hooks.slack.com/test")
+        if accounts:
+            monkeypatch.setenv("ACCOUNTS_CONFIG", json.dumps(accounts))
+        with ExitStack() as stack:
+            mocks = [stack.enter_context(p) for p in self._patches()]
+            _, _, mock_build, mock_loop_cls, mock_adapter_cls, _, _ = mocks
+            adapter_setup(mock_adapter_cls)
+            mock_loop_cls.return_value.run.return_value = ([], "ok")
+            from entrypoints.aws_lambda import handler
+
+            try:
+                result = handler({}, None)
+            except Exception as exc:  # noqa: BLE001
+                return exc, mock_loop_cls, mock_build
+            return result, mock_loop_cls, mock_build
+
+    def test_preflight_failure_raises_and_makes_no_ai_calls(self, monkeypatch):
+        from core.errors import PreflightFailedError
+
+        def setup(adapter_cls):
+            adapter_cls.for_account.return_value.preflight.return_value = self._result()
+
+        exc, loop_cls, _ = self._run(monkeypatch, "single", setup)
+
+        assert isinstance(exc, PreflightFailedError)
+        assert "no aggregator index" in str(exc)
+        assert "create one" in str(exc)
+        loop_cls.return_value.run.assert_not_called()
+
+    def test_preflight_warning_continues_and_is_in_report(self, monkeypatch):
+        def setup(adapter_cls):
+            adapter_cls.for_account.return_value.preflight.return_value = self._result(
+                "warn"
+            )
+
+        result, loop_cls, mock_build = self._run(monkeypatch, "single", setup)
+
+        assert result["statusCode"] == 200
+        loop_cls.return_value.run.assert_called_once()
+        pre = mock_build.call_args.kwargs["preflight"]
+        assert pre["skipped"] is False
+        assert pre["accounts"][0]["checks"][0]["status"] == "warn"
+        assert result["preflight"]["warnings"] == [
+            "P3_AGGREGATOR_INDEX: no aggregator index"
+        ]
+
+    def test_skip_preflight_sets_flag_in_report(self, monkeypatch):
+        adapter = MagicMock()
+
+        def setup(adapter_cls):
+            adapter_cls.for_account.return_value = adapter
+
+        result, loop_cls, mock_build = self._run(
+            monkeypatch, "single", setup, skip=True
+        )
+
+        assert result["statusCode"] == 200
+        adapter.preflight.assert_not_called()
+        assert mock_build.call_args.kwargs["preflight"]["skipped"] is True
+        assert result["preflight"]["skipped"] is True
+
+    def test_multi_account_one_preflight_failure_others_continue(self, monkeypatch):
+        accounts = [
+            {
+                "id": "111111111111",
+                "name": "bad",
+                "role_arn": "arn:aws:iam::111111111111:role/r",
+            },
+            {
+                "id": "222222222222",
+                "name": "good",
+                "role_arn": "arn:aws:iam::222222222222:role/r",
+            },
+        ]
+
+        def setup(adapter_cls):
+            bad = MagicMock()
+            bad.preflight.return_value = self._result("fail", "111111111111")
+            good = MagicMock()
+            good.preflight.return_value = self._result("ok", "222222222222")
+            adapter_cls.for_account.side_effect = [bad, good]
+
+        result, loop_cls, mock_build = self._run(monkeypatch, "multi", setup, accounts)
+
+        assert result["statusCode"] == 200
+        assert loop_cls.return_value.run.call_count == 1
+        errors = mock_build.call_args.kwargs["scan_errors"]
+        assert [e["account_id"] for e in errors] == ["111111111111"]
+        assert errors[0]["kind"] == "preflight"
+        assert len(mock_build.call_args.kwargs["preflight"]["accounts"]) == 2
+
+    def test_multi_account_all_preflight_failures_raise(self, monkeypatch):
+        from core.errors import PreflightFailedError
+
+        accounts = [
+            {
+                "id": "111111111111",
+                "name": "a",
+                "role_arn": "arn:aws:iam::111111111111:role/r",
+            },
+            {
+                "id": "222222222222",
+                "name": "b",
+                "role_arn": "arn:aws:iam::222222222222:role/r",
+            },
+        ]
+
+        def setup(adapter_cls):
+            adapter = MagicMock()
+            adapter.preflight.return_value = self._result()
+            adapter_cls.for_account.return_value = adapter
+
+        exc, loop_cls, _ = self._run(monkeypatch, "multi", setup, accounts)
+
+        assert isinstance(exc, PreflightFailedError)
+        loop_cls.return_value.run.assert_not_called()
+
+
+class TestHandlerAgentFailureMultiAccount:
+    ACCOUNTS = [
+        {
+            "id": "111111111111",
+            "name": "a",
+            "role_arn": "arn:aws:iam::111111111111:role/r",
+        },
+        {
+            "id": "222222222222",
+            "name": "b",
+            "role_arn": "arn:aws:iam::222222222222:role/r",
+        },
+    ]
+
+    def _run(self, monkeypatch, run_side_effect):
+        from contextlib import ExitStack
+        from unittest.mock import patch
+
+        monkeypatch.setenv("ACCOUNTS_MODE", "multi")
+        monkeypatch.setenv("SLACK_WEBHOOK_URL", "https://hooks.slack.com/test")
+        monkeypatch.setenv("ACCOUNTS_CONFIG", json.dumps(self.ACCOUNTS))
+        with ExitStack() as stack:
+            stack.enter_context(patch("entrypoints.aws_lambda.notify_all"))
+            stack.enter_context(
+                patch("entrypoints.aws_lambda.build_slack_payload", return_value={})
+            )
+            mock_build = stack.enter_context(
+                patch(
+                    "entrypoints.aws_lambda.build_report", return_value=_fake_report()
+                )
+            )
+            loop_cls = stack.enter_context(patch("entrypoints.aws_lambda.AgentLoop"))
+            stack.enter_context(patch("entrypoints.aws_lambda.AWSAdapter"))
+            stack.enter_context(patch("entrypoints.aws_lambda._build_ai_provider"))
+            loop_cls.return_value.run.side_effect = run_side_effect
+            from entrypoints.aws_lambda import handler
+
+            try:
+                return handler({}, None), mock_build
+            except Exception as exc:  # noqa: BLE001
+                return exc, mock_build
+
+    def test_one_agent_failure_does_not_abort_other_accounts(self, monkeypatch):
+        from core.errors import AgentDidNotSubmitError
+
+        result, mock_build = self._run(
+            monkeypatch, [AgentDidNotSubmitError("model said X"), ([], "fine")]
+        )
+
+        assert result["statusCode"] == 200
+        errors = mock_build.call_args.kwargs["scan_errors"]
+        assert [(e["account_id"], e["kind"]) for e in errors] == [
+            ("111111111111", "agent")
+        ]
+
+    def test_every_agent_failure_raises(self, monkeypatch):
+        from core.errors import AgentDidNotSubmitError
+
+        exc, _ = self._run(
+            monkeypatch,
+            [AgentDidNotSubmitError("one"), AgentDidNotSubmitError("two")],
+        )
+
+        assert isinstance(exc, AgentDidNotSubmitError)
+
+
+class TestDryRunLogging:
+    def test_dry_run_does_not_claim_slack_was_delivered(self, monkeypatch):
+        from contextlib import ExitStack
+        from unittest.mock import patch
+
+        from structlog.testing import capture_logs
+
+        monkeypatch.setenv("DRY_RUN", "true")
+        monkeypatch.setenv("ACCOUNTS_MODE", "single")
+        with ExitStack() as stack:
+            stack.enter_context(
+                patch("entrypoints.aws_lambda.notify_all", return_value=True)
+            )
+            stack.enter_context(
+                patch("entrypoints.aws_lambda.build_slack_payload", return_value={})
+            )
+            stack.enter_context(
+                patch(
+                    "entrypoints.aws_lambda.build_report", return_value=_fake_report()
+                )
+            )
+            loop_cls = stack.enter_context(patch("entrypoints.aws_lambda.AgentLoop"))
+            stack.enter_context(patch("entrypoints.aws_lambda.AWSAdapter"))
+            stack.enter_context(
+                patch(
+                    "entrypoints.aws_lambda._get_current_account_id", return_value="1"
+                )
+            )
+            stack.enter_context(patch("entrypoints.aws_lambda._build_ai_provider"))
+            loop_cls.return_value.run.return_value = ([], "ok")
+            from entrypoints.aws_lambda import handler
+
+            with capture_logs() as logs:
+                handler({}, None)
+
+        done = next(e for e in logs if e["event"] == "scan_complete")
+        assert done["slack_delivered"] is False
+
+
+class TestExpectAccount:
+    def _run(self, monkeypatch, expect, actual="123456789012"):
+        from contextlib import ExitStack
+        from unittest.mock import patch
+
+        monkeypatch.setenv("ACCOUNTS_MODE", "single")
+        monkeypatch.setenv("SLACK_WEBHOOK_URL", "https://hooks.slack.com/test")
+        if expect:
+            monkeypatch.setenv("ARGUS_EXPECT_ACCOUNT", expect)
+        with ExitStack() as stack:
+            stack.enter_context(patch("entrypoints.aws_lambda.notify_all"))
+            stack.enter_context(
+                patch("entrypoints.aws_lambda.build_slack_payload", return_value={})
+            )
+            stack.enter_context(
+                patch(
+                    "entrypoints.aws_lambda.build_report", return_value=_fake_report()
+                )
+            )
+            loop_cls = stack.enter_context(patch("entrypoints.aws_lambda.AgentLoop"))
+            adapter_cls = stack.enter_context(
+                patch("entrypoints.aws_lambda.AWSAdapter")
+            )
+            stack.enter_context(
+                patch(
+                    "entrypoints.aws_lambda._get_current_account_id",
+                    return_value=actual,
+                )
+            )
+            stack.enter_context(patch("entrypoints.aws_lambda._build_ai_provider"))
+            loop_cls.return_value.run.return_value = ([], "ok")
+            from entrypoints.aws_lambda import handler
+
+            try:
+                return handler({}, None), loop_cls, adapter_cls
+            except Exception as exc:  # noqa: BLE001
+                return exc, loop_cls, adapter_cls
+
+    def test_mismatch_fails_before_any_cloud_or_llm_call(self, monkeypatch):
+        from core.errors import PreflightFailedError
+
+        exc, loop_cls, adapter_cls = self._run(monkeypatch, "999999999999")
+
+        assert isinstance(exc, PreflightFailedError)
+        assert "999999999999" in str(exc) and "123456789012" in str(exc)
+        loop_cls.return_value.run.assert_not_called()
+        adapter_cls.for_account.assert_not_called()
+
+    def test_match_runs_normally(self, monkeypatch):
+        result, _, _ = self._run(monkeypatch, "123456789012")
+        assert result["statusCode"] == 200
+
+    def test_unset_means_no_guard(self, monkeypatch):
+        result, _, _ = self._run(monkeypatch, None)
+        assert result["statusCode"] == 200
+
+    def test_unknown_identity_with_a_guard_fails_closed(self, monkeypatch):
+        from core.errors import PreflightFailedError
+
+        exc, _, _ = self._run(monkeypatch, "123456789012", actual="unknown")
+        assert isinstance(exc, PreflightFailedError)
+
+    def test_guard_still_applies_when_preflight_is_skipped(self, monkeypatch):
+        from core.errors import PreflightFailedError
+
+        monkeypatch.setenv("ARGUS_SKIP_PREFLIGHT", "true")
+        exc, _, _ = self._run(monkeypatch, "999999999999")
+        assert isinstance(exc, PreflightFailedError)
+
+
+class TestStrictCoverageKeepsTheReport:
+    def _setup(self, monkeypatch, summary):
+        from contextlib import ExitStack
+        from unittest.mock import patch
+
+        from core.models.coverage import Coverage, TypeCoverage
+
+        monkeypatch.setenv("ACCOUNTS_MODE", "single")
+        monkeypatch.setenv("STRICT_COVERAGE", "true")
+        monkeypatch.setenv("SLACK_WEBHOOK_URL", "https://hooks.slack.com/test")
+        stack = ExitStack()
+        mocks = {
+            "notify": stack.enter_context(patch("entrypoints.aws_lambda.notify_all")),
+            "save": stack.enter_context(
+                patch("entrypoints.aws_lambda.save_reports_locally")
+            ),
+            "build": stack.enter_context(
+                patch(
+                    "entrypoints.aws_lambda.build_report", return_value=_fake_report()
+                )
+            ),
+        }
+        stack.enter_context(
+            patch("entrypoints.aws_lambda.build_slack_payload", return_value={})
+        )
+        loop_cls = stack.enter_context(patch("entrypoints.aws_lambda.AgentLoop"))
+        stack.enter_context(patch("entrypoints.aws_lambda.AWSAdapter"))
+        stack.enter_context(
+            patch("entrypoints.aws_lambda._get_current_account_id", return_value="1")
+        )
+        stack.enter_context(patch("entrypoints.aws_lambda._build_ai_provider"))
+        loop = loop_cls.return_value
+        loop.run.return_value = ([], summary)
+        loop.coverage = Coverage(
+            880, 200, "cost_desc", True, ["us-east-1"], {"T": TypeCoverage(880, 200)}
+        )
+        return stack, mocks
+
+    def test_report_is_written_and_delivered_before_the_strict_failure(
+        self, monkeypatch
+    ):
+        import pytest
+
+        from core.errors import StrictCoverageError
+        from entrypoints.aws_lambda import handler
+
+        stack, mocks = self._setup(monkeypatch, "ok")
+        with stack, pytest.raises(StrictCoverageError):
+            handler({}, None)
+
+        mocks["build"].assert_called_once()
+        mocks["save"].assert_called_once()
+        mocks["notify"].assert_called_once()
+
+    def test_a_budget_abort_still_reports_exit_2_not_the_strict_error(
+        self, monkeypatch
+    ):
+        from entrypoints.aws_lambda import handler
+
+        stack, _ = self._setup(monkeypatch, "Scan aborted: LLM budget of $2.00")
+        with stack:
+            result = handler({}, None)
+
+        assert result["budget_exceeded"] is True

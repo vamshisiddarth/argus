@@ -1,6 +1,6 @@
 # Report JSON Schema
 
-Version: **1.0.1**
+Version: **1.1.0**
 
 Every Argus scan produces a JSON report with the following top-level fields.
 
@@ -8,7 +8,7 @@ Every Argus scan produces a JSON report with the following top-level fields.
 
 | Field | Type | Description |
 |---|---|---|
-| `schema_version` | `string` | Schema version identifier. Currently `"1.0.1"`. |
+| `schema_version` | `string` | Schema version identifier. Currently `"1.1.0"`. |
 | `scan_id` | `string` | UUID v4 unique to this scan. |
 | `generated_at` | `string` | ISO 8601 timestamp (UTC) when the report was generated. |
 | `cloud` | `string` | Cloud provider: `"aws"`, `"gcp"`, or `"azure"`. |
@@ -24,6 +24,32 @@ Every Argus scan produces a JSON report with the following top-level fields.
 | `scan_errors` | `object[]` | Accounts/projects/subscriptions that failed to scan: `{account_id, account_name, error}`. Empty when all succeeded. |
 | `skipped_resource_types` | `string[]` | Resource types that were skipped during the scan (for example, GCP asset types whose API isn't enabled). |
 | `registry_warnings` | `string[]` | Invalid resource-registry entries skipped at load time. Normally empty. |
+| `coverage` | `Coverage \| null` | What the scan actually analysed. See [Coverage object](#coverage-object). `null` when the entrypoint could not provide it. Added in 1.1.0. |
+| `scan_window` | `object \| null` | Settings actually used: `metrics_lookback_days`, `cost_lookback_days` (the effective cost window, at most 14 on AWS), `activity_lookback_days`, `cost_basis`, `max_resources` and `max_resources_source` (`explicit` or `budget`), `tags_source` (`resource_explorer`, `tagging_api` or `unavailable`), and the LLM economics `llm_budget_usd`, `llm_estimate_usd` (computed before the first call), `llm_spent_usd`, `llm_plan` (`candidates`, `covered`, `full_estimate_usd`, `covered_estimate_usd`, `order` and the printed `line`: what the budget buys before any call) and `llm_calibration` (estimated against actual tokens per model call, counts only). With several accounts `llm_plan` and `llm_calibration` are per account and left out of the merged block. Added in 1.1.0. |
+| `preflight` | `object \| null` | Results of the pre-scan environment checks. Added in 1.1.0. |
+| `waste_by_confidence` | `object` | `total_estimated_waste_usd` split into `high`, `medium`, `low` and `unrated` (findings with no confidence). Added in 1.1.0. |
+| `total_is_estimate` | `boolean` | `true` unless every finding's `cost_basis` is `billed`; headlines then say the total is not billed. Added in 1.1.0. |
+| `findings_needing_review` | `integer` | Findings whose `review_required` is true. |
+| `waste_needs_review_usd` | `number` | Summed monthly USD of those findings; part of `total_estimated_waste_usd`, shown separately so it is not read as a safe saving. |
+
+## Coverage object
+
+| Field | Type | Description |
+|---|---|---|
+| `discovered` | `integer` | Billable resources found after exclusion filters. |
+| `analysed` | `integer` | Resources handed to the AI. |
+| `dropped` | `integer` | `discovered - analysed`. |
+| `truncated` | `boolean` | `true` when `dropped > 0` (the `MAX_RESOURCES_PER_SCAN` cap bit). |
+| `selection` | `string` | `"cost_desc"` (cost data available), `"stratified_by_type"` (round-robin across types) or `"mixed"` (multi-account). |
+| `cost_data_available` | `boolean` | Whether any per-resource cost was returned. |
+| `regions_covered` | `string[]` | Regions in the discovered inventory. |
+| `types` | `object` | Per resource type: `{discovered, analysed}`. |
+| `stop_reason` | `string \| null` | Why not everything was analysed: `"budget"`, `"cap"` or `"llm_failure"`; `null` when complete. |
+| `skipped_by_reason` | `object` | Resources not analysed, by reason (`budget`, `cap`, `llm_failure`). |
+| `free_config_skipped` | `integer` | Free configuration objects (subnets, IAM roles, ...) skipped on purpose; not part of `discovered`. |
+| `metrics_lost_to_throttling` | `integer` | Resources whose metrics could not be fetched because the cloud API kept throttling after retries. |
+| `stages` | `object \| null` | The same scan per stage. `rules`: `evaluated`, `findings`, `undecided`. `gate`: `mode` (`off`, `shadow`, `on`), `settled`, and in shadow mode `settled_but_flagged` (settled resources the model flagged anyway; the gate is only safe to enable when this stays 0). `model`: `candidates` (what the model still owed after rules), `analysed`, `skipped`, `stop_reason` and `order` (`billed_cost` when any billed cost exists; else `list_price` when a list-price stand-in was available, used for ordering only and never shown as a cost; else `type_risk`). A partial model pass is read against `model.candidates`, not against `discovered`. |
+| `discovery_complete` | `boolean \| null` | `false` when a discovery query hit the provider's result limit (AWS Resource Explorer returns at most 1,000 per query; Argus then searches region by region and sets this only if a single region still overflows). `null` when the adapter does not report it. Added in 1.1.0. |
 
 ## Finding object
 
@@ -40,6 +66,11 @@ Every Argus scan produces a JSON report with the following top-level fields.
 | `priority` | `string` | `"high"`, `"medium"`, or `"low"` — assigned by the AI. |
 | `metrics_summary` | `object` | Key metric signals the AI used to make its decision. |
 | `tags` | `object` | Resource tags as key-value pairs. |
+| `confidence` | `string \| null` | `"low"`, `"medium"` or `"high"`. Forced to `low` when the metrics behind the finding were unavailable; capped at `medium` for windows under 90 days. Added in 1.1.0. |
+| `cost_basis` | `string \| null` | Where the dollar figure comes from: `"billed"` (Cost Explorer), `"list_price"` (Argus price catalog, us-east-1 list prices), `"model_estimate"` (the AI's guess) or `"unknown"` (no figure). Added in 1.1.0. |
+| `review_required` | `boolean` | `true` when a human must check this finding before any ticket, deletion or resize: the name looks like production (`prod`, `prd`, `production`, `live`, `critical`, "do not touch") or the estimate is at least $1,000/month with no billed cost behind it. Added in 1.1.0. |
+| `review_reasons` | `string[]` | Why: `prod_like_name`, `high_unbilled_estimate`. Empty when `review_required` is false. |
+| `detected_by` | `string \| null` | `"model"` or `"rule:<id>"` for a [baseline rule](../concepts/baseline-rules.md). Added in 1.1.0. |
 | `last_activity` | `string \| null` | ISO 8601 timestamp of the last detected activity, or `null`. |
 | `scan_time` | `string` | ISO 8601 timestamp of when the resource was scanned. |
 | `account_id` | `string \| null` | Account / project / subscription the resource belongs to. Added in 1.0.1; `null` if it couldn't be attributed. |
@@ -61,12 +92,13 @@ Every Argus scan produces a JSON report with the following top-level fields.
 The `schema_version` field uses semantic versioning:
 
 - **Patch** (1.0.x): new optional fields added. Existing consumers are unaffected.
-- **Minor** (1.x.0): field semantics changed or optional fields become required.
+- **Minor** (1.x.0): new optional top-level blocks, changed field semantics, or optional fields becoming required.
 - **Major** (x.0.0): fields removed or renamed. Consumers must update.
 
 Consumers should check `schema_version` before parsing and handle unknown versions gracefully.
 
 | Version | Change |
 |---|---|
+| 1.1.0 (v0.7.0) | New optional top-level `coverage`, `scan_window` and `preflight` blocks. Nothing removed or renamed. |
 | 1.0.1 (v0.6.0) | Findings gained optional `account_id` and `account_name`. |
 | 1.0 | Initial schema. |

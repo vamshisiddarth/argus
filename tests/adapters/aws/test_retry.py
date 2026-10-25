@@ -33,7 +33,7 @@ class TestRetryOnTransient:
         fn = MagicMock(side_effect=_make_client_error("ThrottlingException"))
         with pytest.raises(ClientError):
             retry_on_transient(fn)
-        assert fn.call_count == 3
+        assert fn.call_count == 5
 
     def test_raises_immediately_on_non_retryable(self):
         fn = MagicMock(side_effect=_make_client_error("AccessDeniedException"))
@@ -45,3 +45,15 @@ class TestRetryOnTransient:
         fn = MagicMock(return_value="ok")
         assert retry_on_transient(fn, "a", b="c") == "ok"
         fn.assert_called_once_with("a", b="c")
+
+
+class TestBackoffCap:
+    @patch("adapters.aws.retry.random.uniform", return_value=0.0)
+    @patch("adapters.aws.retry.time.sleep")
+    def test_total_backoff_is_bounded(self, mock_sleep: MagicMock, _jitter: MagicMock):
+        fn = MagicMock(side_effect=_make_client_error("Throttling"))
+        with pytest.raises(ClientError):
+            retry_on_transient(fn)
+        assert fn.call_count == 5
+        assert sum(c.args[0] for c in mock_sleep.call_args_list) <= 15
+        assert max(c.args[0] for c in mock_sleep.call_args_list) <= 8

@@ -36,6 +36,8 @@ import structlog
 
 from adapters.gcp.adapter import GCPAdapter
 from core.agent.loop import AgentLoop
+from core.config import get_settings
+from core.errors import AgentDidNotSubmitError, StrictCoverageError
 from core.log import configure_logging
 from core.models.finding import ResourceFinding
 from core.registry import get_registry
@@ -52,12 +54,13 @@ from core.reports.generator import (
 from core.reports.html import build_html_report
 from core.secrets import resolve_secrets
 from core.validation import ConfigurationError, validate_environment
+from entrypoints._meta import ScanMeta
 
 configure_logging()
 logger = structlog.get_logger(__name__)
 
 
-def main() -> None:
+def main() -> dict[str, Any]:
     """Entry point for the Cloud Run Job. Runs once and exits."""
     cloud = "gcp"
     try:
@@ -85,6 +88,7 @@ def main() -> None:
     logger.info("scan_start", projects=project_ids, ignore_regions=ignore_regions)
 
     scan_errors: list[dict[str, str]] = []
+    meta = ScanMeta()
     if use_multi:
         (
             all_findings,
@@ -93,12 +97,18 @@ def main() -> None:
             token_summary,
             scan_errors,
             skipped_types,
-        ) = _run_multi_project(project_ids, ignore_regions, cloud)
+        ) = _run_multi_project(project_ids, ignore_regions, cloud, meta)
     else:
         all_findings, executive_summary, scanned_ids, token_summary, skipped_types = (
-            _run_single_project(project_ids[0], ignore_regions, cloud)
+            _run_single_project(project_ids[0], ignore_regions, cloud, meta)
         )
         scan_errors = []
+    strict_error: Exception | None = None
+    try:
+        meta.enforce_strict(get_settings().scan.strict_coverage)
+    except StrictCoverageError as exc:
+        # Keep going: the scan was paid for, so write and deliver the report first.
+        strict_error = exc
 
     gcs_bucket = os.environ.get("REPORT_GCS_BUCKET", "").strip()
     previous_report = _load_previous_report(cloud, gcs_bucket)
@@ -115,6 +125,8 @@ def main() -> None:
         scan_errors=scan_errors,
         skipped_resource_types=skipped_types,
         registry_warnings=get_registry().load_warnings,
+        coverage=meta.coverage_dict(),
+        scan_window=meta.scan_window,
     )
     report_url: str | None = None
     if gcs_bucket:
@@ -144,12 +156,23 @@ def main() -> None:
         findings=report["findings_count"],
         total_waste_usd=round(report["total_estimated_waste_usd"], 2),
         budget_exceeded=budget_exceeded,
-        slack_delivered=delivered,
+        slack_delivered=delivered and not get_settings().report.dry_run,
     )
     if budget_exceeded:
         sys.exit(2)
+    if strict_error is not None:
+        raise strict_error
     if not delivered:
         sys.exit(1)
+    return {
+        "statusCode": 200,
+        "scan_id": report["scan_id"],
+        "findings_count": report["findings_count"],
+        "total_estimated_waste_usd": report["total_estimated_waste_usd"],
+        "budget_exceeded": False,
+        "coverage": meta.summary(),
+        "llm": meta.llm_summary(),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -202,6 +225,7 @@ def _run_single_project(
     project_id: str,
     ignore_regions: list[str],
     cloud: str,
+    meta: ScanMeta | None = None,
 ) -> tuple[list[ResourceFinding], str, list[str], dict, list[str]]:
     structlog.contextvars.bind_contextvars(account_id=project_id)
     ai_provider = _build_ai_provider(project_id)
@@ -212,6 +236,8 @@ def _run_single_project(
         ignore_regions=ignore_regions,
         accounts=[{"id": project_id, "name": project_id}],
     )
+    if meta is not None:
+        meta.add_loop(loop)
     return (
         findings,
         summary,
@@ -225,6 +251,7 @@ def _run_multi_project(
     project_ids: list[str],
     ignore_regions: list[str],
     cloud: str,
+    meta: ScanMeta | None = None,
 ) -> tuple[
     list[ResourceFinding], str, list[str], dict, list[dict[str, str]], list[str]
 ]:
@@ -236,6 +263,7 @@ def _run_multi_project(
     scanned_ids: list[str] = []
     scan_errors: list[dict[str, str]] = []
     all_skipped: list[str] = []
+    agent_failures: list[str] = []
     total_input = 0
     total_output = 0
     last_ai_provider = None
@@ -254,17 +282,35 @@ def _run_multi_project(
                 ignore_regions=ignore_regions,
                 accounts=[{"id": pid, "name": name}],
             )
+            if meta is not None:
+                meta.add_loop(loop)
             all_findings.extend(findings)
             all_summaries.append(f"[{name}] {summary}")
             scanned_ids.append(pid)
             total_input += loop.tracker.total_input_tokens
             total_output += loop.tracker.total_output_tokens
             all_skipped.extend(adapter.skipped_asset_types)
+        except AgentDidNotSubmitError as exc:
+            logger.error("project_agent_failed", project_id=pid, error=str(exc))
+            agent_failures.append(str(exc))
+            scan_errors.append(
+                {
+                    "account_id": pid,
+                    "account_name": name,
+                    "error": str(exc),
+                    "kind": "agent",
+                }
+            )
         except PermissionError as exc:
             logger.error("project_scan_failed", project_id=pid, error=str(exc))
             scan_errors.append(
                 {"account_id": pid, "account_name": name, "error": str(exc)}
             )
+
+    if agent_failures and not scanned_ids and len(agent_failures) == len(project_ids):
+        raise AgentDidNotSubmitError(
+            "Every project failed:\n" + "\n".join(agent_failures)
+        )
 
     if len(project_ids) > 1 and all_findings and last_ai_provider is not None:
         logger.info("synthesizing_unified_summary", projects=len(scanned_ids))
