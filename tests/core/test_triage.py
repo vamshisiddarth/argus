@@ -10,6 +10,7 @@ from core.pipeline.triage import (
     estimate_cost,
     plan_budget,
     rank_for_triage,
+    ranking_basis,
     run_triage,
 )
 from core.token_tracker import TokenTracker
@@ -234,8 +235,8 @@ def test_ranking_is_deterministic_and_puts_costly_and_high_impact_first():
 
     ids = [e.resource.resource_id[-7:] for e in ranked]
     assert ids[0] == "vol-001"  # highest billed cost
-    assert ids[1] == "vol-004"
-    assert ranked[2].resource.resource_type == NAT  # high-impact type next
+    assert ranked[1].resource.resource_type == NAT  # list price $32.85 beats billed $5
+    assert ids[2] == "vol-004"
     assert ids[3:] == ["vol-000", "vol-003"]
     assert [
         e.resource.resource_id for e in rank_for_triage(list(reversed(evidence)))
@@ -310,3 +311,51 @@ def test_plan_line_for_a_budget_that_covers_everything_has_no_advice():
 
     assert "covers all 1 residual candidates" in line
     assert "LLM_BUDGET_USD" not in line
+
+
+EIP = "AWS::EC2::EIP"
+
+
+def _ev_typed(rid, rtype, cost=None, status="ok", metrics=None, state=None):
+    r = Resource(f"arn:aws:ec2:us-east-1:1:x/{rid}", rtype, "aws", "us-east-1")
+    return Evidence(
+        r,
+        billed_cost_usd=cost,
+        metrics={"ops": 0.0} if metrics is None else metrics,
+        metrics_status=status,
+        state=state,
+    )
+
+
+def test_without_billed_cost_list_price_orders_the_candidates():
+    eip = _ev_typed("eip", EIP)
+    nat = _ev_typed("nat", NAT)
+    big = _ev_typed("vol-big", VOL, state={"size_gb": 2000, "volume_type": "gp3"})
+
+    ranked = rank_for_triage([eip, nat, big])
+
+    assert [e.resource.resource_type for e in ranked] == [VOL, NAT, EIP]
+
+
+def test_billed_cost_beats_a_list_price_estimate():
+    nat = _ev_typed("nat", NAT)
+    billed = _ev_typed("vol", VOL, cost=500.0)
+
+    assert rank_for_triage([nat, billed])[0] is billed
+
+
+def test_equal_dollars_put_idle_first_then_unknown_then_active():
+    active = _ev_typed("a", VOL, metrics={"ops": 900.0})
+    unknown = _ev_typed("b", VOL, status="no_data", metrics={})
+    idle = _ev_typed("c", VOL, metrics={"ops": 0.0})
+
+    assert rank_for_triage([active, unknown, idle]) == [idle, unknown, active]
+
+
+def test_ranking_basis_names_what_the_order_used():
+    nat = _ev_typed("nat", NAT)
+    plain = _ev_typed("v", VOL)
+
+    assert ranking_basis([_ev_typed("v", VOL, cost=5.0), nat]) == "billed_cost"
+    assert ranking_basis([nat, plain]) == "list_price"
+    assert ranking_basis([plain]) == "type_risk"

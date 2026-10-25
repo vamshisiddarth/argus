@@ -20,6 +20,7 @@ from core.pipeline.triage import (
     TriageResult,
     plan_budget,
     rank_for_triage,
+    ranking_basis,
     run_triage,
 )
 from core.reports.generator import review_summary, waste_breakdown
@@ -112,7 +113,7 @@ def run_pipeline(
         scan.triage_batch_items,
     )
     estimate = plan.full_estimate_usd
-    order = "billed_cost" if any(e.billed_cost_usd for e in ranked) else "type_risk"
+    order = ranking_basis(ranked)
     plan_line = plan.line(scan.llm_budget_usd, len(decided), order.replace("_", " "))
     window_info["llm_estimate_usd"] = estimate
     window_info["llm_plan"] = {**plan.to_dict(), "order": order, "line": plan_line}
