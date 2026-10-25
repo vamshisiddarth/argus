@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+from pydantic import ValidationError
 
 from core.config import (
     AISettings,
@@ -169,3 +170,19 @@ class TestGetSettings:
         assert hasattr(cfg, "report")
         assert hasattr(cfg, "scan")
         assert hasattr(cfg, "log")
+
+
+class TestGateSetting:
+    def test_gate_is_off_by_default(self, monkeypatch):
+        monkeypatch.delenv("ARGUS_GATE", raising=False)
+        assert ScanSettings().gate == "off"
+
+    @pytest.mark.parametrize("value", ["off", "shadow", "on"])
+    def test_gate_accepts_its_three_modes(self, monkeypatch, value):
+        monkeypatch.setenv("ARGUS_GATE", value)
+        assert ScanSettings().gate == value
+
+    def test_gate_rejects_anything_else(self, monkeypatch):
+        monkeypatch.setenv("ARGUS_GATE", "maybe")
+        with pytest.raises(ValidationError):
+            ScanSettings()

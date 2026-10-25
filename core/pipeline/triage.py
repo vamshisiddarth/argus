@@ -136,11 +136,17 @@ class Plan:
     full_estimate_usd: float
     covered_estimate_usd: float
 
-    def line(self, budget_usd: float, rules_decided: int, order: str) -> str:
-        head = (
-            f"LLM plan: {self.candidates} residual candidates after rules "
-            f"({rules_decided})."
-        )
+    def line(
+        self,
+        budget_usd: float,
+        rules_decided: int,
+        order: str,
+        gate_settled: int = 0,
+    ) -> str:
+        after = f"rules ({rules_decided})"
+        if gate_settled:
+            after += f" and gate ({gate_settled})"
+        head = f"LLM plan: {self.candidates} residual candidates after {after}."
         if self.covered >= self.candidates:
             return (
                 f"{head} Budget covers all {self.candidates} residual candidates "
