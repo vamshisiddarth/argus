@@ -21,7 +21,7 @@ from core.pipeline.triage import (
     rank_for_triage,
     run_triage,
 )
-from core.reports.generator import waste_breakdown
+from core.reports.generator import review_summary, waste_breakdown
 from core.token_tracker import TokenTracker
 
 if TYPE_CHECKING:
@@ -254,7 +254,15 @@ def _summarise(
         }
         parts = ", ".join(f"{n} {p}" for p, n in by_priority.items() if n)
         _, is_estimate = waste_breakdown([f.to_dict() for f in findings])
-        label = "not billed" if is_estimate else "billed"
+        label = "estimate only, not billed, unverified" if is_estimate else "billed"
+        review_n, review_usd = review_summary([f.to_dict() for f in findings])
+        review = (
+            f" ${review_usd:,.2f} of that is in {review_n} "
+            f"finding{'s' if review_n != 1 else ''} that need human review before "
+            "any action (production-like name or a large unbilled estimate)."
+            if review_n
+            else ""
+        )
         top = ", ".join(
             f"{f.resource_id.split('/')[-1]} (${f.estimated_monthly_cost:,.2f})"
             for f in sorted(
@@ -266,6 +274,7 @@ def _summarise(
             f"Found {len(findings)} resources worth reviewing, about "
             f"${total:,.2f}/month ({label}): {parts} priority."
             + (f" Largest: {top}." if top else "")
+            + review
             + f" {analysed}"
         )
     if triage.stop_reason == "budget":
