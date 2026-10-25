@@ -16,6 +16,7 @@ class ScanMeta:
     coverages: list[Coverage] = field(default_factory=list)
     scan_window: dict[str, Any] | None = None
     preflights: list[PreflightResult] = field(default_factory=list)
+    plan_lines: list[str] = field(default_factory=list)
 
     def add_loop(self, loop: AgentLoop) -> None:
         if isinstance(loop.coverage, Coverage):
@@ -23,9 +24,14 @@ class ScanMeta:
         window = getattr(loop, "scan_window", None)
         if not isinstance(window, dict):
             return
+        plan = window.get("llm_plan")
+        if isinstance(plan, dict) and plan.get("line"):
+            self.plan_lines.append(plan["line"])
         if self.scan_window is None:
             self.scan_window = dict(window)
             return
+        for per_account in ("llm_plan", "llm_calibration"):
+            self.scan_window.pop(per_account, None)
         for key in ("llm_spent_usd", "llm_estimate_usd", "llm_budget_usd"):
             if key in window:
                 total = (self.scan_window.get(key) or 0) + (window[key] or 0)
@@ -35,11 +41,14 @@ class ScanMeta:
         window = self.scan_window or {}
         if "llm_spent_usd" not in window:
             return None
-        return {
+        out: dict[str, Any] = {
             "spent_usd": window["llm_spent_usd"],
             "estimate_usd": window.get("llm_estimate_usd", 0.0),
             "budget_usd": window.get("llm_budget_usd", 0.0),
         }
+        if self.plan_lines:
+            out["plans"] = list(self.plan_lines)
+        return out
 
     def preflight_dict(self) -> dict[str, Any] | None:
         if not self.preflights:

@@ -45,6 +45,7 @@ def test_to_dict_has_documented_keys():
         "skipped_by_reason",
         "free_config_skipped",
         "metrics_lost_to_throttling",
+        "stages",
         "regions_covered",
         "types",
     }
@@ -148,3 +149,50 @@ def test_merge_sums_metrics_lost_to_throttling():
         [_cov(metrics_lost_to_throttling=2), _cov(metrics_lost_to_throttling=3)]
     )
     assert merged.metrics_lost_to_throttling == 5
+
+
+_STAGES = {
+    "rules": {"evaluated": 382, "findings": 83, "undecided": 32},
+    "gate": {"mode": "off", "settled": 0},
+    "model": {
+        "candidates": 1507,
+        "analysed": 458,
+        "skipped": 1049,
+        "stop_reason": "budget",
+        "order": "billed_cost",
+    },
+}
+
+
+def test_stages_default_to_none_and_round_trip():
+    assert _cov().stages is None
+    assert _cov().to_dict()["stages"] is None
+    cov = _cov(stages=_STAGES)
+    assert Coverage.from_dict(cov.to_dict()).stages == _STAGES
+
+
+def test_merge_sums_stage_counts_and_keeps_labels():
+    other = {
+        "rules": {"evaluated": 10, "findings": 2, "undecided": 1},
+        "gate": {"mode": "off", "settled": 0},
+        "model": {
+            "candidates": 100,
+            "analysed": 100,
+            "skipped": 0,
+            "stop_reason": None,
+            "order": "list_price",
+        },
+    }
+
+    merged = Coverage.merge([_cov(stages=_STAGES), _cov(stages=other)])
+
+    assert merged.stages["rules"] == {"evaluated": 392, "findings": 85, "undecided": 33}
+    assert merged.stages["model"]["candidates"] == 1607
+    assert merged.stages["model"]["skipped"] == 1049
+    assert merged.stages["model"]["stop_reason"] == "budget"
+    assert merged.stages["model"]["order"] == "mixed"
+    assert merged.stages["gate"] == {"mode": "off", "settled": 0}
+
+
+def test_merge_without_stages_stays_none():
+    assert Coverage.merge([_cov(), _cov()]).stages is None

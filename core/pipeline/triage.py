@@ -10,6 +10,7 @@ stops before a batch that would overspend rather than after.
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -90,17 +91,79 @@ def _line_tokens(ev: Evidence, index: int) -> int:
     return _tokens(json.dumps(ev.to_prompt(index), separators=(",", ":")))
 
 
-def estimate_cost(evidence: list[Evidence], system_prompt: str, provider: str) -> float:
+def estimate_cost(
+    evidence: list[Evidence],
+    system_prompt: str,
+    provider: str,
+    max_batch_items: int = 60,
+) -> float:
     """Expected LLM spend for these resources, before any call is made."""
+    return plan_budget(
+        evidence, system_prompt, provider, 0.0, max_batch_items
+    ).full_estimate_usd
+
+
+@dataclass(frozen=True)
+class Plan:
+    candidates: int
+    covered: int
+    full_estimate_usd: float
+    covered_estimate_usd: float
+
+    def line(self, budget_usd: float, rules_decided: int, order: str) -> str:
+        head = (
+            f"LLM plan: {self.candidates} residual candidates after rules "
+            f"({rules_decided})."
+        )
+        if self.covered >= self.candidates:
+            return (
+                f"{head} Budget covers all {self.candidates} residual candidates "
+                f"(estimated ${self.full_estimate_usd:,.2f})."
+            )
+        needed = math.ceil(self.full_estimate_usd * 100) / 100
+        return (
+            f"{head} Full pass ~${self.full_estimate_usd:,.2f} (estimate). "
+            f"Budget ${budget_usd:,.2f} covers ~{self.covered} of {self.candidates} "
+            f"(highest first by {order}). "
+            f"Set LLM_BUDGET_USD={needed:.2f} for full coverage."
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "candidates": self.candidates,
+            "covered": self.covered,
+            "full_estimate_usd": self.full_estimate_usd,
+            "covered_estimate_usd": self.covered_estimate_usd,
+        }
+
+
+def plan_budget(
+    evidence: list[Evidence],
+    system_prompt: str,
+    provider: str,
+    budget_usd: float,
+    max_batch_items: int = 60,
+    max_batch_tokens: int = 6000,
+) -> Plan:
+    """What a budget buys: whole batches, in the order given, before any call."""
     if not evidence:
-        return 0.0
+        return Plan(0, 0, 0.0, 0.0)
     in_rate, out_rate = _PRICING.get(provider, _DEFAULT_PRICING)
-    batches = _make_batches(list(enumerate(evidence)), 60, 6000)
     system_tokens = _tokens(system_prompt)
-    total = 0.0
-    for batch in batches:
-        total += _batch_estimate(batch, system_tokens, in_rate, out_rate)
-    return round(total, 4)
+    full = covered_cost = 0.0
+    covered = 0
+    fits = True
+    for batch in _make_batches(
+        list(enumerate(evidence)), max_batch_items, max_batch_tokens
+    ):
+        cost = _batch_estimate(batch, system_tokens, in_rate, out_rate)
+        full += cost
+        if fits and (budget_usd <= 0 or covered_cost + cost <= budget_usd):
+            covered_cost += cost
+            covered += len(batch)
+        else:
+            fits = False
+    return Plan(len(evidence), covered, round(full, 4), round(covered_cost, 4))
 
 
 def _batch_tokens(

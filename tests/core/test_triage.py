@@ -8,6 +8,7 @@ from core.errors import AgentDidNotSubmitError
 from core.pipeline.evidence import Evidence
 from core.pipeline.triage import (
     estimate_cost,
+    plan_budget,
     rank_for_triage,
     run_triage,
 )
@@ -263,3 +264,49 @@ def test_remaining_estimate_is_scaled_by_what_calls_really_cost():
     assert ai.chat.call_count == 2
     assert result.stop_reason == "budget"
     assert len(result.analysed) == 2 and len(result.skipped) == 3
+
+
+def test_plan_with_no_budget_covers_every_candidate():
+    evidence = [_ev(i) for i in range(10)]
+
+    plan = plan_budget(evidence, "SYS", "anthropic", budget_usd=0.0)
+
+    assert (plan.candidates, plan.covered) == (10, 10)
+    assert plan.full_estimate_usd == estimate_cost(evidence, "SYS", "anthropic")
+
+
+def test_plan_covers_whole_batches_that_fit_the_budget():
+    evidence = [_ev(i) for i in range(10)]
+    one_batch = estimate_cost(evidence[:2], "SYS", "anthropic")
+
+    plan = plan_budget(
+        evidence, "SYS", "anthropic", budget_usd=one_batch * 3.5, max_batch_items=2
+    )
+
+    assert plan.covered == 6
+    assert plan.covered_estimate_usd <= one_batch * 3.5
+    assert plan.full_estimate_usd > one_batch * 3.5
+
+
+def test_plan_line_says_how_much_the_budget_covers_and_what_full_needs():
+    evidence = [_ev(i) for i in range(10)]
+    one_batch = estimate_cost(evidence[:2], "SYS", "anthropic")
+
+    plan = plan_budget(
+        evidence, "SYS", "anthropic", budget_usd=one_batch * 3.5, max_batch_items=2
+    )
+    line = plan.line(one_batch * 3.5, rules_decided=4, order="billed cost")
+
+    assert "10 residual candidates after rules (4)" in line
+    assert "covers ~6 of 10" in line
+    assert "billed cost" in line
+    assert "LLM_BUDGET_USD=" in line
+
+
+def test_plan_line_for_a_budget_that_covers_everything_has_no_advice():
+    plan = plan_budget([_ev(0)], "SYS", "anthropic", budget_usd=5.0)
+
+    line = plan.line(5.0, rules_decided=0, order="type risk")
+
+    assert "covers all 1 residual candidates" in line
+    assert "LLM_BUDGET_USD" not in line

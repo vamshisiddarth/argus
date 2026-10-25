@@ -365,6 +365,63 @@ def test_scan_window_records_estimated_against_actual_tokens_per_call():
     assert cal["per_call"][0]["items"] == 2
 
 
+def test_coverage_is_reported_per_stage():
+    res = [_vol(0), _vol(1), _vol(2)]
+    adapter = Adapter(res, metrics={r.resource_id: _ok(r.resource_id) for r in res})
+
+    _, _, loop, _ = _run(adapter, [_report(_f(0))])
+
+    stages = loop.coverage.to_dict()["stages"]
+    assert stages["rules"]["findings"] == 0
+    assert stages["gate"] == {"mode": "off", "settled": 0}
+    assert stages["model"]["candidates"] == 3
+    assert stages["model"]["analysed"] == 3
+    assert stages["model"]["skipped"] == 0
+    assert stages["model"]["stop_reason"] is None
+
+
+def test_the_plan_is_recorded_before_any_spend():
+    res = [_vol(0), _vol(1)]
+    adapter = Adapter(res, metrics={r.resource_id: _ok(r.resource_id) for r in res})
+
+    _, _, loop, _ = _run(adapter, [_report()])
+
+    plan = loop.scan_window["llm_plan"]
+    assert plan["candidates"] == 2 and plan["covered"] == 2
+    assert plan["full_estimate_usd"] > 0
+    assert plan["order"] == "type_risk"
+    assert "residual candidates" in plan["line"]
+
+
+def test_strict_coverage_stops_before_any_model_call_when_the_budget_is_short(
+    monkeypatch,
+):
+    from core.errors import StrictCoverageError
+
+    monkeypatch.setenv("LLM_BUDGET_USD", "0.0001")
+    monkeypatch.setenv("STRICT_COVERAGE", "true")
+    res = [_vol(i) for i in range(5)]
+    adapter = Adapter(res, metrics={r.resource_id: _ok(r.resource_id) for r in res})
+    ai = MagicMock(spec=AIProvider)
+
+    with pytest.raises(StrictCoverageError, match="covers ~"):
+        AgentLoop(ai, adapter).run("aws", [], ACCOUNTS)
+
+    ai.chat.assert_not_called()
+
+
+def test_a_budget_stop_leads_with_the_model_denominator_and_a_lower_bound(monkeypatch):
+    monkeypatch.setenv("LLM_BUDGET_USD", "0.5")
+    monkeypatch.setenv("ARGUS_TRIAGE_BATCH_ITEMS", "2")
+    res = [_vol(i) for i in range(4)]
+    adapter = Adapter(res, metrics={r.resource_id: _ok(r.resource_id) for r in res})
+
+    _, summary, _, _ = _run(adapter, [_report(_f(0), in_tok=200_000, out_tok=1000)] * 4)
+
+    assert "Model reviewed 2 of 4 candidates" in summary
+    assert "lower bound" in summary
+
+
 def test_scan_window_says_where_the_tags_came_from():
     class Tagged(Adapter):
         tags_source = "tagging_api"

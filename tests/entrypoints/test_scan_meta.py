@@ -103,3 +103,42 @@ def test_llm_spend_is_summed_across_accounts():
 
 def test_no_llm_numbers_means_no_summary():
     assert ScanMeta().llm_summary() is None
+
+
+def test_plan_lines_are_listed_per_account_and_not_merged_into_one_plan():
+    meta = ScanMeta()
+    for line in ("plan A", "plan B"):
+        meta.add_loop(
+            _loop(
+                10,
+                4,
+                {
+                    "llm_budget_usd": 1.0,
+                    "llm_estimate_usd": 0.3,
+                    "llm_spent_usd": 0.2,
+                    "llm_plan": {"line": line, "candidates": 3},
+                    "llm_calibration": {"calls": 1},
+                },
+            )
+        )
+
+    assert meta.llm_summary()["plans"] == ["plan A", "plan B"]
+    assert "llm_plan" not in meta.scan_window
+    assert "llm_calibration" not in meta.scan_window
+
+
+def test_a_single_account_keeps_its_plan_in_the_scan_window():
+    meta = ScanMeta()
+    meta.add_loop(
+        _loop(
+            10,
+            4,
+            {
+                "llm_spent_usd": 0.2,
+                "llm_plan": {"line": "plan A", "candidates": 3},
+            },
+        )
+    )
+
+    assert meta.scan_window["llm_plan"]["line"] == "plan A"
+    assert meta.llm_summary()["plans"] == ["plan A"]

@@ -621,6 +621,8 @@ def _run_scan(args: argparse.Namespace) -> None:
             if llm.get("budget_usd")
             else "no budget cap"
         )
+        for plan_line in llm.get("plans", []):
+            print(plan_line, file=sys.stderr)
         print(
             f"LLM spend: ${llm['spent_usd']:,.2f} of {budget} "
             f"(estimated ${llm.get('estimate_usd', 0):,.2f} before the run)",

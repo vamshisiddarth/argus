@@ -12,12 +12,13 @@ from core.agent.prompts import build_triage_prompt
 from core.agent.selection import select_candidates
 from core.baseline import BaselineResult, run_baseline
 from core.config import get_settings
+from core.errors import StrictCoverageError
 from core.models.finding import ResourceFinding
 from core.pipeline.evidence import Evidence, collect_evidence
 from core.pipeline.triage import (
     Flagged,
     TriageResult,
-    estimate_cost,
+    plan_budget,
     rank_for_triage,
     run_triage,
 )
@@ -103,8 +104,24 @@ def run_pipeline(
         activity_days=scan.activity_lookback_days,
         rule_finding_ids=sorted(decided),
     )
-    estimate = estimate_cost(ranked, prompt, settings.ai.provider)
+    plan = plan_budget(
+        ranked,
+        prompt,
+        settings.ai.provider,
+        scan.llm_budget_usd,
+        scan.triage_batch_items,
+    )
+    estimate = plan.full_estimate_usd
+    order = "billed_cost" if any(e.billed_cost_usd for e in ranked) else "type_risk"
+    plan_line = plan.line(scan.llm_budget_usd, len(decided), order.replace("_", " "))
     window_info["llm_estimate_usd"] = estimate
+    window_info["llm_plan"] = {**plan.to_dict(), "order": order, "line": plan_line}
+    logger.info("llm_plan", line=plan_line)
+    if scan.strict_coverage and plan.covered < plan.candidates:
+        raise StrictCoverageError(
+            f"{plan_line} Strict coverage is on, so the scan stopped before any "
+            "model call. Raise LLM_BUDGET_USD or drop STRICT_COVERAGE."
+        )
     logger.info(
         "llm_estimate",
         resources=len(ranked),
@@ -154,8 +171,25 @@ def run_pipeline(
         1 for e in evidence if _throttled(e.metrics_note)
     )
     loop.coverage.stop_reason = _stop_reason(triage, skipped)
+    loop.coverage.stages = {
+        "rules": {
+            "evaluated": len(loop._baseline.evaluated_ids),
+            "findings": len(decided),
+            "undecided": loop._baseline.candidates - len(loop._baseline.evaluated_ids),
+        },
+        "gate": {"mode": "off", "settled": 0},
+        "model": {
+            "candidates": len(ranked) + len(cap_skipped),
+            "analysed": len(triage.analysed),
+            "skipped": len(triage.skipped) + len(cap_skipped),
+            "stop_reason": loop.coverage.stop_reason,
+            "order": order,
+        },
+    }
 
-    summary = _summarise(findings, loop.coverage, triage, loop.tracker)
+    summary = _summarise(
+        findings, loop.coverage, triage, loop.tracker, len(ranked) + len(cap_skipped)
+    )
     logger.info(
         "pipeline_complete",
         findings=len(findings),
@@ -244,6 +278,7 @@ def _summarise(
     coverage: Any,
     triage: TriageResult,
     tracker: TokenTracker,
+    candidates: int = 0,
 ) -> str:
     analysed = f"Analysed {coverage.analysed} of {coverage.discovered} resources."
     if coverage.free_config_skipped:
@@ -294,6 +329,8 @@ def _summarise(
         return (
             f"Scan aborted: LLM budget of ${tracker.budget_usd:.2f} reached "
             f"(${tracker.estimated_cost_usd:.2f} spent); the findings found so far are "
-            f"included. {body} Raise LLM_BUDGET_USD to analyse the rest."
+            f"included. Model reviewed {len(triage.analysed)} of {candidates} "
+            f"candidates, highest first; totals below are a lower bound. {body} "
+            "Raise LLM_BUDGET_USD to analyse the rest."
         )
     return body
