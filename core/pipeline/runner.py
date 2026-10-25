@@ -149,6 +149,9 @@ def run_pipeline(
     if cap_skipped:
         skipped["cap"] = len(cap_skipped)
     loop.coverage.skipped_by_reason = skipped
+    loop.coverage.metrics_lost_to_throttling = sum(
+        1 for e in evidence if _throttled(e.metrics_note)
+    )
     loop.coverage.stop_reason = _stop_reason(triage, skipped)
 
     summary = _summarise(findings, loop.coverage, triage, loop.tracker)
@@ -161,6 +164,18 @@ def run_pipeline(
         calls=triage.calls,
     )
     return findings, summary
+
+
+_THROTTLE_CODES = (
+    "Throttling",
+    "ThrottlingException",
+    "RequestLimitExceeded",
+    "TooManyRequestsException",
+)
+
+
+def _throttled(note: str | None) -> bool:
+    return note is not None and note.split(":", 1)[0].strip() in _THROTTLE_CODES
 
 
 def _stop_reason(triage: TriageResult, skipped: dict[str, int]) -> str | None:
@@ -222,6 +237,12 @@ def _summarise(
         analysed += (
             f" {coverage.free_config_skipped} free configuration objects were "
             "skipped on purpose."
+        )
+    if coverage.metrics_lost_to_throttling:
+        analysed += (
+            f" Metrics for {coverage.metrics_lost_to_throttling} resources could "
+            "not be fetched because the API kept throttling; their findings rest "
+            "on less evidence."
         )
     if not findings:
         body = f"No wasteful resources were identified. {analysed}"

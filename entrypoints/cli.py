@@ -637,6 +637,11 @@ def _run_scan(args: argparse.Namespace) -> None:
             note += (
                 f" [{cov['free_config_skipped']} free configuration objects skipped]"
             )
+        if cov.get("metrics_lost_to_throttling"):
+            note += (
+                f" [metrics missing for {cov['metrics_lost_to_throttling']} "
+                "resources: API throttling]"
+            )
         if cov.get("discovery_complete") is False:
             note += " [discovery incomplete: provider result limit hit]"
         print(

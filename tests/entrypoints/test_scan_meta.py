@@ -41,6 +41,7 @@ def test_meta_merges_loops_across_accounts():
         "selection": "cost_desc",
         "discovery_complete": None,
         "free_config_skipped": 0,
+        "metrics_lost_to_throttling": 0,
     }
     assert meta.scan_window == {"metrics_lookback_days": 14}
 
