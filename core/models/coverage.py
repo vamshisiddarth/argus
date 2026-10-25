@@ -31,6 +31,9 @@ class Coverage:
     free_config_skipped: int = 0
     # Resources whose metrics could not be fetched because the API kept throttling.
     metrics_lost_to_throttling: int = 0
+    # Per-stage view: {"rules": {...}, "gate": {...}, "model": {...}}; None when the
+    # engine does not run in stages.
+    stages: dict[str, dict[str, Any]] | None = None
 
     @property
     def dropped(self) -> int:
@@ -57,6 +60,7 @@ class Coverage:
             "skipped_by_reason": dict(sorted(self.skipped_by_reason.items())),
             "free_config_skipped": self.free_config_skipped,
             "metrics_lost_to_throttling": self.metrics_lost_to_throttling,
+            "stages": self.stages,
             "regions_covered": sorted(self.regions_covered),
             "types": {
                 t: {"discovered": c.discovered, "analysed": c.analysed}
@@ -76,6 +80,7 @@ class Coverage:
             skipped_by_reason=dict(d.get("skipped_by_reason", {})),
             free_config_skipped=int(d.get("free_config_skipped", 0)),
             metrics_lost_to_throttling=int(d.get("metrics_lost_to_throttling", 0)),
+            stages=d.get("stages"),
             regions_covered=list(d.get("regions_covered", [])),
             types={
                 t: TypeCoverage(c["discovered"], c["analysed"])
@@ -120,4 +125,27 @@ class Coverage:
             skipped_by_reason=skipped,
             free_config_skipped=sum(i.free_config_skipped for i in items),
             metrics_lost_to_throttling=sum(i.metrics_lost_to_throttling for i in items),
+            stages=_merge_stages([i.stages for i in items]),
         )
+
+
+def _merge_stages(
+    items: list[dict[str, dict[str, Any]] | None],
+) -> dict[str, dict[str, Any]] | None:
+    present = [i for i in items if i]
+    if not present:
+        return None
+    merged: dict[str, dict[str, Any]] = {}
+    for name in present[0]:
+        rows = [i[name] for i in present if name in i]
+        out: dict[str, Any] = {}
+        for key in rows[0]:
+            values = [r.get(key) for r in rows]
+            if all(isinstance(v, int) and not isinstance(v, bool) for v in values):
+                out[key] = sum(values)
+            elif key == "stop_reason":
+                out[key] = next((v for v in values if v), None)
+            else:
+                out[key] = values[0] if len(set(values)) == 1 else "mixed"
+        merged[name] = out
+    return merged

@@ -7,7 +7,7 @@ failure modes apart without parsing output.
 | Code | Meaning | What to do |
 |---|---|---|
 | `0` | Scan finished and findings were submitted (possibly an explicit empty list). | Nothing. |
-| `1` | Configuration or runtime error, or `--strict-coverage` / `STRICT_COVERAGE=true` and the resource cap left resources unanalysed. | Read the message on stderr. For coverage, raise `MAX_RESOURCES_PER_SCAN`. |
+| `1` | Configuration or runtime error, or `--strict-coverage` / `STRICT_COVERAGE=true` and the resource cap left resources unanalysed, or the budget cannot cover every residual candidate (stopped before any model spend). | Read the message on stderr. For coverage, raise `MAX_RESOURCES_PER_SCAN`. |
 | `2` | The LLM budget (`--llm-budget`, default $2.00) was exceeded and the scan aborted. | Raise the budget or lower `MAX_RESOURCES_PER_SCAN`. |
 | `3` | The model stopped without calling `submit_findings`, even after one reminder. The scan is treated as failed, not as "no findings". | Re-run. If it repeats, check the model/provider and the logs. |
 | `4` | Preflight failed: the environment would give silently partial or empty results (for example no Resource Explorer aggregator index). No LLM budget was spent. | Follow the fix printed for each failed check, see [Troubleshooting](troubleshooting.md#preflight-checks). |
