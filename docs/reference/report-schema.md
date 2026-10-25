@@ -29,6 +29,8 @@ Every Argus scan produces a JSON report with the following top-level fields.
 | `preflight` | `object \| null` | Results of the pre-scan environment checks. Added in 1.1.0. |
 | `waste_by_confidence` | `object` | `total_estimated_waste_usd` split into `high`, `medium`, `low` and `unrated` (findings with no confidence). Added in 1.1.0. |
 | `total_is_estimate` | `boolean` | `true` unless every finding's `cost_basis` is `billed`; headlines then say the total is not billed. Added in 1.1.0. |
+| `findings_needing_review` | `integer` | Findings whose `review_required` is true. |
+| `waste_needs_review_usd` | `number` | Summed monthly USD of those findings; part of `total_estimated_waste_usd`, shown separately so it is not read as a safe saving. |
 
 ## Coverage object
 
@@ -65,6 +67,8 @@ Every Argus scan produces a JSON report with the following top-level fields.
 | `tags` | `object` | Resource tags as key-value pairs. |
 | `confidence` | `string \| null` | `"low"`, `"medium"` or `"high"`. Forced to `low` when the metrics behind the finding were unavailable; capped at `medium` for windows under 90 days. Added in 1.1.0. |
 | `cost_basis` | `string \| null` | Where the dollar figure comes from: `"billed"` (Cost Explorer), `"list_price"` (Argus price catalog, us-east-1 list prices), `"model_estimate"` (the AI's guess) or `"unknown"` (no figure). Added in 1.1.0. |
+| `review_required` | `boolean` | `true` when a human must check this finding before any ticket, deletion or resize: the name looks like production (`prod`, `prd`, `production`, `live`, `critical`, "do not touch") or the estimate is at least $1,000/month with no billed cost behind it. Added in 1.1.0. |
+| `review_reasons` | `string[]` | Why: `prod_like_name`, `high_unbilled_estimate`. Empty when `review_required` is false. |
 | `detected_by` | `string \| null` | `"model"` or `"rule:<id>"` for a [baseline rule](../concepts/baseline-rules.md). Added in 1.1.0. |
 | `last_activity` | `string \| null` | ISO 8601 timestamp of the last detected activity, or `null`. |
 | `scan_time` | `string` | ISO 8601 timestamp of when the resource was scanned. |

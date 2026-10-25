@@ -18,7 +18,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from core.registry import get_registry
-from core.reports.generator import waste_caveat
+from core.reports.generator import review_reasons, waste_caveat
 
 
 def build_html_report(report: dict[str, Any]) -> str:
@@ -53,6 +53,7 @@ def build_html_report(report: dict[str, Any]) -> str:
         else ""
     )
     coverage_html = _build_coverage_block(report.get("coverage"))
+    review_html = _build_review_banner(findings)
     preflight_html = _build_preflight_box(report.get("preflight"))
     window_html = (
         f" &nbsp;·&nbsp; {int(window['metrics_lookback_days'])}-day metrics window"
@@ -143,7 +144,7 @@ tbody tr:last-child td{{border-bottom:none}}
     </div>
     <p class="summary">{summary}</p>
   </div>
-{errors_html}{preflight_html}{coverage_html}{registry_warnings_html}
+{errors_html}{preflight_html}{coverage_html}{review_html}{registry_warnings_html}
   <div class="filters">
     <select id="f-priority" onchange="applyFilters()">
       <option value="">All priorities</option>
@@ -314,11 +315,16 @@ def _build_rows(findings: list[dict[str, Any]]) -> str:
             else ""
         )
         pill_class = f"pill-{priority}"
+        review_html = (
+            '<br><span class="pill pill-high">needs review</span>'
+            if review_reasons(f)
+            else ""
+        )
 
         parts.append(
             f"""<tr data-priority="{priority}" data-rtype="{rtype}" data-cost="{cost}" data-name="{display_name}">
   <td><button class="expand-btn" onclick="toggle(this)" aria-label="expand">›</button></td>
-  <td><span class="pill {pill_class}">{priority.upper()}</span>{confidence_html}</td>
+  <td><span class="pill {pill_class}">{priority.upper()}</span>{review_html}{confidence_html}</td>
   <td><span class="mono">{display_name}</span>{"<br><span class='mono muted'>" + resource_id + "</span>" if name else ""}</td>
   <td class="muted">{rtype_label}</td>
   <td class="muted">{region}</td>
@@ -421,6 +427,33 @@ def _build_preflight_box(preflight: dict[str, Any] | None) -> str:
         '  <div class="error-banner">\n'
         f"    {title}{skipped}<ul>{items}</ul>\n"
         "  </div>\n"
+    )
+
+
+_REVIEW_LABELS = {
+    "prod_like_name": "name looks like production",
+    "high_unbilled_estimate": "large estimate with no billed cost",
+}
+
+
+def _build_review_banner(findings: list[dict[str, Any]]) -> str:
+    flagged = [(f, review_reasons(f)) for f in findings]
+    flagged = [(f, r) for f, r in flagged if r]
+    if not flagged:
+        return ""
+    items = "".join(
+        "<li><strong>{name}</strong> (${cost:,.2f}/month): {why}</li>".format(
+            name=html.escape(f.get("name") or f.get("resource_id") or ""),
+            cost=float(f.get("estimated_monthly_cost") or 0.0),
+            why=html.escape(", ".join(_REVIEW_LABELS.get(x, x) for x in r)),
+        )
+        for f, r in flagged
+    )
+    return (
+        '  <div class="coverage coverage-warning">\n'
+        "    <strong>Review before acting:</strong> these findings are not safe to "
+        "ticket, delete or resize without a human check of each one."
+        f"<ul>{items}</ul>\n  </div>\n"
     )
 
 

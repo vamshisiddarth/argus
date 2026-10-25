@@ -28,6 +28,7 @@ from core.reports.generator import (
     build_report,
     build_slack_payload,
     synthesize_executive_summary,
+    waste_caveat,
 )
 from core.reports.html import build_html_report
 
@@ -1181,3 +1182,86 @@ class TestEmbeddedJsonCannotBreakOutOfTheScriptTag:
     def test_line_separators_are_escaped_too(self):
         out = self._out(tags={"k": "a\u2028b\u2029c"})
         assert "\u2028" not in out and "\u2029" not in out
+
+
+class TestUntrustedTotals:
+    def _named(self, rid, name, cost, basis="model_estimate", confidence="medium"):
+        f = _rated(rid, cost, confidence, basis)
+        f.name = name
+        return f
+
+    def _findings(self):
+        return [
+            self._named("big", "web-fleet", 3500.0),
+            self._named("prod", "PROD - Trading server - DO NOT TOUCH", 40.0),
+            self._named("small", "scratch-box", 12.0),
+        ]
+
+    def test_prod_like_names_and_high_unbilled_estimates_need_review(self):
+        report = build_report(self._findings(), cloud="aws", executive_summary="x")
+        by_id = {f["resource_id"]: f for f in report["findings"]}
+
+        assert by_id["big"]["review_required"] is True
+        assert by_id["big"]["review_reasons"] == ["high_unbilled_estimate"]
+        assert by_id["prod"]["review_required"] is True
+        assert by_id["prod"]["review_reasons"] == ["prod_like_name"]
+        assert by_id["small"]["review_required"] is False
+        assert by_id["small"]["review_reasons"] == []
+
+    def test_high_cost_that_is_billed_is_not_flagged_for_amount(self):
+        f = self._named("big", "web-fleet", 3500.0, basis="billed")
+        report = build_report([f], cloud="aws", executive_summary="x")
+
+        assert report["findings"][0]["review_required"] is False
+
+    def test_prod_like_name_is_flagged_even_when_billed(self):
+        f = self._named("p", "prod-db", 80.0, basis="billed")
+        report = build_report([f], cloud="aws", executive_summary="x")
+
+        assert report["findings"][0]["review_reasons"] == ["prod_like_name"]
+
+    def test_names_that_only_contain_prod_as_a_substring_are_not_flagged(self):
+        f = self._named("p", "product-images-cache", 80.0)
+        report = build_report([f], cloud="aws", executive_summary="x")
+
+        assert report["findings"][0]["review_required"] is False
+
+    def test_report_splits_the_total_into_reviewable_and_needs_review(self):
+        report = build_report(self._findings(), cloud="aws", executive_summary="x")
+
+        assert report["findings_needing_review"] == 2
+        assert report["waste_needs_review_usd"] == 3540.0
+        assert report["total_estimated_waste_usd"] == 3552.0
+
+    def test_billed_clean_report_has_nothing_to_review(self):
+        f = self._named("a", "batch-box", 10.0, basis="billed", confidence="high")
+        report = build_report([f], cloud="aws", executive_summary="x")
+
+        assert report["findings_needing_review"] == 0
+        assert report["waste_needs_review_usd"] == 0.0
+
+    def test_headline_says_estimate_only_unverified_and_the_review_amount(self):
+        report = build_report(self._findings(), cloud="aws", executive_summary="x")
+
+        caveat = waste_caveat(report)
+
+        assert "estimate only" in caveat and "unverified" in caveat
+        assert "$3,540.00 in 2 findings needs human review" in caveat
+
+    def test_html_lists_flagged_findings_in_a_review_banner_and_marks_rows(self):
+        report = build_report(self._findings(), cloud="aws", executive_summary="x")
+
+        out = build_html_report(report)
+
+        assert "Review before acting" in out
+        assert "PROD - Trading server - DO NOT TOUCH" in out
+        assert "needs review" in out
+
+    def test_old_reports_without_review_fields_still_render(self):
+        report = build_report(self._findings(), cloud="aws", executive_summary="x")
+        for key in ("findings_needing_review", "waste_needs_review_usd"):
+            del report[key]
+        for f in report["findings"]:
+            del f["review_required"], f["review_reasons"]
+
+        assert "estimated waste / month" in build_html_report(report)

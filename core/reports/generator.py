@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import uuid
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
@@ -39,16 +40,56 @@ def waste_breakdown(findings: list[dict[str, Any]]) -> tuple[dict[str, float], b
     return {k: round(v, 2) for k, v in by_conf.items()}, is_estimate
 
 
+REVIEW_COST_USD = 1000.0
+
+_PROD_TOKENS = frozenset({"prod", "prd", "production", "live", "critical"})
+_PROD_PHRASES = ("do not touch", "do-not-touch", "donottouch")
+
+
+def review_reasons(finding: dict[str, Any]) -> list[str]:
+    """Why a finding needs a human look before anyone acts on it."""
+    reasons: list[str] = []
+    text = f"{finding.get('name') or ''} {finding.get('resource_id') or ''}".lower()
+    tokens = set(re.split(r"[^a-z0-9]+", text))
+    if tokens & _PROD_TOKENS or any(p in text for p in _PROD_PHRASES):
+        reasons.append("prod_like_name")
+    cost = float(finding.get("estimated_monthly_cost") or 0.0)
+    if finding.get("cost_basis") != "billed" and cost >= REVIEW_COST_USD:
+        reasons.append("high_unbilled_estimate")
+    return reasons
+
+
+def review_summary(findings: list[dict[str, Any]]) -> tuple[int, float]:
+    """(findings that need review, their summed monthly USD)."""
+    flagged = [f for f in findings if review_reasons(f)]
+    total = sum(float(f.get("estimated_monthly_cost") or 0.0) for f in flagged)
+    return len(flagged), round(total, 2)
+
+
 def waste_caveat(report: dict[str, Any]) -> str:
     """Short text for headlines: empty when the total is billed, else the split."""
     by_conf = report.get("waste_by_confidence")
     is_estimate = report.get("total_is_estimate")
     if by_conf is None or is_estimate is None:
         by_conf, is_estimate = waste_breakdown(report.get("findings", []))
-    if not is_estimate or not report.get("findings"):
+    findings = report.get("findings") or []
+    review_n = report.get("findings_needing_review")
+    review_usd = report.get("waste_needs_review_usd")
+    if review_n is None or review_usd is None:
+        review_n, review_usd = review_summary(findings)
+    if not findings or not (is_estimate or review_n):
         return ""
     parts = [f"${by_conf[k]:,.2f} {k}" for k in _CONFIDENCE_ORDER if by_conf.get(k)]
-    return "not billed: " + ", ".join(parts) if parts else "not billed"
+    text = ""
+    if is_estimate:
+        text = "estimate only, not billed, unverified"
+        if parts:
+            text += ": " + ", ".join(parts)
+    if review_n:
+        noun = "finding needs" if review_n == 1 else "findings needs"
+        text += "; " if text else ""
+        text += f"${review_usd:,.2f} in {review_n} {noun} human review"
+    return text
 
 
 def build_report(
@@ -83,6 +124,11 @@ def build_report(
     total_waste = sum(f.estimated_monthly_cost for f in sorted_findings)
     finding_dicts = [f.to_dict() for f in sorted_findings]
     waste_by_confidence, total_is_estimate = waste_breakdown(finding_dicts)
+    for d in finding_dicts:
+        reasons = review_reasons(d)
+        d["review_required"] = bool(reasons)
+        d["review_reasons"] = reasons
+    review_count, review_usd = review_summary(finding_dicts)
 
     return {
         "schema_version": SCHEMA_VERSION,
@@ -95,6 +141,8 @@ def build_report(
         "findings": finding_dicts,
         "waste_by_confidence": waste_by_confidence,
         "total_is_estimate": total_is_estimate,
+        "findings_needing_review": review_count,
+        "waste_needs_review_usd": review_usd,
         "executive_summary": executive_summary,
         "agent_input_tokens": agent_input_tokens,
         "agent_output_tokens": agent_output_tokens,
