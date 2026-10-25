@@ -29,6 +29,8 @@ class Coverage:
     # Free configuration objects (subnets, IAM roles, ...) skipped on purpose;
     # they are not part of `discovered`.
     free_config_skipped: int = 0
+    # Resources whose metrics could not be fetched because the API kept throttling.
+    metrics_lost_to_throttling: int = 0
 
     @property
     def dropped(self) -> int:
@@ -54,6 +56,7 @@ class Coverage:
             "stop_reason": self.stop_reason,
             "skipped_by_reason": dict(sorted(self.skipped_by_reason.items())),
             "free_config_skipped": self.free_config_skipped,
+            "metrics_lost_to_throttling": self.metrics_lost_to_throttling,
             "regions_covered": sorted(self.regions_covered),
             "types": {
                 t: {"discovered": c.discovered, "analysed": c.analysed}
@@ -72,6 +75,7 @@ class Coverage:
             stop_reason=d.get("stop_reason"),
             skipped_by_reason=dict(d.get("skipped_by_reason", {})),
             free_config_skipped=int(d.get("free_config_skipped", 0)),
+            metrics_lost_to_throttling=int(d.get("metrics_lost_to_throttling", 0)),
             regions_covered=list(d.get("regions_covered", [])),
             types={
                 t: TypeCoverage(c["discovered"], c["analysed"])
@@ -115,4 +119,5 @@ class Coverage:
             stop_reason=stops[0] if stops else None,
             skipped_by_reason=skipped,
             free_config_skipped=sum(i.free_config_skipped for i in items),
+            metrics_lost_to_throttling=sum(i.metrics_lost_to_throttling for i in items),
         )

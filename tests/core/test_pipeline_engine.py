@@ -288,6 +288,32 @@ def test_free_config_objects_skipped_by_the_adapter_are_reported():
     assert "7 free configuration objects" in summary
 
 
+def test_metrics_lost_to_throttling_are_counted_and_stated():
+    res = [_vol(0), _vol(1), _vol(2)]
+    throttled = {
+        rid: MetricSummary(
+            rid,
+            VOL,
+            14,
+            {},
+            False,
+            status="error",
+            error="Throttling: Rate exceeded",
+        )
+        for rid in ("vol-000", "vol-001")
+    }
+    denied = MetricSummary(
+        "vol-002", VOL, 14, {}, False, status="error", error="AccessDenied: no"
+    )
+    adapter = Adapter(res, metrics={**throttled, "vol-002": denied})
+
+    _, summary, loop, _ = _run(adapter, [_report()])
+
+    assert loop.coverage.metrics_lost_to_throttling == 2
+    assert loop.coverage.to_dict()["metrics_lost_to_throttling"] == 2
+    assert "2 resources" in summary and "throttl" in summary.lower()
+
+
 def test_configuration_state_collected_for_rules_reaches_the_model():
     class Stateful(Adapter):
         def collect_state(self, resources):

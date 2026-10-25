@@ -25,6 +25,7 @@ A trust release. Argus now tells you what it covered, fails loudly when it could
 
 ### Fixed (from customer live runs)
 
+- **CloudWatch throttling no longer drops metrics silently:** AWS calls now retry up to 5 times with capped exponential backoff (8 second ceiling per wait), `ListMetrics` discovery is retried page by page, and a discovery that still fails is reported as a metrics error instead of no data. The region's `ListMetrics` result is fetched once per scan, account and region and shared by every resource that needs it (a failed listing is remembered for the scan, not retried per resource). Resources affected are counted in `coverage.metrics_lost_to_throttling` and named in the CLI line, HTML report and summary.
 - **Output truncation:** `max_tokens` was hard-coded to 4096 and a cut-off scan failed with no way forward. It is now `AI_MAX_TOKENS` (default 16000). When the model is cut off, Argus asks it to submit findings in batches (`submit_findings` accepts `partial`), and fails with exit code 3 naming the setting after 3 cut-offs.
 - **Anthropic timeouts:** the 60 second timeout is now `AI_TIMEOUT_SECONDS` (default 600) and timeouts and connection errors are retried.
 - **Dependency:** `anthropic` is now `>=0.40.0,<3`, and `temperature` is only sent when the installed SDK accepts it (SDK 1.x/2.x reject it, which crashed fresh installs on the first model call).

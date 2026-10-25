@@ -45,6 +45,7 @@ Every Argus scan produces a JSON report with the following top-level fields.
 | `stop_reason` | `string \| null` | Why not everything was analysed: `"budget"`, `"cap"` or `"llm_failure"`; `null` when complete. |
 | `skipped_by_reason` | `object` | Resources not analysed, by reason (`budget`, `cap`, `llm_failure`). |
 | `free_config_skipped` | `integer` | Free configuration objects (subnets, IAM roles, ...) skipped on purpose; not part of `discovered`. |
+| `metrics_lost_to_throttling` | `integer` | Resources whose metrics could not be fetched because the cloud API kept throttling after retries. |
 | `discovery_complete` | `boolean \| null` | `false` when a discovery query hit the provider's result limit (AWS Resource Explorer returns at most 1,000 per query; Argus then searches region by region and sets this only if a single region still overflows). `null` when the adapter does not report it. Added in 1.1.0. |
 
 ## Finding object

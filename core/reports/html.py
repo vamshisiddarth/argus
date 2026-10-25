@@ -432,6 +432,12 @@ def _build_coverage_block(coverage: dict[str, Any] | None) -> str:
     free = coverage.get("free_config_skipped") or 0
     if free:
         line += f" (plus {free} free configuration objects skipped on purpose)"
+    lost = coverage.get("metrics_lost_to_throttling") or 0
+    if lost:
+        line += (
+            f"<br><strong>Metrics missing for {lost} resources:</strong> "
+            "the cloud API kept throttling, so those findings rest on less evidence"
+        )
     incomplete = (
         "<br><strong>Discovery incomplete:</strong> a search hit the provider's "
         "result limit, so the inventory is understated."

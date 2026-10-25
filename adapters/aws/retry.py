@@ -12,8 +12,9 @@ logger = structlog.get_logger(__name__)
 
 T = TypeVar("T")
 
-_MAX_RETRIES = 3
+_MAX_RETRIES = 5
 _BASE_DELAY = 1.0
+_MAX_DELAY = 8.0
 
 _RETRYABLE_CODES = frozenset(
     {
@@ -40,7 +41,7 @@ def retry_on_transient(
             code = exc.response["Error"]["Code"]
             if code in _RETRYABLE_CODES and attempt < _MAX_RETRIES - 1:
                 jitter = random.uniform(0, delay * 0.5)  # noqa: S311
-                sleep_time = delay + jitter
+                sleep_time = min(delay + jitter, _MAX_DELAY)
                 logger.warning(
                     "aws_transient_error_retrying",
                     error_code=code,
@@ -49,7 +50,7 @@ def retry_on_transient(
                     retry_in=round(sleep_time, 1),
                 )
                 time.sleep(sleep_time)
-                delay *= 2
+                delay = min(delay * 2, _MAX_DELAY)
             else:
                 raise
     raise RuntimeError("Unreachable")  # pragma: no cover

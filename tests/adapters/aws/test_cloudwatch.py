@@ -75,7 +75,7 @@ class TestGetMetrics:
 
     def test_returns_has_data_false_for_unknown_type(self):
         mock_client = MagicMock()
-        mock_client.get_metric_data.return_value = {"MetricDataResults": []}
+        mock_client.list_metrics.return_value = {"Metrics": []}
         session = MagicMock()
         session.client.return_value = mock_client
         summary = get_metrics(
@@ -156,6 +156,188 @@ class TestMetricStatus:
         assert summary.status == "error"
         assert "AccessDenied" in summary.error
         assert "AccessDenied" in summary.to_dict()["data_note"]
+
+
+class TestDiscoveryThrottling:
+    ARN = "arn:aws:unknown:us-east-1:123:widget/orders"
+    TYPE = "AWS::Unknown::Widget"
+
+    @staticmethod
+    def _throttle():
+        from botocore.exceptions import ClientError
+
+        return ClientError(
+            {"Error": {"Code": "Throttling", "Message": "Rate exceeded"}},
+            "ListMetrics",
+        )
+
+    @staticmethod
+    def _session(client):
+        session = MagicMock()
+        session.client.return_value = client
+        return session
+
+    def test_list_metrics_throttle_is_retried_and_recovers(self, monkeypatch):
+        monkeypatch.setattr("adapters.aws.retry.time.sleep", lambda _s: None)
+        client = MagicMock()
+        client.list_metrics.side_effect = [
+            self._throttle(),
+            {
+                "Metrics": [
+                    {
+                        "Namespace": "AWS/Kinesis",
+                        "MetricName": "IncomingRecords",
+                        "Dimensions": [{"Name": "StreamName", "Value": "orders"}],
+                    }
+                ]
+            },
+        ]
+        client.get_metric_data.return_value = {
+            "MetricDataResults": [{"Id": "m0", "Values": [5.0]}]
+        }
+
+        summary = get_metrics(self._session(client), self.ARN, self.TYPE, days=14)
+
+        assert client.list_metrics.call_count == 2
+        assert summary.status == "ok"
+
+    def test_persistent_throttle_is_an_error_not_no_data(self, monkeypatch):
+        monkeypatch.setattr("adapters.aws.retry.time.sleep", lambda _s: None)
+        client = MagicMock()
+        client.list_metrics.side_effect = self._throttle()
+
+        summary = get_metrics(self._session(client), self.ARN, self.TYPE, days=14)
+
+        assert summary.status == "error"
+        assert "Throttling" in summary.error
+
+    def test_list_metrics_follows_next_token(self, monkeypatch):
+        monkeypatch.setattr("adapters.aws.retry.time.sleep", lambda _s: None)
+        client = MagicMock()
+        client.list_metrics.side_effect = [
+            {"Metrics": [], "NextToken": "t1"},
+            {
+                "Metrics": [
+                    {
+                        "Namespace": "AWS/Kinesis",
+                        "MetricName": "IncomingBytes",
+                        "Dimensions": [{"Name": "StreamName", "Value": "orders"}],
+                    }
+                ]
+            },
+        ]
+        client.get_metric_data.return_value = {
+            "MetricDataResults": [{"Id": "m0", "Values": [1.0]}]
+        }
+
+        summary = get_metrics(self._session(client), self.ARN, self.TYPE, days=14)
+
+        assert client.list_metrics.call_args_list[1].kwargs["NextToken"] == "t1"
+        assert summary.status == "ok"
+
+
+class TestListMetricsCache:
+    TYPE = "AWS::Unknown::Widget"
+
+    @staticmethod
+    def _arn(name, region="us-east-1"):
+        return f"arn:aws:unknown:{region}:123:widget/{name}"
+
+    @staticmethod
+    def _metric(name):
+        return {
+            "Namespace": "Custom/Widget",
+            "MetricName": "Requests",
+            "Dimensions": [{"Name": "WidgetName", "Value": name}],
+        }
+
+    @staticmethod
+    def _session(client):
+        session = MagicMock()
+        session.client.return_value = client
+        return session
+
+    @staticmethod
+    def _client(metrics):
+        client = MagicMock()
+        client.list_metrics.return_value = {"Metrics": metrics}
+        client.get_metric_data.return_value = {
+            "MetricDataResults": [{"Id": "m0", "Values": [3.0]}]
+        }
+        return client
+
+    def test_resources_in_one_region_share_one_listing(self):
+        client = self._client([self._metric("a"), self._metric("b")])
+        session = self._session(client)
+
+        first = get_metrics(session, self._arn("a"), self.TYPE, days=14)
+        second = get_metrics(session, self._arn("b"), self.TYPE, days=14)
+
+        assert client.list_metrics.call_count == 1
+        assert first.status == "ok" and second.status == "ok"
+
+    def test_each_region_is_listed_once(self):
+        client = self._client([self._metric("a")])
+        session = self._session(client)
+
+        get_metrics(session, self._arn("a", "us-east-1"), self.TYPE, days=14)
+        get_metrics(session, self._arn("a", "eu-west-1"), self.TYPE, days=14)
+        get_metrics(session, self._arn("a", "eu-west-1"), self.TYPE, days=14)
+
+        assert client.list_metrics.call_count == 2
+
+    def test_a_new_session_starts_with_an_empty_cache(self):
+        client = self._client([self._metric("a")])
+
+        get_metrics(self._session(client), self._arn("a"), self.TYPE, days=14)
+        get_metrics(self._session(client), self._arn("a"), self.TYPE, days=14)
+
+        assert client.list_metrics.call_count == 2
+
+    def test_a_failed_listing_is_not_retried_for_every_resource(self, monkeypatch):
+        from botocore.exceptions import ClientError
+
+        monkeypatch.setattr("adapters.aws.retry.time.sleep", lambda _s: None)
+        client = self._client([])
+        client.list_metrics.side_effect = ClientError(
+            {"Error": {"Code": "Throttling", "Message": "Rate exceeded"}},
+            "ListMetrics",
+        )
+        session = self._session(client)
+
+        first = get_metrics(session, self._arn("a"), self.TYPE, days=14)
+        calls_after_first = client.list_metrics.call_count
+        second = get_metrics(session, self._arn("b"), self.TYPE, days=14)
+
+        assert client.list_metrics.call_count == calls_after_first
+        assert first.status == "error" and second.status == "error"
+        assert "Throttling" in second.error
+        assert second.metrics == {}
+
+    def test_concurrent_resources_still_list_a_region_once(self):
+        import time
+        from concurrent.futures import ThreadPoolExecutor
+
+        client = self._client([self._metric(f"w{i}") for i in range(8)])
+        original = client.list_metrics.return_value
+
+        def slow(**_kw):
+            time.sleep(0.05)
+            return original
+
+        client.list_metrics.side_effect = slow
+        session = self._session(client)
+
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            results = list(
+                pool.map(
+                    lambda i: get_metrics(session, self._arn(f"w{i}"), self.TYPE, 14),
+                    range(8),
+                )
+            )
+
+        assert client.list_metrics.call_count == 1
+        assert all(r.status == "ok" for r in results)
 
 
 class TestEnrichInstanceDetails:

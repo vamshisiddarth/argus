@@ -95,4 +95,5 @@ class ScanMeta:
             "selection": cov.selection,
             "discovery_complete": cov.discovery_complete,
             "free_config_skipped": cov.free_config_skipped,
+            "metrics_lost_to_throttling": cov.metrics_lost_to_throttling,
         }

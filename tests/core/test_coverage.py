@@ -44,6 +44,7 @@ def test_to_dict_has_documented_keys():
         "stop_reason",
         "skipped_by_reason",
         "free_config_skipped",
+        "metrics_lost_to_throttling",
         "regions_covered",
         "types",
     }
@@ -134,3 +135,16 @@ def test_free_config_count_round_trips_and_merges():
     assert Coverage.from_dict(a.to_dict()).free_config_skipped == 70
     assert Coverage.merge([a, b]).free_config_skipped == 77
     assert Coverage.empty().free_config_skipped == 0
+
+
+def test_metrics_lost_to_throttling_defaults_to_zero_and_round_trips():
+    assert _cov().metrics_lost_to_throttling == 0
+    cov = _cov(metrics_lost_to_throttling=4)
+    assert Coverage.from_dict(cov.to_dict()).metrics_lost_to_throttling == 4
+
+
+def test_merge_sums_metrics_lost_to_throttling():
+    merged = Coverage.merge(
+        [_cov(metrics_lost_to_throttling=2), _cov(metrics_lost_to_throttling=3)]
+    )
+    assert merged.metrics_lost_to_throttling == 5
