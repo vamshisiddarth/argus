@@ -239,3 +239,27 @@ def test_ranking_is_deterministic_and_puts_costly_and_high_impact_first():
     assert [
         e.resource.resource_id for e in rank_for_triage(list(reversed(evidence)))
     ] == [e.resource.resource_id for e in ranked]
+
+
+def test_every_call_records_estimated_against_actual_tokens():
+    evidence = [_ev(0), _ev(1)]
+
+    result, _, _ = _run(evidence, [_report([], in_tok=900, out_tok=50)])
+
+    (call,) = result.calibration
+    assert call["items"] == 2
+    assert call["actual_in"] == 900 and call["actual_out"] == 50
+    assert call["est_in"] > 0 and call["est_out"] > 0
+
+
+def test_remaining_estimate_is_scaled_by_what_calls_really_cost():
+    evidence = [_ev(i) for i in range(5)]
+    est = estimate_cost(evidence[:1], "SYS", "anthropic")
+    k = int(3 * est * 1_000_000 / 18)
+    responses = [_report([], in_tok=k, out_tok=k) for _ in range(5)]
+
+    result, ai, _ = _run(evidence, responses, budget=est * 3 * 2.5, max_batch_items=1)
+
+    assert ai.chat.call_count == 2
+    assert result.stop_reason == "budget"
+    assert len(result.analysed) == 2 and len(result.skipped) == 3
