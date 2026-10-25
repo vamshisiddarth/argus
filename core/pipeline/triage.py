@@ -35,6 +35,8 @@ _CONFIDENCES = ("low", "medium", "high")
 _FLAGGED_FRACTION = 0.25  # assumed share of a batch the model flags (for estimates)
 _TOKENS_PER_FINDING = 110
 _REPLY_OVERHEAD_TOKENS = 100
+_MIN_CORRECTION = 0.5
+_MAX_CORRECTION = 3.0
 
 _TOOL = Tool(
     name=REPORT_FINDINGS_TOOL["name"],
@@ -62,6 +64,8 @@ class TriageResult:
     stop_reason: str | None = None  # "budget" | None
     failed_batches: int = 0
     calls: int = 0
+    # One entry per model call: estimated against actual tokens, counts only.
+    calibration: list[dict[str, int]] = field(default_factory=list)
 
 
 def rank_for_triage(evidence: list[Evidence]) -> list[Evidence]:
@@ -99,17 +103,38 @@ def estimate_cost(evidence: list[Evidence], system_prompt: str, provider: str) -
     return round(total, 4)
 
 
+def _batch_tokens(
+    batch: list[tuple[int, Evidence]], system_tokens: int
+) -> tuple[int, int]:
+    body = sum(_line_tokens(ev, i) for i, ev in batch)
+    out_tokens = _REPLY_OVERHEAD_TOKENS + int(
+        len(batch) * _FLAGGED_FRACTION * _TOKENS_PER_FINDING
+    )
+    return system_tokens + body, out_tokens
+
+
 def _batch_estimate(
     batch: list[tuple[int, Evidence]],
     system_tokens: int,
     in_rate: float,
     out_rate: float,
 ) -> float:
-    body = sum(_line_tokens(ev, i) for i, ev in batch)
-    out_tokens = _REPLY_OVERHEAD_TOKENS + int(
-        len(batch) * _FLAGGED_FRACTION * _TOKENS_PER_FINDING
+    in_tokens, out_tokens = _batch_tokens(batch, system_tokens)
+    return (in_tokens * in_rate + out_tokens * out_rate) / 1_000_000
+
+
+def _correction(result: TriageResult, in_rate: float, out_rate: float) -> float:
+    """How much more (or less) calls really cost than we estimated, clamped."""
+    est = sum(
+        c["est_in"] * in_rate + c["est_out"] * out_rate for c in result.calibration
     )
-    return ((system_tokens + body) * in_rate + out_tokens * out_rate) / 1_000_000
+    actual = sum(
+        c["actual_in"] * in_rate + c["actual_out"] * out_rate
+        for c in result.calibration
+    )
+    if est <= 0:
+        return 1.0
+    return min(_MAX_CORRECTION, max(_MIN_CORRECTION, actual / est))
 
 
 def _make_batches(
@@ -153,7 +178,10 @@ def run_triage(
         if result.stop_reason:
             result.skipped += [(ev, "budget") for _, ev in batch]
             continue
-        if _would_overspend(tracker, batch, system_tokens, in_rate, out_rate):
+        correction = _correction(result, in_rate, out_rate)
+        if _would_overspend(
+            tracker, batch, system_tokens, in_rate, out_rate, correction
+        ):
             logger.warning("triage_budget_stop", remaining_batches=len(queue) + 1)
             result.stop_reason = "budget"
             result.skipped += [(ev, "budget") for _, ev in batch]
@@ -193,10 +221,11 @@ def _would_overspend(
     system_tokens: int,
     in_rate: float,
     out_rate: float,
+    correction: float = 1.0,
 ) -> bool:
     if tracker.budget_usd <= 0:
         return False
-    estimate = _batch_estimate(batch, system_tokens, in_rate, out_rate)
+    estimate = _batch_estimate(batch, system_tokens, in_rate, out_rate) * correction
     return tracker.estimated_cost_usd + estimate > tracker.budget_usd
 
 
@@ -222,6 +251,16 @@ def _call(
     messages = [_message(batch), *(extra or [])]
     response = ai.chat(messages, [_TOOL], system_prompt=system_prompt)
     result.calls += 1
+    est_in, est_out = _batch_tokens(batch, _tokens(system_prompt))
+    result.calibration.append(
+        {
+            "items": len(batch),
+            "est_in": est_in,
+            "est_out": est_out,
+            "actual_in": response.input_tokens,
+            "actual_out": response.output_tokens,
+        }
+    )
     try:
         tracker.record(response.input_tokens, response.output_tokens)
     except BudgetExceededError:

@@ -121,6 +121,7 @@ def run_pipeline(
         max_batch_items=scan.triage_batch_items,
     )
     window_info["llm_spent_usd"] = loop.tracker.estimated_cost_usd
+    window_info["llm_calibration"] = _calibration_summary(triage)
 
     no_data_ids = {e.resource.resource_id for e in evidence if e.metrics_status != "ok"}
     model_findings = [
@@ -176,6 +177,18 @@ _THROTTLE_CODES = (
 
 def _throttled(note: str | None) -> bool:
     return note is not None and note.split(":", 1)[0].strip() in _THROTTLE_CODES
+
+
+def _calibration_summary(triage: TriageResult) -> dict[str, Any]:
+    calls = triage.calibration
+    return {
+        "calls": len(calls),
+        "estimated_input_tokens": sum(c["est_in"] for c in calls),
+        "actual_input_tokens": sum(c["actual_in"] for c in calls),
+        "estimated_output_tokens": sum(c["est_out"] for c in calls),
+        "actual_output_tokens": sum(c["actual_out"] for c in calls),
+        "per_call": [dict(c) for c in calls],
+    }
 
 
 def _stop_reason(triage: TriageResult, skipped: dict[str, int]) -> str | None:

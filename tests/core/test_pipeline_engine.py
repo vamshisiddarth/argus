@@ -352,6 +352,19 @@ def test_configuration_state_collected_for_rules_reaches_the_model():
     assert '"st":{"state":"in-use"' in sent
 
 
+def test_scan_window_records_estimated_against_actual_tokens_per_call():
+    res = [_vol(0), _vol(1)]
+    adapter = Adapter(res, metrics={r.resource_id: _ok(r.resource_id) for r in res})
+
+    _, _, loop, _ = _run(adapter, [_report(in_tok=1234, out_tok=56)])
+
+    cal = loop.scan_window["llm_calibration"]
+    assert cal["calls"] == 1
+    assert cal["actual_input_tokens"] == 1234 and cal["actual_output_tokens"] == 56
+    assert cal["estimated_input_tokens"] > 0
+    assert cal["per_call"][0]["items"] == 2
+
+
 def test_scan_window_says_where_the_tags_came_from():
     class Tagged(Adapter):
         tags_source = "tagging_api"
