@@ -202,6 +202,9 @@ class ScanSettings(BaseSettings):
     llm_budget_usd: float = Field(2.0, alias="LLM_BUDGET_USD")
     strict_coverage: bool = Field(False, alias="STRICT_COVERAGE")
     baseline_rules: bool = Field(True, alias="ARGUS_BASELINE_RULES")
+    # Evidence gate: "off"; "shadow" counts what it would settle but sends
+    # everything to the model; "on" keeps settled resources away from the model.
+    gate: str = Field("off", alias="ARGUS_GATE", pattern="^(off|shadow|on)$")
     # "pipeline": evidence gathered in code, batched model triage (default).
     # "react": the original tool-calling agent loop (also used by chat).
     engine: str = Field("pipeline", alias="ARGUS_ENGINE", pattern="^(pipeline|react)$")

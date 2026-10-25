@@ -422,6 +422,86 @@ def test_a_budget_stop_leads_with_the_model_denominator_and_a_lower_bound(monkey
     assert "lower bound" in summary
 
 
+EC2 = "AWS::EC2::Instance"
+GIB = 1024**3
+
+
+def _gate_inventory():
+    busy = Resource("i-busy", EC2, "aws", "us-east-1")
+    idle = Resource("i-idle", EC2, "aws", "us-east-1")
+    metrics = {
+        "i-busy": MetricSummary(
+            "i-busy",
+            EC2,
+            14,
+            {"CPUUtilization": 60.0, "NetworkIn": 5 * GIB, "NetworkOut": 5 * GIB},
+        ),
+        "i-idle": MetricSummary(
+            "i-idle",
+            EC2,
+            14,
+            {"CPUUtilization": 0.5, "NetworkIn": 10.0, "NetworkOut": 10.0},
+        ),
+    }
+    return Adapter([busy, idle], metrics=metrics)
+
+
+def _prompt_ids(ai):
+    return ai.chat.call_args_list[0].args[0][0].text
+
+
+def test_the_gate_is_off_by_default_and_sends_everything():
+    _, _, loop, ai = _run(_gate_inventory(), [_report()])
+
+    assert '"id":"i-busy"' in _prompt_ids(ai)
+    assert loop.coverage.stages["gate"] == {"mode": "off", "settled": 0}
+
+
+def test_gate_on_keeps_settled_resources_away_from_the_model(monkeypatch):
+    monkeypatch.setenv("ARGUS_GATE", "on")
+
+    _, _, loop, ai = _run(_gate_inventory(), [_report()])
+
+    assert '"id":"i-busy"' not in _prompt_ids(ai)
+    assert '"id":"i-idle"' in _prompt_ids(ai)
+    assert loop.coverage.stages["gate"] == {"mode": "on", "settled": 1}
+    assert loop.coverage.stages["model"]["candidates"] == 1
+    assert loop.coverage.analysed == 2  # the gate looked at the settled one
+    assert loop.coverage.truncated is False
+
+
+def test_gate_shadow_sends_everything_and_counts_what_it_would_have_hidden(
+    monkeypatch,
+):
+    monkeypatch.setenv("ARGUS_GATE", "shadow")
+    adapter = _gate_inventory()
+
+    _, _, loop, ai = _run(adapter, [_report()])
+    assert '"id":"i-busy"' in _prompt_ids(ai)
+    gate_stage = loop.coverage.stages["gate"]
+    assert gate_stage == {"mode": "shadow", "settled": 1, "settled_but_flagged": 0}
+
+
+def test_gate_shadow_reports_a_settled_resource_the_model_flagged_anyway(
+    monkeypatch,
+):
+    monkeypatch.setenv("ARGUS_GATE", "shadow")
+    adapter = _gate_inventory()
+    ai = MagicMock(spec=AIProvider)
+
+    def reply(messages, tools, system_prompt=None):
+        text = messages[0].text
+        line = next(x for x in text.splitlines() if '"id":"i-busy"' in x)
+        idx = int(line.split('"i":')[1].split(",")[0])
+        return _report(_f(idx))
+
+    ai.chat.side_effect = reply
+    loop = AgentLoop(ai, adapter)
+    loop.run("aws", [], ACCOUNTS)
+
+    assert loop.coverage.stages["gate"]["settled_but_flagged"] == 1
+
+
 def test_scan_window_says_where_the_tags_came_from():
     class Tagged(Adapter):
         tags_source = "tagging_api"

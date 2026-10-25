@@ -15,6 +15,7 @@ from core.config import get_settings
 from core.errors import StrictCoverageError
 from core.models.finding import ResourceFinding
 from core.pipeline.evidence import Evidence, collect_evidence
+from core.pipeline.gate import gate
 from core.pipeline.triage import (
     Flagged,
     TriageResult,
@@ -95,7 +96,13 @@ def run_pipeline(
         concurrency=scan.adapter_concurrency,
         states=loop._baseline.states,
     )
-    ranked = rank_for_triage(evidence)
+    gate_mode = scan.gate
+    settled: list[Evidence] = []
+    residual = evidence
+    if gate_mode != "off":
+        residual, settled = gate(evidence)
+    settled_ids = {e.resource.resource_id for e in settled}
+    ranked = rank_for_triage(residual if gate_mode == "on" else evidence)
 
     prompt = build_triage_prompt(
         cloud,
@@ -149,9 +156,11 @@ def run_pipeline(
     findings = loop._merge_baseline(model_findings)
     findings = _attach_accounts(findings, accounts)
 
-    analysed_ids = {
-        e.resource.resource_id for e in triage.analysed
-    } | loop._baseline.evaluated_ids
+    analysed_ids = (
+        {e.resource.resource_id for e in triage.analysed}
+        | loop._baseline.evaluated_ids
+        | (settled_ids if gate_mode == "on" else set())
+    )
     analysed = [r for r in resources if r.resource_id in analysed_ids]
     loop.coverage = _build_coverage(
         resources,
@@ -172,13 +181,24 @@ def run_pipeline(
         1 for e in evidence if _throttled(e.metrics_note)
     )
     loop.coverage.stop_reason = _stop_reason(triage, skipped)
+    gate_stage: dict[str, Any] = {
+        "mode": gate_mode,
+        "settled": len(settled),
+    }
+    if gate_mode == "shadow":
+        wrongly = sum(
+            1 for f in triage.flagged if f.evidence.resource.resource_id in settled_ids
+        )
+        gate_stage["settled_but_flagged"] = wrongly
+        if wrongly:
+            logger.warning("gate_shadow_miss", settled_but_flagged=wrongly)
     loop.coverage.stages = {
         "rules": {
             "evaluated": len(loop._baseline.evaluated_ids),
             "findings": len(decided),
             "undecided": loop._baseline.candidates - len(loop._baseline.evaluated_ids),
         },
-        "gate": {"mode": "off", "settled": 0},
+        "gate": gate_stage,
         "model": {
             "candidates": len(ranked) + len(cap_skipped),
             "analysed": len(triage.analysed),
