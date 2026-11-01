@@ -231,7 +231,7 @@ def test_state_rules_are_listed_with_their_prices():
 
 def test_board_command_is_documented_everywhere_users_look():
     readme = _read("README.md")
-    changelog = _read("CHANGELOG.md").split("## v0.7.0", 1)[0]
+    changelog = _read("CHANGELOG.md").split("## v0.7.0", 1)[1].split("\n## v", 1)[0]
 
     assert "argus board" in readme
     assert "concepts/board-report.md" in _read("mkdocs.yml")
@@ -243,4 +243,7 @@ def test_progress_option_is_documented():
     assert "--no-progress" in _read("README.md")
     assert "ARGUS_PROGRESS" in _read("docs/reference/env-vars.md")
     assert "ARGUS_PROGRESS" in _read("README.md")
-    assert "Scan progress" in _read("CHANGELOG.md").split("## v0.7.0", 1)[0]
+    assert (
+        "Scan progress"
+        in _read("CHANGELOG.md").split("## v0.7.0", 1)[1].split("\n## v", 1)[0]
+    )
