@@ -394,3 +394,11 @@ the **Release candidate** workflow attaches the built files to a GitHub pre-rele
 promoting that pre-release uploads those same files to PyPI.
 
 Full steps and gates: [docs/contributing/releasing.md](docs/contributing/releasing.md).
+
+---
+
+## Security, conduct and dependencies
+
+- Report vulnerabilities privately, as described in [SECURITY.md](SECURITY.md). Do not open a public issue.
+- Participation is covered by the [Code of Conduct](CODE_OF_CONDUCT.md).
+- GitHub Actions are pinned to a commit SHA with the version in a trailing comment (`uses: owner/action@<sha> # v5`). Dependabot proposes updates weekly; do not replace a SHA with a moving tag.
