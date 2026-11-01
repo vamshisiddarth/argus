@@ -26,6 +26,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 
 - **Model-estimated compute prices are not billing-grade.** When a finding's `cost_basis` is `model_estimate`, instance prices come from the model and can be far from the real rate. Treat them as estimates, not savings figures. Billed numbers need resource-level data enabled in the payer account's Cost Explorer settings.
 
+### Upgrade notes (these changes ship with 0.7.0)
+
+- **BREAKING: the report page is now the decision board.** The old table HTML is gone; scans, local saves and the S3 / GCS / Blob upload write the board, and the Slack "Full report" link opens it. Anything that parsed the old page will break; the JSON report is the stable interface.
+- **BREAKING: PDF export is removed.** `REPORT_FORMAT=pdf` logs `pdf_format_removed` and writes no PDF. Teams that email PDFs to clients need another route for now.
+- **A model estimate is not an invoice.** Dollars marked `model_estimate` come from the model, and instance prices in particular can be far off. Billed dollars need resource-level data enabled in the payer account's Cost Explorer settings (preflight check P8). With none, the headline reads "unverified waste estimate" and says it is not a savings figure.
+- **Depth differs by cloud.** AWS is the proven path. GCP and Azure run the same pipeline but have no state rules, no preflight and no tag fallback yet; do not treat them as equal to AWS.
+- **`--client-safe` is pattern based.** It removes account ids, ARN prefixes, run cost, caller identity and chosen tag keys. Client names inside resource names or tag values are not detected: read the page before sending it.
+
 ### Fixed
 
 - **Bedrock no longer fails on models that reject `temperature`.** Newer Claude models answer `temperature is deprecated for this model` with a `ValidationException`, which stopped the scan. The Bedrock provider now retries once without `temperature`, remembers it for the rest of the run, and logs a warning. Dropping it does not use up the throttling retries; any other validation error, including an out-of-range temperature, still raises immediately.
