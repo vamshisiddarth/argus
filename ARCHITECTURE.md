@@ -274,6 +274,8 @@ It must never share the scan role or run inside the Argus agent loop.
 
 ## The Agent's ReAct Loop — Step by Step
 
+> **Scope:** this describes the ReAct loop, which powers `argus chat` and `ARGUS_ENGINE=react`. The default scan engine since 0.7.0 is the evidence-first pipeline (discover, rules, evidence, batched triage, guards); see [How it works](docs/concepts/how-it-works.md).
+
 ```
   INPUT: cloud adapter + AI provider + account list + regions
   │

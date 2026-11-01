@@ -246,7 +246,7 @@ Options:
   --ai-provider PROVIDER     anthropic | bedrock | vertexai | azure_openai (default: anthropic)
   --accounts PATH            Path to accounts.yaml for multi-account mode
   --primary-region REGION    AWS region for boto3 session (default: us-east-1)
-  --max-resources N          Max resources to analyze per scan (default: 200; scan only)
+  --max-resources N          Max resources to analyze per scan (default: scaled from --llm-budget, 300 at $2.00; scan only)
   --lookback-days DAYS       Metrics lookback window in days (default: 90; scan only)
   --llm-budget USD           Cost budget per scan/session (default: $2.00 scan, $1.00 chat; 0 = unlimited)
 ```

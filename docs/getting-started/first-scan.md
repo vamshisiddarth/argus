@@ -78,23 +78,16 @@ The page works offline. It is generated after every scan and stored in S3 / GCS 
 - **It does not send alerts in real time.** It runs on a schedule (weekly by default).
 - **It does not apply auto-remediation.** Every recommendation requires a human action.
 
-## Typical scan cost
+## Scan cost
 
-| Account size (raw) | After filters | AI context | Duration | Anthropic API | Bedrock | Vertex AI | Azure OpenAI |
-|--------------------|--------------|-----------|----------|---------------|---------|-----------|--------------|
-| ~50 resources | ~20 billable | top 20 | 2–4 min | ~$0.10 | ~$0.09 | ~$0.04 | ~$0.07 |
-| ~500 resources | ~150 billable | top 150 | 5–10 min | ~$0.25 | ~$0.23 | ~$0.12 | ~$0.23 |
-| ~5K resources | ~1,500 billable | top 200 (capped) | 5–10 min | ~$0.30 | ~$0.27 | ~$0.15 | ~$0.29 |
-| ~50K resources | ~15K billable | top 200 (capped) | 5–10 min | ~$0.30 | ~$0.27 | ~$0.15 | ~$0.29 |
+Model cost grows with the number of resources sent to the model, so it is capped, not fixed.
 
-**Key point**: cost does not scale linearly with account size.
+- **Measured:** one full run on a single account (1,614 resources analysed, Bedrock, a Sonnet-class model) took about 12 to 13 minutes and cost about $1.4 to $1.55, roughly $0.85 per 1,000 resources. One account is not a benchmark; your figure depends on the model, the resource mix and how many resources the rules already settle.
+- **Capped:** `LLM_BUDGET_USD` defaults to $2.00. Without `MAX_RESOURCES_PER_SCAN`, the number of resources sent to the model follows the budget (about 150 per dollar, so 300 at the default). Raise the budget to cover more.
+- **Shown before spending:** the plan line says how many resources fit the budget and the estimate. Run with `--strict-coverage` to stop before any model call if the budget cannot cover everything. If a run would overspend, it stops before the batch that does and keeps what it found.
+- **Cheaper:** deterministic rules (idle NAT gateways and load balancers, unattached volumes, unassociated Elastic IPs, stopped instances) cost no model tokens and are removed from the model's list.
 
-The two-phase scan architecture means:
-
-1. **Phase 0** (no AI tokens): discover all resources → batch-fetch costs → sort by cost → keep top 200
-2. **Phase 1** (AI loop): agent only ever sees ≤200 resources regardless of account size
-
-This bounds both cost and latency for any account size. Set `MAX_RESOURCES_PER_SCAN` higher if you want to investigate more candidates (at proportionally higher AI cost).
+The figures cover model tokens only. Cloud API calls are small, but AWS charges for Cost Explorer API requests in the account being scanned.
 
 **Pricing basis** (figures above are AI token cost only — excludes cloud API calls which are negligible):
 
@@ -109,8 +102,5 @@ Vertex AI (Gemini 1.5 Pro) is the cheapest option at roughly half the Anthropic 
 Bedrock and Anthropic API use the same model at the same price — Bedrock saves on egress
 if you're already running in AWS. Prompt caching (where supported) reduces input costs by ~10–30%.
 
-!!! warning "Cost data gaps affect ranking"
-    Phase 0 sorting relies on Cost Explorer / Billing API data. If cost data is unavailable,
-    all costs show as $0.00 and resources are passed to the AI in discovery order rather
-    than cost order. The AI still investigates them — it just has less signal for
-    prioritization. Enabling cost data improves both accuracy and ordering.
+!!! warning "Without resource-level cost data there is no billed dollar"
+    If Cost Explorer resource-level data is not enabled (preflight check P8), findings carry no billed cost. Rule findings use list prices and the model's figures are estimates, so the headline reads "unverified waste estimate" and is not a savings figure. Candidates are then ordered by list price and idleness instead of billed cost.
