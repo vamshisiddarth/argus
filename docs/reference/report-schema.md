@@ -1,6 +1,6 @@
 # Report JSON Schema
 
-Version: **1.1.0**
+Version: **1.2.0**
 
 Every Argus scan produces a JSON report with the following top-level fields.
 
@@ -8,7 +8,7 @@ Every Argus scan produces a JSON report with the following top-level fields.
 
 | Field | Type | Description |
 |---|---|---|
-| `schema_version` | `string` | Schema version identifier. Currently `"1.1.0"`. |
+| `schema_version` | `string` | Schema version identifier. Currently `"1.2.0"`. |
 | `scan_id` | `string` | UUID v4 unique to this scan. |
 | `generated_at` | `string` | ISO 8601 timestamp (UTC) when the report was generated. |
 | `cloud` | `string` | Cloud provider: `"aws"`, `"gcp"`, or `"azure"`. |
@@ -29,6 +29,9 @@ Every Argus scan produces a JSON report with the following top-level fields.
 | `preflight` | `object \| null` | Results of the pre-scan environment checks. Added in 1.1.0. |
 | `waste_by_confidence` | `object` | `total_estimated_waste_usd` split into `high`, `medium`, `low` and `unrated` (findings with no confidence). Added in 1.1.0. |
 | `total_is_estimate` | `boolean` | `true` unless every finding's `cost_basis` is `billed`; headlines then say the total is not billed. Added in 1.1.0. |
+| `cost_summary` | `object` | Where the dollars come from. `waste_by_basis` (USD per `billed`, `list_price`, `model_estimate`, `unknown`; adds up to `total_estimated_waste_usd`), `findings_by_basis` (counts), `unpriced_findings` (findings with no dollar figure; shown as unpriced, never as a billed zero), `verified_waste_usd` (the billed part), `verified_share` (billed share of the total, `null` when the total is 0) and `headline_is_verified` (`true` when `verified_share` is at least 0.5, a provisional threshold, or there is nothing to total). Headlines call the total "billed waste", "estimated waste" or "unverified waste estimate" accordingly. Added in 1.2.0. |
+| `opportunities` | `Opportunity[]` | Findings grouped into decisions. Every finding is in exactly one. See [Opportunity object](#opportunity-object) and [Opportunities](../concepts/opportunities.md). Added in 1.2.0. |
+| `opportunity_summary` | `object` | `findings`, `opportunities`, `reduction_ratio` (`null` with no findings), `lanes` (`easy` and `doubt` counts), `largest_members`, `other_bucket_members`, `min_group_size` (the size actually used) and `max_opportunities`. Added in 1.2.0. |
 | `findings_needing_review` | `integer` | Findings whose `review_required` is true. |
 | `waste_needs_review_usd` | `number` | Summed monthly USD of those findings; part of `total_estimated_waste_usd`, shown separately so it is not read as a safe saving. |
 
@@ -67,7 +70,7 @@ Every Argus scan produces a JSON report with the following top-level fields.
 | `metrics_summary` | `object` | Key metric signals the AI used to make its decision. |
 | `tags` | `object` | Resource tags as key-value pairs. |
 | `confidence` | `string \| null` | `"low"`, `"medium"` or `"high"`. Forced to `low` when the metrics behind the finding were unavailable; capped at `medium` for windows under 90 days. Added in 1.1.0. |
-| `cost_basis` | `string \| null` | Where the dollar figure comes from: `"billed"` (Cost Explorer), `"list_price"` (Argus price catalog, us-east-1 list prices), `"model_estimate"` (the AI's guess) or `"unknown"` (no figure). Added in 1.1.0. |
+| `cost_basis` | `string \| null` | Where the dollar figure comes from: `"billed"` (Cost Explorer), `"list_price"` (Argus price catalog, us-east-1 list prices), `"model_estimate"` (the AI's guess) or `"unknown"` (no figure). Reports written before 1.1.0 may carry `"estimated"` or no value; readers treat those as `model_estimate` when there is a dollar figure and as `unknown` when there is not. Added in 1.1.0. |
 | `review_required` | `boolean` | `true` when a human must check this finding before any ticket, deletion or resize: the name looks like production (`prod`, `prd`, `production`, `live`, `critical`, "do not touch") or the estimate is at least $1,000/month with no billed cost behind it. Added in 1.1.0. |
 | `review_reasons` | `string[]` | Why: `prod_like_name`, `high_unbilled_estimate`. Empty when `review_required` is false. |
 | `detected_by` | `string \| null` | `"model"` or `"rule:<id>"` for a [baseline rule](../concepts/baseline-rules.md). Added in 1.1.0. |
@@ -102,3 +105,26 @@ Consumers should check `schema_version` before parsing and handle unknown versio
 | 1.1.0 (v0.7.0) | New optional top-level `coverage`, `scan_window` and `preflight` blocks. Nothing removed or renamed. |
 | 1.0.1 (v0.6.0) | Findings gained optional `account_id` and `account_name`. |
 | 1.0 | Initial schema. |
+
+## Opportunity object
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | `string` | `opp-` plus 12 hex characters, a hash of `key`. Stable across scans. |
+| `key` | `object` | `action`, `family` (a resource type, `snapshot` or `other`) and `tier` (`flagged`, `unsure` or `sure`). |
+| `title` | `string` | Plain template, for example `Remove 3 EBS Volumes`. |
+| `action` | `string` | `remove`, `stop`, `rightsize`, `retention` or `review`. |
+| `lane` | `string` | `easy` or `doubt`. |
+| `resource_types` | `string[]` | Types of the members. |
+| `accounts`, `regions` | `string[]` | Where the members are. |
+| `owners` | `object[]` | Up to five `{tag, value, count}` from the `team`, `owner`, `project`, `application`, `service` tags. |
+| `unowned_count` | `integer` | Members with none of those tags. |
+| `member_count`, `members` | `integer`, `string[]` | All member resource ids, highest cost first. |
+| `savings` | `object` | `low_usd`, `high_usd`, `by_basis` and `unpriced`; see [Opportunities](../concepts/opportunities.md). |
+| `priority`, `confidence` | `string` | Highest member priority; lowest member confidence. |
+| `review_required_count` | `integer` | Members flagged for human review. |
+| `evidence` | `string[]` | Plain sentences from the members' own data: how many came from rules and how many from model review, how many have metrics and activity checks, dollars by cost basis, lowest confidence. |
+| `risk` | `string` | One paragraph: what can go wrong with the action, plus any review flags, low confidence and unpriced members. |
+| `check_first` | `string[]` | Steps to take before acting, by action and resource family. Templates, not model output. |
+| `risk_reasons` | `string[]` | Union of the members' `review_reasons`. |
+| `related` | `string[]` | Ids of opportunities whose findings name these resources. |

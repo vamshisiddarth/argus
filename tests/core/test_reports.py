@@ -144,10 +144,11 @@ class TestBuildReport:
         assert report["agent_output_tokens"] == 0
         assert report["estimated_agent_cost_usd"] == 0.0
 
-    def test_schema_version_is_1_1_0(self):
+    def test_schema_version_is_1_2_0(self):
         # 1.1.0: coverage, scan_window, preflight (all optional)
+        # 1.2.0: cost_summary (dollars and counts per cost basis)
         report = build_report([], cloud="aws", executive_summary="x")
-        assert report["schema_version"] == "1.1.0"
+        assert report["schema_version"] == "1.2.0"
 
     def test_scan_id_is_unique_per_call(self):
         r1 = build_report([], cloud="aws", executive_summary="x")
@@ -988,8 +989,9 @@ class TestWasteBreakdown:
 
         text = str(build_slack_payload(report))
 
-        assert "estimated waste" in text
+        assert "unverified waste estimate" in text
         assert "not billed" in text
+        assert "$605.00 model estimate" in text
         assert "$300.00 medium" in text and "$200.00 low" in text
 
     def test_slack_headline_for_billed_totals_has_no_caveat(self):
@@ -1004,8 +1006,9 @@ class TestWasteBreakdown:
 
         out = build_html_report(report)
 
-        assert "estimated waste / month" in out
+        assert "unverified waste estimate / month" in out
         assert "not billed" in out
+        assert "$605.00 model estimate" in out
         assert "$200.00 low" in out
 
     def test_old_reports_without_the_fields_still_render(self):
@@ -1013,7 +1016,7 @@ class TestWasteBreakdown:
         del report["waste_by_confidence"]
         del report["total_is_estimate"]
 
-        assert "estimated waste / month" in build_html_report(report)
+        assert "unverified waste estimate / month" in build_html_report(report)
         assert build_slack_payload(report)
 
 
@@ -1193,7 +1196,7 @@ class TestUntrustedTotals:
     def _findings(self):
         return [
             self._named("big", "web-fleet", 3500.0),
-            self._named("prod", "PROD - Trading server - DO NOT TOUCH", 40.0),
+            self._named("prod", "PROD - Payments server - DO NOT TOUCH", 40.0),
             self._named("small", "scratch-box", 12.0),
         ]
 
@@ -1254,7 +1257,7 @@ class TestUntrustedTotals:
         out = build_html_report(report)
 
         assert "Review before acting" in out
-        assert "PROD - Trading server - DO NOT TOUCH" in out
+        assert "PROD - Payments server - DO NOT TOUCH" in out
         assert "needs review" in out
 
     def test_old_reports_without_review_fields_still_render(self):
@@ -1264,4 +1267,4 @@ class TestUntrustedTotals:
         for f in report["findings"]:
             del f["review_required"], f["review_reasons"]
 
-        assert "estimated waste / month" in build_html_report(report)
+        assert "unverified waste estimate / month" in build_html_report(report)

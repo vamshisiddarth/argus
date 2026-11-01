@@ -13,6 +13,7 @@ logger = structlog.get_logger(__name__)
 
 MAX_RETRIES = 3
 _BASE_DELAY = 1.0  # seconds; doubles each retry
+_REJECTION_WORDS = ("deprecated", "not supported", "unsupported")
 
 
 class BedrockProvider(AIProvider):
@@ -46,6 +47,8 @@ class BedrockProvider(AIProvider):
         )
         self._temperature = temperature if temperature is not None else cfg.temperature
 
+        self._send_temperature = True
+
         boto_session = session or boto3.Session(region_name=resolved_region)
         self._client = boto_session.client(
             "bedrock-runtime", region_name=resolved_region
@@ -57,13 +60,13 @@ class BedrockProvider(AIProvider):
         tools: list[Tool],
         system_prompt: str | None = None,
     ) -> AIResponse:
+        inference_config: dict[str, Any] = {"maxTokens": self._max_tokens}
+        if self._send_temperature:
+            inference_config["temperature"] = self._temperature
         kwargs: dict[str, Any] = {
             "modelId": self._model_id,
             "messages": [self._to_bedrock_message(m) for m in messages],
-            "inferenceConfig": {
-                "maxTokens": self._max_tokens,
-                "temperature": self._temperature,
-            },
+            "inferenceConfig": inference_config,
         }
         if system_prompt:
             kwargs["system"] = [{"text": system_prompt}]
@@ -79,15 +82,21 @@ class BedrockProvider(AIProvider):
 
     def _call_with_retry(self, kwargs: dict[str, Any]) -> Any:
         delay = _BASE_DELAY
-        for attempt in range(MAX_RETRIES):
+        attempt = 0
+        while True:
             try:
                 return self._client.converse(**kwargs)
             except ClientError as exc:
                 code = exc.response["Error"]["Code"]
-                if code == "ThrottlingException" and attempt < MAX_RETRIES - 1:
+                if code == "ValidationException" and self._drop_rejected_temperature(
+                    exc, kwargs
+                ):
+                    continue
+                attempt += 1
+                if code == "ThrottlingException" and attempt < MAX_RETRIES:
                     logger.warning(
                         "Bedrock throttled (attempt %d/%d), retrying in %.1fs",
-                        attempt + 1,
+                        attempt,
                         MAX_RETRIES,
                         delay,
                     )
@@ -95,7 +104,26 @@ class BedrockProvider(AIProvider):
                     delay *= 2
                 else:
                     raise
-        raise RuntimeError("Unreachable")  # pragma: no cover
+
+    def _drop_rejected_temperature(
+        self, exc: ClientError, kwargs: dict[str, Any]
+    ) -> bool:
+        """Newer Claude models reject temperature; omit it from now on and retry."""
+        message = exc.response["Error"].get("Message", "").lower()
+        config = kwargs["inferenceConfig"]
+        if "temperature" not in config or "temperature" not in message:
+            return False
+        if not any(word in message for word in _REJECTION_WORDS):
+            return False
+        kwargs["inferenceConfig"] = {
+            k: v for k, v in config.items() if k != "temperature"
+        }
+        self._send_temperature = False
+        logger.warning(
+            "Bedrock model %s rejects temperature; sending requests without it",
+            self._model_id,
+        )
+        return True
 
     def _to_bedrock_message(self, msg: Message) -> dict[str, Any]:
         if msg.role == "user":

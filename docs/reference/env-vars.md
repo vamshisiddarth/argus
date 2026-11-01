@@ -8,7 +8,7 @@ Complete reference for all Argus environment variables.
 |----------|---------|-------------|
 | `AI_PROVIDER` | `anthropic` (CLI) · `bedrock` (Lambda) · `vertexai` (Cloud Run) · `azure_openai` (Azure Function) | `anthropic` \| `bedrock` \| `vertexai` \| `azure_openai` |
 | `AI_MODEL` | _(per-provider default)_ | Override the model for any provider. Takes precedence over provider-specific model vars. |
-| `AI_TEMPERATURE` | `0.0` | Model temperature (0.0 = deterministic, 1.0 = creative). Ignored for Azure OpenAI reasoning model deployments (o1/o3/o4-mini) — Argus drops it automatically on retry. |
+| `AI_TEMPERATURE` | `0.0` | Model temperature (0.0 = deterministic, 1.0 = creative). Ignored for Azure OpenAI reasoning model deployments (o1/o3/o4-mini) — Argus drops it automatically on retry. The same applies to Bedrock models that reject `temperature`. |
 | `ANTHROPIC_API_KEY` | — | Required when `AI_PROVIDER=anthropic` |
 | `ANTHROPIC_MODEL` | `claude-sonnet-4-6` | Model name when using Anthropic API directly |
 | `BEDROCK_MODEL_ID` | `anthropic.claude-sonnet-4-6` | Bedrock model ID |
@@ -100,6 +100,7 @@ Complete reference for all Argus environment variables.
 | `ARGUS_TRIAGE_BATCH_ITEMS` | `60` | Maximum resources per model call in the pipeline (batches are also limited by size). |
 | `ARGUS_ACTIVITY_LOOKUP` | `auto` | Last-activity (CloudTrail) lookups: `auto` only for resources whose metrics could not decide (at most 150 per scan), `all`, or `off`. |
 | `ARGUS_EXPECT_ACCOUNT` | unset | AWS account ID the credentials must belong to (single-account scans). A mismatch aborts with exit code 4 before any cloud or LLM call. Equivalent to `--expect-account`. |
+| `ARGUS_PROGRESS` | `auto` | Scan progress on stderr for `argus scan`: `auto` (a live line in a terminal, plain lines otherwise), `plain` (always plain lines) or `off`. Equivalent to `--no-progress` for `off`. Deployed runs (Lambda, Cloud Run, Azure Function) never show it. |
 | `ARGUS_SKIP_PREFLIGHT` | `false` | When `true`, skip the pre-scan environment checks (identity, Resource Explorer index/view/permissions). Logged at WARNING and recorded in the report. Equivalent to `--skip-preflight`. |
 | `METRICS_LOOKBACK_DAYS` | `90` | CloudWatch / Cloud Monitoring / Azure Monitor lookback window. Applied to every metrics query (the model cannot override it) and recorded in the report's `scan_window`. 90 days covers quarterly usage patterns and aligns with the CloudTrail lookback. Set to `14` for faster local dev runs — **not recommended in production** as short windows produce false-positive idle findings. |
 | `COST_LOOKBACK_DAYS` | `14` | Window for per-resource cost, set with `--cost-days`. The model cannot override it. AWS resource-level cost data holds at most 14 days, so larger values are capped at 14 on AWS and the report's `scan_window.cost_lookback_days` shows the effective value. |

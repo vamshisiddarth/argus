@@ -7,8 +7,10 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
 from core.models.finding import ResourceFinding
+from core.opportunities import build_opportunity_block
 from core.registry import get_registry
 from core.registry.registry import ResourceRegistry
+from core.reports.basis import basis_split_text, cost_summary, headline_noun
 
 if TYPE_CHECKING:
     from ai.base import AIProvider
@@ -20,7 +22,9 @@ def _registry() -> ResourceRegistry:
 
 # Report JSON schema version (see docs/reference/report-schema.md).
 # 1.0.1: findings gained optional account_id / account_name.
-SCHEMA_VERSION = "1.1.0"
+# 1.2.0: report gained cost_summary (dollars and counts per cost basis) and
+# opportunities (findings grouped into decisions) with opportunity_summary.
+SCHEMA_VERSION = "1.2.0"
 
 # Maximum findings shown as individual rows in the Slack digest
 SLACK_DIGEST_LIMIT = 5
@@ -79,12 +83,16 @@ def waste_caveat(report: dict[str, Any]) -> str:
         review_n, review_usd = review_summary(findings)
     if not findings or not (is_estimate or review_n):
         return ""
+    summary = report.get("cost_summary") or cost_summary(findings)
+    split = basis_split_text(summary)
     parts = [f"${by_conf[k]:,.2f} {k}" for k in _CONFIDENCE_ORDER if by_conf.get(k)]
     text = ""
     if is_estimate:
         text = "estimate only, not billed, unverified"
+        if split:
+            text += ": " + split
         if parts:
-            text += ": " + ", ".join(parts)
+            text += " (confidence: " + ", ".join(parts) + ")"
     if review_n:
         noun = "finding needs" if review_n == 1 else "findings needs"
         text += "; " if text else ""
@@ -124,11 +132,13 @@ def build_report(
     total_waste = sum(f.estimated_monthly_cost for f in sorted_findings)
     finding_dicts = [f.to_dict() for f in sorted_findings]
     waste_by_confidence, total_is_estimate = waste_breakdown(finding_dicts)
+    basis_summary = cost_summary(finding_dicts)
     for d in finding_dicts:
         reasons = review_reasons(d)
         d["review_required"] = bool(reasons)
         d["review_reasons"] = reasons
     review_count, review_usd = review_summary(finding_dicts)
+    opportunities, opportunity_stats = build_opportunity_block(finding_dicts)
 
     return {
         "schema_version": SCHEMA_VERSION,
@@ -141,6 +151,9 @@ def build_report(
         "findings": finding_dicts,
         "waste_by_confidence": waste_by_confidence,
         "total_is_estimate": total_is_estimate,
+        "cost_summary": basis_summary,
+        "opportunities": opportunities,
+        "opportunity_summary": opportunity_stats,
         "findings_needing_review": review_count,
         "waste_needs_review_usd": review_usd,
         "executive_summary": executive_summary,
@@ -293,8 +306,8 @@ def build_slack_payload(
                 {
                     "type": "mrkdwn",
                     "text": (
-                        f":money_with_wings: *${total:,.2f}/month* estimated waste"
-                        + (f" ({caveat})" if caveat else "")
+                        f":money_with_wings: *${total:,.2f}/month* "
+                        f"{headline_noun(report)}" + (f" ({caveat})" if caveat else "")
                     ),
                 },
                 {

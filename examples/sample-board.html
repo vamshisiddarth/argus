@@ -1,0 +1,940 @@
+<!doctype html>
+<html lang="en" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'sha256-R38svTNwH26kKXjtWAO2dZYBlVeBusZJJHOrKEnjsw0='; script-src 'sha256-8aEN0Xlo/H3uo+3eYBFbdHCna+hlDYMkGDdAL8pfoOg='; img-src data:; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2048%2048%22%3E%3Ccircle%20cx%3D%2224%22%20cy%3D%2224%22%20r%3D%2222%22%20fill%3D%22%232a2a3e%22%20stroke%3D%22%238b8fff%22%20stroke-width%3D%223%22%2F%3E%3Ccircle%20cx%3D%2224%22%20cy%3D%2224%22%20r%3D%2216.5%22%20fill%3D%22white%22%2F%3E%3Ccircle%20cx%3D%2224%22%20cy%3D%2224%22%20r%3D%229.5%22%20fill%3D%22%233b2a1a%22%2F%3E%3Ccircle%20cx%3D%2224%22%20cy%3D%2224%22%20r%3D%225.5%22%20fill%3D%22%231a0f0a%22%2F%3E%3Ccircle%20cx%3D%2220%22%20cy%3D%2220%22%20r%3D%222.8%22%20fill%3D%22white%22%2F%3E%3Ccircle%20cx%3D%2227%22%20cy%3D%2228%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.6%22%2F%3E%3Cellipse%20cx%3D%2215%22%20cy%3D%2214%22%20rx%3D%224%22%20ry%3D%222%22%20fill%3D%22white%22%20opacity%3D%220.25%22%20transform%3D%22rotate%28-30%2015%2014%29%22%2F%3E%3C%2Fsvg%3E">
+<title>Argus board - AWS - 2026-10-30</title>
+<style>:root{--bg:#eef1ef;--surface:#ffffff;--surface-2:#f4f6f5;--ink:#15201c;--muted:#4b5a54;--line:#cdd5d0;--accent:#0b5a6b;--accent-soft:#dff0f3;--easy:#1b6a3f;--easy-soft:#e1f1e8;--doubt:#8a5200;--doubt-soft:#fbefd9;--keep:#475569;--keep-soft:#e8edf2;--bad:#a8361f;--bad-soft:#f9e3df;--on-solid:#ffffff;--tally-h:4rem;color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0d1312;--surface:#151d1c;--surface-2:#1b2625;--ink:#e6ede9;--muted:#a6b5af;--line:#2c3a37;--accent:#6bc0d2;--accent-soft:#16333a;--easy:#63cc92;--easy-soft:#163223;--doubt:#e8b055;--doubt-soft:#38290f;--keep:#a9b8c8;--keep-soft:#222c37;--bad:#ee8a75;--bad-soft:#3c1e18;--on-solid:#0d1312;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0d1312;--surface:#151d1c;--surface-2:#1b2625;--ink:#e6ede9;--muted:#a6b5af;--line:#2c3a37;--accent:#6bc0d2;--accent-soft:#16333a;--easy:#63cc92;--easy-soft:#163223;--doubt:#e8b055;--doubt-soft:#38290f;--keep:#a9b8c8;--keep-soft:#222c37;--bad:#ee8a75;--bad-soft:#3c1e18;--on-solid:#0d1312;color-scheme:dark}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;overflow-wrap:anywhere;background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}
+h1,h2,h3,p{margin:0}
+.mono,.v,.num,td.n{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-variant-numeric:tabular-nums}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.skip{position:absolute;left:-999px;top:0;background:var(--accent);color:var(--on-solid);padding:8px 12px;z-index:50}
+.skip:focus{left:8px;top:8px}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+a{color:var(--accent)}
+.eyebrow{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.muted{color:var(--muted)}
+.topbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 20px;padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:10px}
+.logo{font-size:22px;font-weight:800;letter-spacing:-.01em;color:var(--ink)}
+.logo-mark{display:block;flex:none}
+.topbar h1{font-size:17px;font-weight:600;padding-left:14px;border-left:2px solid var(--line)}
+.topbar .meta{color:var(--muted);flex:1 1 20rem}
+.btn{font:inherit;font-weight:600;padding:6px 12px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);cursor:pointer}
+.btn:hover{border-color:var(--accent)}
+.tally{position:sticky;top:0;z-index:20;display:flex;flex-wrap:wrap;align-items:stretch;gap:1px;background:var(--line);border-bottom:1px solid var(--line)}
+.totals{display:flex;flex:1 1 auto;flex-wrap:wrap;gap:1px}
+.totals .t{flex:1 1 11rem;background:var(--surface);padding:8px 16px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.tally .v{font-size:19px;font-weight:600}
+.tally .s{font-size:12px;color:var(--muted)}
+.tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 16px;background:var(--surface)}
+.pos{color:var(--easy)}
+.warn{color:var(--doubt)}
+section{padding:16px 16px 4px}
+section>h2{font-size:20px;margin-bottom:12px;display:flex;gap:10px;align-items:baseline}
+.num{font-size:12px;color:var(--muted)}
+.kpis{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:12px}
+.kpis>.kpi{flex:1 1 13rem}
+.kpi,.panel{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px 14px;min-width:0}
+.kpi .v{display:block;font-size:clamp(20px,2vw,24px);font-weight:600;line-height:1.2}
+.kpi .v small{font-size:12px;font-weight:400;color:var(--muted)}
+.kpi .s{display:block;color:var(--muted);font-size:12.5px}
+.kpi.alert .v{color:var(--bad)}
+.panels{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:12px}
+.panels>.panel{flex:1 1 22rem}
+.banner{background:var(--doubt-soft);color:var(--ink);border:1px solid var(--doubt);border-radius:8px;padding:10px 14px;margin-bottom:12px}
+.banner ul{margin:4px 0 0;padding-left:20px}
+.panel hr{border:0;border-top:1px solid var(--line);margin:12px 0 4px}
+.panel h3{font-size:15px;margin-bottom:8px}
+.panel ul,.panel ol{margin:6px 0 0;padding-left:20px}
+.panel li{margin:2px 0}
+.bar{display:block;width:100%;height:18px;border-radius:4px;background:var(--surface-2)}
+.bar .b-billed{fill:var(--easy)}
+.bar .b-list{fill:var(--accent)}
+.bar .b-model{fill:var(--doubt)}
+.bar .b-run{fill:var(--accent)}
+.bar .b-over{fill:var(--bad)}
+.big{font-size:22px;font-weight:600;margin-bottom:6px}
+.big small{font-size:12px;font-weight:400;color:var(--muted)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;margin:8px 0 0;padding:0;list-style:none}
+.sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px}
+.sw-billed{background:var(--easy)}
+.sw-list{background:var(--accent)}
+.sw-model{background:var(--doubt)}
+.lane-row{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-top:1px solid var(--line)}
+.lane-row:first-of-type{border-top:0}
+.dashboard{display:grid;grid-template-columns:minmax(15rem,19rem) 1fr;gap:16px;align-items:start}
+.rail{position:sticky;top:calc(var(--tally-h) + 8px);max-height:calc(100vh - var(--tally-h) - 16px);overflow:auto;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+.rail h3{font-size:15px}
+.rail label{font-size:12px;color:var(--muted);display:block;margin-bottom:2px}
+.rail input,.rail select{width:100%;font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.fchip{font:inherit;font-size:12.5px;padding:5px 10px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink);cursor:pointer}
+.fchip[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,22rem),1fr));gap:12px;align-items:start}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:8px;display:grid;grid-template-columns:6px 1fr;overflow:hidden;min-width:0}
+.card[hidden]{display:none}
+.stripe{background:var(--keep)}
+.card[data-lane="easy"] .stripe{background:var(--easy)}
+.card[data-lane="doubt"] .stripe{background:var(--doubt)}
+.card[data-state="approve"]{border-color:var(--easy)}
+.card[data-state="investigate"]{border-color:var(--doubt)}
+.card[data-state="keep"]{border-color:var(--keep)}
+.body{padding:12px 14px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.card-top{display:flex;flex-wrap:wrap;gap:4px 12px;justify-content:space-between;align-items:flex-start}
+.card-top h3{font-size:15px;flex:1 1 12rem;min-width:0;overflow-wrap:anywhere}
+.range{font-size:16px;font-weight:600;white-space:nowrap}
+.range small{font-size:11.5px;font-weight:400;color:var(--muted)}
+.row{display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center}
+.pill,.bchip{display:inline-block;font-size:11px;font-weight:600;padding:2px 7px;border-radius:4px;letter-spacing:.03em}
+.pill-easy{background:var(--easy-soft);color:var(--easy)}
+.pill-doubt{background:var(--doubt-soft);color:var(--doubt)}
+.pill-flat{background:var(--keep-soft);color:var(--keep)}
+.pill-bad{background:var(--bad-soft);color:var(--bad)}
+.chip-billed{background:var(--easy-soft);color:var(--easy)}
+.chip-list{background:var(--accent-soft);color:var(--accent)}
+.chip-model{background:var(--doubt-soft);color:var(--doubt)}
+.chip-unpriced{background:var(--bad-soft);color:var(--bad)}
+.risk{font-size:13px}
+.risk b{color:var(--bad)}
+details.more{border-top:1px solid var(--line);padding-top:6px}
+details.more summary{cursor:pointer;color:var(--accent);font-weight:600}
+details.more h4{margin:8px 0 2px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+details.more ul,details.more ol{margin:2px 0 0;padding-left:20px}
+.tablewrap{overflow-x:auto;margin-top:6px;border:1px solid var(--line);border-radius:6px}
+table{border-collapse:collapse;width:100%;font-size:12.5px}
+th,td{padding:5px 8px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+th{background:var(--surface-2);color:var(--muted);font-weight:600;position:sticky;top:0}
+td.n,th.n{text-align:right}
+tr:last-child td{border-bottom:0}
+.decide{display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--line);padding-top:8px}
+.seg{display:inline-flex;flex-wrap:wrap;border:1px solid var(--line);border-radius:6px;overflow:hidden;align-self:flex-start}
+.seg button{font:inherit;font-size:12.5px;font-weight:600;padding:6px 12px;border:0;border-right:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"][data-v="approve"]{background:var(--easy);color:var(--on-solid)}
+.seg button[aria-pressed="true"][data-v="investigate"]{background:var(--doubt);color:var(--on-solid)}
+.seg button[aria-pressed="true"][data-v="keep"]{background:var(--keep);color:var(--on-solid)}
+.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(9rem,1fr));gap:6px}
+.fields label{display:block;font-size:11.5px;color:var(--muted)}
+.fields input{width:100%;font:inherit;padding:5px 7px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink)}
+.hint{font-size:12px;color:var(--doubt)}
+.empty{padding:24px;text-align:center;color:var(--muted);background:var(--surface);border:1px dashed var(--line);border-radius:8px}
+.jump{font-size:12px}
+.foot{padding:12px 16px 24px;color:var(--muted);font-size:12px}
+.about{margin-bottom:8px}
+.about summary{cursor:pointer;color:var(--accent);font-weight:600}
+.about ul{margin:6px 0 0;padding-left:20px}
+.about li{margin:3px 0;max-width:110ch}
+@media (max-width:1200px){.dashboard{grid-template-columns:1fr}.rail{position:static;max-height:none;flex-direction:row;flex-wrap:wrap;align-items:flex-end}.rail>*{flex:1 1 14rem}.rail>h3{flex-basis:100%}}
+@media (max-width:900px){.tally{position:static}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+@media print{.rail,.tally,.decide,.topbar .btn,.skip{display:none}.card{break-inside:avoid}}
+</style>
+</head>
+<body>
+<a class="skip" href="#board">Skip to the decision board</a>
+<header class="topbar">
+<div class="brand"><svg class="logo-mark" viewBox="0 0 48 48" width="30" height="30" aria-hidden="true" focusable="false"><circle cx="24" cy="24" r="22" fill="#2a2a3e" stroke="#8b8fff" stroke-width="3"/><circle cx="24" cy="24" r="16.5" fill="white"/><circle cx="24" cy="24" r="9.5" fill="#3b2a1a"/><circle cx="24" cy="24" r="5.5" fill="#1a0f0a"/><circle cx="20" cy="20" r="2.8" fill="white"/><circle cx="27" cy="28" r="1.2" fill="white" opacity="0.6"/><ellipse cx="15" cy="14" rx="4" ry="2" fill="white" opacity="0.25" transform="rotate(-30 15 14)"/></svg><span class="logo">Argus</span></div>
+<h1>Spend decision board</h1>
+<p class="meta">AWS - scanned 2026-10-30 - 1 account - 123 findings in 13 opportunities</p>
+<button type="button" id="theme" class="btn">Switch theme</button>
+</header>
+<div class="tally" id="tally" role="region" aria-label="Decision tally">
+<div class="totals" aria-live="polite">
+<div class="t"><span class="eyebrow">Approved a month</span><span class="v pos" id="t-approved">$0</span><span class="s" id="t-approved-s">Nothing approved yet</span></div>
+<div class="t"><span class="eyebrow">Investigating</span><span class="v warn" id="t-investigating">$0</span><span class="s" id="t-investigating-s">0 under investigation</span></div>
+<div class="t"><span class="eyebrow">Kept</span><span class="v" id="t-kept">0</span><span class="s" id="t-kept-s">Kept on purpose</span></div>
+<div class="t"><span class="eyebrow">Undecided</span><span class="v" id="t-undecided">13</span><span class="s" id="t-undecided-s">of 13 opportunities</span></div>
+</div>
+<div class="tools">
+<button type="button" id="export-json" class="btn">Export decisions</button>
+<button type="button" id="export-csv" class="btn">Export CSV</button>
+<label for="import-file" class="btn">Import decisions</label>
+<input id="import-file" class="sr" type="file" accept="application/json,.json">
+<button type="button" id="clear-all" class="btn">Clear all</button>
+</div>
+</div>
+<p id="status" class="sr" aria-live="polite"></p>
+<noscript><p class="empty">Decisions, filters and exports need JavaScript. The opportunities below are complete without it.</p></noscript>
+<main>
+<section id="overview" aria-labelledby="h-overview">
+<h2 id="h-overview"><span class="num">01</span> Overview</h2>
+<div class="banner" role="note"><b>Read before deciding.</b><ul><li>P8_COST_DATA: Resource-level cost data is not enabled; per-resource costs are unavailable.</li></ul></div>
+<div class="kpis"><div class="kpi"><span class="eyebrow">unverified waste estimate</span><span class="v">$12,344<small> a month</small></span><span class="s">Estimate only, not billed. $7,379 in 7 findings need human review.</span></div><div class="kpi"><span class="eyebrow">Opportunities</span><span class="v">13</span><span class="s">from 123 findings (9.46x fewer)</span></div><div class="kpi alert"><span class="eyebrow">Billed share</span><span class="v">2%</span><span class="s">of the reported dollars come from the bill</span></div><div class="kpi alert"><span class="eyebrow">Unpriced findings</span><span class="v">9</span><span class="s">no dollar figure; not in the range</span></div><div class="kpi"><span class="eyebrow">Resources analysed</span><span class="v">1,418 of 1,420</span><span class="s">2 dropped, 3200 free config objects skipped</span></div><div class="kpi"><span class="eyebrow">Cost of this run</span><span class="v">$1.62</span><span class="s">of $2.00 budget, 24 model calls</span></div></div>
+<div class="panels">
+<div class="panel"><h3>Where the money is</h3><svg class="bar" viewBox="0 0 100 4" preserveAspectRatio="none" role="img" aria-label="Dollars by cost basis: billed $215; list price $474; model est. $11,655"><rect class="b-billed" x="0.00" y="0" width="1.74" height="4"/><rect class="b-list" x="1.74" y="0" width="3.84" height="4"/><rect class="b-model" x="5.58" y="0" width="94.42" height="4"/></svg><ul class="legend"><li><span class="sw sw-billed"></span>billed <span class="mono">$215</span> (2%)</li><li><span class="sw sw-list"></span>list price <span class="mono">$474</span> (4%)</li><li><span class="sw sw-model"></span>model est. <span class="mono">$11,655</span> (94%)</li></ul><hr><div class="lane-row"><div><b>Easy</b><br><span class="muted">clear evidence, confident, no review flag</span></div><div class="mono">6 opportunities<br>90 members<br>$689 to $1,191</div></div><div class="lane-row"><div><b>Needs an owner</b><br><span class="muted">uncertain, flagged or a judgement call</span></div><div class="mono">7 opportunities<br>33 members<br>$0 to $11,153</div></div></div>
+<div class="panel"><h3>Cost of this run</h3><p class="mono big">$1.62 <small>model spend</small></p><svg class="bar" viewBox="0 0 100 4" preserveAspectRatio="none" role="img" aria-label="Model spend $1.62 is 81% of the $2.00 budget"><rect class="b-run" x="0" y="0" width="81.00" height="4"/></svg><ul><li>81% of the $2.00 budget.</li><li>Estimated before the run: $1.18 (actual 37% higher).</li><li>24 model calls, 205,310 input and 55,872 output tokens.</li><li>$1.14 per 1,000 resources analysed (1,418).</li><li>$425 of billed or list-priced waste found per $1 of model spend. This is waste found, not savings realized.</li><li>Not included: AWS API charges (for example Cost Explorer requests) and the cost of the place Argus runs.</li></ul></div>
+</div>
+</section>
+<section id="board" aria-labelledby="h-board">
+<h2 id="h-board"><span class="num">02</span> Decide</h2>
+<div class="dashboard">
+<aside class="rail" aria-label="Filters">
+<h3>Filter</h3>
+<div class="chips" role="group" aria-label="Show">
+<button type="button" class="fchip" data-chip="all" aria-pressed="true">All</button>
+<button type="button" class="fchip" data-chip="easy" aria-pressed="false">Easy</button>
+<button type="button" class="fchip" data-chip="doubt" aria-pressed="false">Needs an owner</button>
+<button type="button" class="fchip" data-chip="undecided" aria-pressed="false">Undecided</button>
+<button type="button" class="fchip" data-chip="approve" aria-pressed="false">Approved</button>
+<button type="button" class="fchip" data-chip="investigate" aria-pressed="false">Investigating</button>
+<button type="button" class="fchip" data-chip="keep" aria-pressed="false">Kept</button>
+</div>
+<div><label for="f-action">Action</label><select id="f-action"><option value="all">All actions</option><option value="remove">Remove</option><option value="retention">Set retention</option><option value="review">Review</option><option value="rightsize">Right-size</option></select></div>
+<div><label for="f-search">Search</label><input id="f-search" type="search" autocomplete="off"></div>
+<p id="count" class="muted" aria-live="polite">Showing 13 of 13 opportunities</p>
+<button type="button" id="reset-filters" class="btn">Reset filters</button>
+</aside>
+<div class="content">
+<div class="cards" id="cards"><article class="card" id="opp-74f66f2422a6" data-id="opp-74f66f2422a6" data-lane="easy" data-action="remove">
+<div class="stripe"></div>
+<div class="body">
+<div class="card-top">
+<h3>Remove 16 snapshots</h3>
+<div class="range mono">$0 to $378 <small>a month</small></div>
+</div>
+<div class="row"><span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est. $378</span></div>
+<div class="row"><span class="pill pill-easy">Easy</span><span class="pill pill-flat">Remove</span><span class="pill pill-flat">confident</span><span class="pill pill-flat">16 members</span><span class="pill pill-flat">priority medium</span></div>
+<p class="risk"><b>Risk.</b> Removal cannot be undone; data is lost unless it is saved first.</p>
+<details class="more"><summary>Evidence and what to check first</summary>
+<h4>Evidence</h4><ul><li>Found: 0 by deterministic rules, 16 by model review.</li><li>Metrics available for 16 of 16 model-reviewed members.</li><li>Last activity checked for 7 of 16 model-reviewed members.</li><li>Dollars: $377.60 model estimate.</li><li>Lowest confidence: medium.</li></ul>
+<h4>Check first</h4><ol><li>Confirm the source resource is gone or the snapshot is no longer needed to restore.</li><li>Confirm nothing still uses it (DNS, allowlists, scripts, infrastructure code).</li><li>Check the owner and tags, and ask the owner if unsure.</li><li>Save anything that might matter before removing it.</li><li>Remove it in a change window and keep the ticket link.</li></ol>
+</details>
+<details class="more"><summary>Members (16)</summary>
+<div class="tablewrap"><table><caption class="sr">Members of Remove 16 snapshots</caption><thead><tr><th scope="col">Resource</th><th scope="col">Type</th><th scope="col">Region</th><th scope="col">Account</th><th scope="col" class="n">Monthly</th><th scope="col">Confidence</th><th scope="col">Flag</th></tr></thead><tbody><tr><td>snap-rds-3<br><span class="muted mono">snap-rds-b34e8ece</span></td><td>rds:snapshot</td><td>eu-west-1</td><td>123456789012</td><td class="n">$46.82 <span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est.</span></td><td>medium</td><td></td></tr><tr><td>snap-rds-6<br><span class="muted mono">snap-rds-8d959c31</span></td><td>rds:snapshot</td><td>eu-west-1</td><td>123456789012</td><td class="n">$42.15 <span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est.</span></td><td>medium</td><td></td></tr><tr><td>snap-rds-4<br><span class="muted mono">snap-rds-1289bafa</span></td><td>rds:snapshot</td><td>eu-west-1</td><td>123456789012</td><td class="n">$41.01 <span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est.</span></td><td>medium</td><td></td></tr><tr><td>snap-rds-0<br><span class="muted mono">snap-rds-f5f554ed</span></td><td>rds:snapshot</td><td>eu-west-1</td><td>123456789012</td><td class="n">$39.37 <span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est.</span></td><td>medium</td><td></td></tr><tr><td>snap-rds-2<br><span class="muted mono">snap-rds-42343354</span></td><td>rds:snapshot</td><td>eu-west-1</td><td>123456789012</td><td class="n">$34.82 <span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est.</span></td><td>medium</td><td></td></tr><tr><td>snap-rds-8<br><span class="muted mono">snap-rds-2e5f950c</span></td><td>rds:snapshot</td><td>eu-west-1</td><td>123456789012</td><td class="n">$34.48 <span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est.</span></td><td>medium</td><td></td></tr><tr><td>snap-rds-1<br><span class="muted mono">snap-rds-e05b3e13</span></td><td>rds:snapshot</td><td>eu-west-1</td><td>123456789012</td><td class="n">$33.14 <span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est.</span></td><td>medium</td><td></td></tr><tr><td>snap-rds-5<br><span class="muted mono">snap-rds-db31ccd2</span></td><td>rds:snapshot</td><td>eu-west-1</td><td>123456789012</td><td class="n">$27.35 <span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est.</span></td><td>medium</td><td></td></tr><tr><td>snap-rds-7<br><span class="muted mono">snap-rds-b5a432cf</span></td><td>rds:snapshot</td><td>eu-west-1</td><td>123456789012</td><td class="n">$25.73 <span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est.</span></td><td>medium</td><td></td></tr><tr><td>snap-4<br><span class="muted mono">snap-57bb7d97</span></td><td>ec2:snapshot</td><td>eu-west-1</td><td>123456789012</td><td class="n">$9.49 <span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est.</span></td><td>medium</td><td></td></tr><tr><td>snap-1<br><span class="muted mono">snap-fe977c56</span></td><td>ec2:snapshot</td><td>eu-west-1</td><td>123456789012</td><td class="n">$8.42 <span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est.</span></td><td>medium</td><td></td></tr><tr><td>snap-0<br><span class="muted mono">snap-4a3adf99</span></td><td>ec2:snapshot</td><td>eu-west-1</td><td>123456789012</td><td class="n">$8.16 <span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est.</span></td><td>medium</td><td></td></tr><tr><td>snap-3<br><span class="muted mono">snap-e3838b9e</span></td><td>ec2:snapshot</td><td>eu-west-1</td><td>123456789012</td><td class="n">$7.54 <span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est.</span></td><td>medium</td><td></td></tr><tr><td>snap-2<br><span class="muted mono">snap-7989e9d0</span></td><td>ec2:snapshot</td><td>eu-west-1</td><td>123456789012</td><td class="n">$6.91 <span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est.</span></td><td>medium</td><td></td></tr><tr><td>snap-6<br><span class="muted mono">snap-0e2ec40a</span></td><td>ec2:snapshot</td><td>eu-west-1</td><td>123456789012</td><td class="n">$6.18 <span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est.</span></td><td>medium</td><td></td></tr><tr><td>snap-5<br><span class="muted mono">snap-213bca7f</span></td><td>ec2:snapshot</td><td>eu-west-1</td><td>123456789012</td><td class="n">$6.03 <span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est.</span></td><td>medium</td><td></td></tr></tbody></table></div>
+</details>
+<div class="row"><span class="pill pill-flat">team=payments (5)</span><span class="pill pill-flat">team=data (3)</span><span class="pill pill-flat">team=security (2)</span><span class="pill pill-flat">team=growth (1)</span><span class="pill pill-flat">team=platform (1)</span><span class="pill pill-flat">no owner tag (4)</span></div>
+
+<div class="decide">
+<div class="seg" role="group" aria-label="Decision for Remove 16 snapshots">
+<button type="button" data-v="approve" aria-pressed="false">Approve</button>
+<button type="button" data-v="investigate" aria-pressed="false">Investigate</button>
+<button type="button" data-v="keep" aria-pressed="false">Keep</button>
+</div>
+<div class="fields">
+<div><label for="c0-owner">Owner</label><input id="c0-owner" class="f-owner" type="text" maxlength="200" autocomplete="off"></div>
+<div><label for="c0-note">Note</label><input id="c0-note" class="f-note" type="text" maxlength="1000" autocomplete="off"></div>
+<div><label for="c0-expires" class="f-expires-l" hidden>Keep until</label><input id="c0-expires" class="f-expires" type="date" hidden></div>
+</div>
+<p class="hint" hidden></p>
+</div>
+</div>
+</article><article class="card" id="opp-a67cf90e4091" data-id="opp-a67cf90e4091" data-lane="easy" data-action="remove">
+<div class="stripe"></div>
+<div class="body">
+<div class="card-top">
+<h3>Remove 34 EBS Volumes</h3>
+<div class="range mono">$331 <small>a month</small></div>
+</div>
+<div class="row"><span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price $331</span></div>
+<div class="row"><span class="pill pill-easy">Easy</span><span class="pill pill-flat">Remove</span><span class="pill pill-flat">confident</span><span class="pill pill-flat">34 members</span><span class="pill pill-flat">priority medium</span></div>
+<p class="risk"><b>Risk.</b> Removal cannot be undone; data is lost unless it is saved first.</p>
+<details class="more"><summary>Evidence and what to check first</summary>
+<h4>Evidence</h4><ul><li>Found: 34 by deterministic rules, 0 by model review.</li><li>Dollars: $330.66 list price.</li><li>Lowest confidence: high.</li></ul>
+<h4>Check first</h4><ol><li>Take a snapshot first unless one already exists and restores cleanly.</li><li>Confirm nothing still uses it (DNS, allowlists, scripts, infrastructure code).</li><li>Check the owner and tags, and ask the owner if unsure.</li><li>Save anything that might matter before removing it.</li><li>Remove it in a change window and keep the ticket link.</li></ol>
+</details>
+<details class="more"><summary>Members (34)</summary>
+<div class="tablewrap"><table><caption class="sr">Members of Remove 34 EBS Volumes</caption><thead><tr><th scope="col">Resource</th><th scope="col">Type</th><th scope="col">Region</th><th scope="col">Account</th><th scope="col" class="n">Monthly</th><th scope="col">Confidence</th><th scope="col">Flag</th></tr></thead><tbody><tr><td>vol-22<br><span class="muted mono">vol-8f2c6ec8</span></td><td>AWS::EC2::Volume</td><td>eu-west-1</td><td>123456789012</td><td class="n">$13.97 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr><tr><td>vol-4<br><span class="muted mono">vol-4a23d596</span></td><td>AWS::EC2::Volume</td><td>eu-west-1</td><td>123456789012</td><td class="n">$13.13 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr><tr><td>vol-27<br><span class="muted mono">vol-774b15d7</span></td><td>AWS::EC2::Volume</td><td>eu-west-1</td><td>123456789012</td><td class="n">$13.04 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr><tr><td>vol-17<br><span class="muted mono">vol-e25a7605</span></td><td>AWS::EC2::Volume</td><td>eu-west-1</td><td>123456789012</td><td class="n">$12.77 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr><tr><td>vol-32<br><span class="muted mono">vol-d17e4497</span></td><td>AWS::EC2::Volume</td><td>eu-west-1</td><td>123456789012</td><td class="n">$12.65 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr><tr><td>vol-12<br><span class="muted mono">vol-451abd81</span></td><td>AWS::EC2::Volume</td><td>eu-west-1</td><td>123456789012</td><td class="n">$12.57 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr><tr><td>vol-30<br><span class="muted mono">vol-d86f40f6</span></td><td>AWS::EC2::Volume</td><td>eu-west-1</td><td>123456789012</td><td class="n">$12.22 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr><tr><td>vol-28<br><span class="muted mono">vol-bd87a865</span></td><td>AWS::EC2::Volume</td><td>eu-west-1</td><td>123456789012</td><td class="n">$12.15 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr><tr><td>vol-9<br><span class="muted mono">vol-faecbd38</span></td><td>AWS::EC2::Volume</td><td>eu-west-1</td><td>123456789012</td><td class="n">$11.97 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr><tr><td>vol-8<br><span class="muted mono">vol-3e7d1bfb</span></td><td>AWS::EC2::Volume</td><td>eu-west-1</td><td>123456789012</td><td class="n">$11.69 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr><tr><td>vol-21<br><span class="muted mono">vol-bd628881</span></td><td>AWS::EC2::Volume</td><td>eu-west-1</td><td>123456789012</td><td class="n">$11.29 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr><tr><td>vol-13<br><span class="muted mono">vol-d269a9a5</span></td><td>AWS::EC2::Volume</td><td>eu-west-1</td><td>123456789012</td><td class="n">$11.22 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr><tr><td>vol-23<br><span class="muted mono">vol-0fef7928</span></td><td>AWS::EC2::Volume</td><td>eu-west-1</td><td>123456789012</td><td class="n">$11.11 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr><tr><td>vol-26<br><span class="muted mono">vol-f4998d7c</span></td><td>AWS::EC2::Volume</td><td>eu-west-1</td><td>123456789012</td><td class="n">$11.11 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr><tr><td>vol-3<br><span class="muted mono">vol-95e60af5</span></td><td>AWS::EC2::Volume</td><td>eu-west-1</td><td>123456789012</td><td class="n">$11.08 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr><tr><td>vol-11<br><span class="muted mono">vol-5051c1cc</span></td><td>AWS::EC2::Volume</td><td>eu-west-1</td><td>123456789012</td><td class="n">$10.56 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr><tr><td>vol-20<br><span class="muted mono">vol-f3fe39c0</span></td><td>AWS::EC2::Volume</td><td>eu-west-1</td><td>123456789012</td><td class="n">$10.50 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr><tr><td>vol-5<br><span class="muted mono">vol-ae97ba94</span></td><td>AWS::EC2::Volume</td><td>eu-west-1</td><td>123456789012</td><td class="n">$10.44 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr><tr><td>vol-33<br><span class="muted mono">vol-bb2313f5</span></td><td>AWS::EC2::Volume</td><td>eu-west-1</td><td>123456789012</td><td class="n">$9.84 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr><tr><td>vol-7<br><span class="muted mono">vol-ec66a787</span></td><td>AWS::EC2::Volume</td><td>eu-west-1</td><td>123456789012</td><td class="n">$9.59 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr><tr><td>vol-0<br><span class="muted mono">vol-0c5c7fd0</span></td><td>AWS::EC2::Volume</td><td>eu-west-1</td><td>123456789012</td><td class="n">$8.95 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr><tr><td>vol-6<br><span class="muted mono">vol-34b9b5df</span></td><td>AWS::EC2::Volume</td><td>eu-west-1</td><td>123456789012</td><td class="n">$8.75 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr><tr><td>vol-31<br><span class="muted mono">vol-80b0c08b</span></td><td>AWS::EC2::Volume</td><td>eu-west-1</td><td>123456789012</td><td class="n">$8.60 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr><tr><td>vol-2<br><span class="muted mono">vol-8d116ece</span></td><td>AWS::EC2::Volume</td><td>eu-west-1</td><td>123456789012</td><td class="n">$7.57 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr><tr><td>vol-15<br><span class="muted mono">vol-49952399</span></td><td>AWS::EC2::Volume</td><td>eu-west-1</td><td>123456789012</td><td class="n">$7.36 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr><tr><td>vol-19<br><span class="muted mono">vol-482c9cbc</span></td><td>AWS::EC2::Volume</td><td>eu-west-1</td><td>123456789012</td><td class="n">$7.04 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr><tr><td>vol-10<br><span class="muted mono">vol-7d2caf82</span></td><td>AWS::EC2::Volume</td><td>eu-west-1</td><td>123456789012</td><td class="n">$6.77 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr><tr><td>vol-18<br><span class="muted mono">vol-a8948c89</span></td><td>AWS::EC2::Volume</td><td>eu-west-1</td><td>123456789012</td><td class="n">$6.76 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr><tr><td>vol-24<br><span class="muted mono">vol-99c94309</span></td><td>AWS::EC2::Volume</td><td>eu-west-1</td><td>123456789012</td><td class="n">$6.39 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr><tr><td>vol-25<br><span class="muted mono">vol-068739fa</span></td><td>AWS::EC2::Volume</td><td>eu-west-1</td><td>123456789012</td><td class="n">$6.31 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr><tr><td>vol-16<br><span class="muted mono">vol-72fdf202</span></td><td>AWS::EC2::Volume</td><td>eu-west-1</td><td>123456789012</td><td class="n">$6.13 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr><tr><td>vol-1<br><span class="muted mono">vol-81e74ef5</span></td><td>AWS::EC2::Volume</td><td>eu-west-1</td><td>123456789012</td><td class="n">$5.92 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr><tr><td>vol-29<br><span class="muted mono">vol-873be078</span></td><td>AWS::EC2::Volume</td><td>eu-west-1</td><td>123456789012</td><td class="n">$5.61 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr><tr><td>vol-14<br><span class="muted mono">vol-7631a992</span></td><td>AWS::EC2::Volume</td><td>eu-west-1</td><td>123456789012</td><td class="n">$5.60 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr></tbody></table></div>
+</details>
+<div class="row"><span class="pill pill-flat">team=security (9)</span><span class="pill pill-flat">team=payments (8)</span><span class="pill pill-flat">team=data (6)</span><span class="pill pill-flat">team=platform (5)</span><span class="pill pill-flat">team=growth (2)</span><span class="pill pill-flat">no owner tag (4)</span></div>
+
+<div class="decide">
+<div class="seg" role="group" aria-label="Decision for Remove 34 EBS Volumes">
+<button type="button" data-v="approve" aria-pressed="false">Approve</button>
+<button type="button" data-v="investigate" aria-pressed="false">Investigate</button>
+<button type="button" data-v="keep" aria-pressed="false">Keep</button>
+</div>
+<div class="fields">
+<div><label for="c1-owner">Owner</label><input id="c1-owner" class="f-owner" type="text" maxlength="200" autocomplete="off"></div>
+<div><label for="c1-note">Note</label><input id="c1-note" class="f-note" type="text" maxlength="1000" autocomplete="off"></div>
+<div><label for="c1-expires" class="f-expires-l" hidden>Keep until</label><input id="c1-expires" class="f-expires" type="date" hidden></div>
+</div>
+<p class="hint" hidden></p>
+</div>
+</div>
+</article><article class="card" id="opp-8c65784929ce" data-id="opp-8c65784929ce" data-lane="easy" data-action="remove">
+<div class="stripe"></div>
+<div class="body">
+<div class="card-top">
+<h3>Remove 3 EC2 client VPN endpoints</h3>
+<div class="range mono">$215 <small>a month</small></div>
+</div>
+<div class="row"><span class="bchip chip-billed" title="Billed: taken from the cloud bill.">billed $215</span></div>
+<div class="row"><span class="pill pill-easy">Easy</span><span class="pill pill-flat">Remove</span><span class="pill pill-flat">confident</span><span class="pill pill-flat">3 members</span><span class="pill pill-flat">priority medium</span></div>
+<p class="risk"><b>Risk.</b> Removal cannot be undone; data is lost unless it is saved first.</p>
+<details class="more"><summary>Evidence and what to check first</summary>
+<h4>Evidence</h4><ul><li>Found: 0 by deterministic rules, 3 by model review.</li><li>Metrics available for 3 of 3 model-reviewed members.</li><li>Last activity checked for 1 of 3 model-reviewed members.</li><li>Dollars: $215.05 billed.</li><li>Lowest confidence: high.</li></ul>
+<h4>Check first</h4><ol><li>Confirm nothing still uses it (DNS, allowlists, scripts, infrastructure code).</li><li>Check the owner and tags, and ask the owner if unsure.</li><li>Save anything that might matter before removing it.</li><li>Remove it in a change window and keep the ticket link.</li></ol>
+</details>
+<details class="more"><summary>Members (3)</summary>
+<div class="tablewrap"><table><caption class="sr">Members of Remove 3 EC2 client VPN endpoints</caption><thead><tr><th scope="col">Resource</th><th scope="col">Type</th><th scope="col">Region</th><th scope="col">Account</th><th scope="col" class="n">Monthly</th><th scope="col">Confidence</th><th scope="col">Flag</th></tr></thead><tbody><tr><td>cvpn-0<br><span class="muted mono">cvpn-69ac0f03</span></td><td>ec2:client-vpn-endpoint</td><td>eu-west-1</td><td>123456789012</td><td class="n">$98.53 <span class="bchip chip-billed" title="Billed: taken from the cloud bill.">billed</span></td><td>high</td><td></td></tr><tr><td>cvpn-1<br><span class="muted mono">cvpn-c08a58d7</span></td><td>ec2:client-vpn-endpoint</td><td>eu-west-1</td><td>123456789012</td><td class="n">$63.53 <span class="bchip chip-billed" title="Billed: taken from the cloud bill.">billed</span></td><td>high</td><td></td></tr><tr><td>cvpn-2<br><span class="muted mono">cvpn-37495c5e</span></td><td>ec2:client-vpn-endpoint</td><td>eu-west-1</td><td>123456789012</td><td class="n">$52.99 <span class="bchip chip-billed" title="Billed: taken from the cloud bill.">billed</span></td><td>high</td><td></td></tr></tbody></table></div>
+</details>
+<div class="row"><span class="pill pill-flat">team=data (1)</span><span class="pill pill-flat">team=growth (1)</span><span class="pill pill-flat">team=platform (1)</span></div>
+
+<div class="decide">
+<div class="seg" role="group" aria-label="Decision for Remove 3 EC2 client VPN endpoints">
+<button type="button" data-v="approve" aria-pressed="false">Approve</button>
+<button type="button" data-v="investigate" aria-pressed="false">Investigate</button>
+<button type="button" data-v="keep" aria-pressed="false">Keep</button>
+</div>
+<div class="fields">
+<div><label for="c2-owner">Owner</label><input id="c2-owner" class="f-owner" type="text" maxlength="200" autocomplete="off"></div>
+<div><label for="c2-note">Note</label><input id="c2-note" class="f-note" type="text" maxlength="1000" autocomplete="off"></div>
+<div><label for="c2-expires" class="f-expires-l" hidden>Keep until</label><input id="c2-expires" class="f-expires" type="date" hidden></div>
+</div>
+<p class="hint" hidden></p>
+</div>
+</div>
+</article><article class="card" id="opp-0ee96927357a" data-id="opp-0ee96927357a" data-lane="easy" data-action="retention">
+<div class="stripe"></div>
+<div class="body">
+<div class="card-top">
+<h3>Set retention on 11 CloudWatch log groups</h3>
+<div class="range mono">$0 to $125 <small>a month</small></div>
+</div>
+<div class="row"><span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est. $125</span></div>
+<div class="row"><span class="pill pill-easy">Easy</span><span class="pill pill-flat">Set retention</span><span class="pill pill-flat">confident</span><span class="pill pill-flat">11 members</span><span class="pill pill-flat">priority medium</span></div>
+<p class="risk"><b>Risk.</b> Shorter retention permanently drops older data.</p>
+<details class="more"><summary>Evidence and what to check first</summary>
+<h4>Evidence</h4><ul><li>Found: 0 by deterministic rules, 11 by model review.</li><li>Metrics available for 11 of 11 model-reviewed members.</li><li>Last activity checked for 3 of 11 model-reviewed members.</li><li>Dollars: $125.01 model estimate.</li><li>Lowest confidence: medium.</li></ul>
+<h4>Check first</h4><ol><li>Check audit, legal and security retention rules first.</li><li>Archive older data if it may be needed.</li><li>Set the retention and confirm new data still arrives.</li></ol>
+</details>
+<details class="more"><summary>Members (11)</summary>
+<div class="tablewrap"><table><caption class="sr">Members of Set retention on 11 CloudWatch log groups</caption><thead><tr><th scope="col">Resource</th><th scope="col">Type</th><th scope="col">Region</th><th scope="col">Account</th><th scope="col" class="n">Monthly</th><th scope="col">Confidence</th><th scope="col">Flag</th></tr></thead><tbody><tr><td>lg-4<br><span class="muted mono">lg-24d4589c</span></td><td>logs:log-group</td><td>eu-west-1</td><td>123456789012</td><td class="n">$17.00 <span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est.</span></td><td>medium</td><td></td></tr><tr><td>lg-0<br><span class="muted mono">lg-4b05e1ae</span></td><td>logs:log-group</td><td>eu-west-1</td><td>123456789012</td><td class="n">$15.25 <span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est.</span></td><td>medium</td><td></td></tr><tr><td>lg-6<br><span class="muted mono">lg-fc173498</span></td><td>logs:log-group</td><td>eu-west-1</td><td>123456789012</td><td class="n">$15.09 <span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est.</span></td><td>medium</td><td></td></tr><tr><td>lg-3<br><span class="muted mono">lg-33736dcc</span></td><td>logs:log-group</td><td>eu-west-1</td><td>123456789012</td><td class="n">$13.23 <span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est.</span></td><td>medium</td><td></td></tr><tr><td>lg-10<br><span class="muted mono">lg-3e9b768f</span></td><td>logs:log-group</td><td>eu-west-1</td><td>123456789012</td><td class="n">$11.72 <span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est.</span></td><td>medium</td><td></td></tr><tr><td>lg-5<br><span class="muted mono">lg-3b996870</span></td><td>logs:log-group</td><td>eu-west-1</td><td>123456789012</td><td class="n">$10.85 <span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est.</span></td><td>medium</td><td></td></tr><tr><td>lg-2<br><span class="muted mono">lg-2ed65411</span></td><td>logs:log-group</td><td>eu-west-1</td><td>123456789012</td><td class="n">$9.81 <span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est.</span></td><td>medium</td><td></td></tr><tr><td>lg-8<br><span class="muted mono">lg-cdff5a1c</span></td><td>logs:log-group</td><td>eu-west-1</td><td>123456789012</td><td class="n">$8.87 <span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est.</span></td><td>medium</td><td></td></tr><tr><td>lg-9<br><span class="muted mono">lg-0ab77988</span></td><td>logs:log-group</td><td>eu-west-1</td><td>123456789012</td><td class="n">$8.22 <span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est.</span></td><td>medium</td><td></td></tr><tr><td>lg-7<br><span class="muted mono">lg-a098d691</span></td><td>logs:log-group</td><td>eu-west-1</td><td>123456789012</td><td class="n">$7.73 <span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est.</span></td><td>medium</td><td></td></tr><tr><td>lg-1<br><span class="muted mono">lg-52d31e1b</span></td><td>logs:log-group</td><td>eu-west-1</td><td>123456789012</td><td class="n">$7.24 <span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est.</span></td><td>medium</td><td></td></tr></tbody></table></div>
+</details>
+<div class="row"><span class="pill pill-flat">team=data (3)</span><span class="pill pill-flat">team=payments (3)</span><span class="pill pill-flat">team=growth (1)</span><span class="pill pill-flat">team=security (1)</span><span class="pill pill-flat">no owner tag (3)</span></div>
+
+<div class="decide">
+<div class="seg" role="group" aria-label="Decision for Set retention on 11 CloudWatch log groups">
+<button type="button" data-v="approve" aria-pressed="false">Approve</button>
+<button type="button" data-v="investigate" aria-pressed="false">Investigate</button>
+<button type="button" data-v="keep" aria-pressed="false">Keep</button>
+</div>
+<div class="fields">
+<div><label for="c3-owner">Owner</label><input id="c3-owner" class="f-owner" type="text" maxlength="200" autocomplete="off"></div>
+<div><label for="c3-note">Note</label><input id="c3-note" class="f-note" type="text" maxlength="1000" autocomplete="off"></div>
+<div><label for="c3-expires" class="f-expires-l" hidden>Keep until</label><input id="c3-expires" class="f-expires" type="date" hidden></div>
+</div>
+<p class="hint" hidden></p>
+</div>
+</div>
+</article><article class="card" id="opp-e581f18cbb46" data-id="opp-e581f18cbb46" data-lane="easy" data-action="remove">
+<div class="stripe"></div>
+<div class="body">
+<div class="card-top">
+<h3>Remove 14 EC2 Instances</h3>
+<div class="range mono">$99.83 <small>a month</small></div>
+</div>
+<div class="row"><span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price $99.83</span></div>
+<div class="row"><span class="pill pill-easy">Easy</span><span class="pill pill-flat">Remove</span><span class="pill pill-flat">confident</span><span class="pill pill-flat">14 members</span><span class="pill pill-flat">priority medium</span></div>
+<p class="risk"><b>Risk.</b> Removal cannot be undone; data is lost unless it is saved first.</p>
+<details class="more"><summary>Evidence and what to check first</summary>
+<h4>Evidence</h4><ul><li>Found: 14 by deterministic rules, 0 by model review.</li><li>Dollars: $99.83 list price.</li><li>Lowest confidence: high.</li></ul>
+<h4>Check first</h4><ol><li>Ask the owner why it was stopped and whether it restarts on a schedule.</li><li>Confirm nothing still uses it (DNS, allowlists, scripts, infrastructure code).</li><li>Check the owner and tags, and ask the owner if unsure.</li><li>Save anything that might matter before removing it.</li><li>Remove it in a change window and keep the ticket link.</li></ol>
+</details>
+<details class="more"><summary>Members (14)</summary>
+<div class="tablewrap"><table><caption class="sr">Members of Remove 14 EC2 Instances</caption><thead><tr><th scope="col">Resource</th><th scope="col">Type</th><th scope="col">Region</th><th scope="col">Account</th><th scope="col" class="n">Monthly</th><th scope="col">Confidence</th><th scope="col">Flag</th></tr></thead><tbody><tr><td>i-1<br><span class="muted mono">i-5d58c705</span></td><td>AWS::EC2::Instance</td><td>eu-west-1</td><td>123456789012</td><td class="n">$9.33 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr><tr><td>i-13<br><span class="muted mono">i-c6c91b92</span></td><td>AWS::EC2::Instance</td><td>eu-west-1</td><td>123456789012</td><td class="n">$8.84 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr><tr><td>i-3<br><span class="muted mono">i-330698a1</span></td><td>AWS::EC2::Instance</td><td>eu-west-1</td><td>123456789012</td><td class="n">$8.61 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr><tr><td>i-9<br><span class="muted mono">i-3606defc</span></td><td>AWS::EC2::Instance</td><td>eu-west-1</td><td>123456789012</td><td class="n">$8.56 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr><tr><td>i-6<br><span class="muted mono">i-faf55496</span></td><td>AWS::EC2::Instance</td><td>eu-west-1</td><td>123456789012</td><td class="n">$8.44 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr><tr><td>i-10<br><span class="muted mono">i-53740902</span></td><td>AWS::EC2::Instance</td><td>eu-west-1</td><td>123456789012</td><td class="n">$8.18 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr><tr><td>i-5<br><span class="muted mono">i-20859634</span></td><td>AWS::EC2::Instance</td><td>eu-west-1</td><td>123456789012</td><td class="n">$7.95 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr><tr><td>i-7<br><span class="muted mono">i-057a40b2</span></td><td>AWS::EC2::Instance</td><td>eu-west-1</td><td>123456789012</td><td class="n">$6.89 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr><tr><td>i-8<br><span class="muted mono">i-ef02090b</span></td><td>AWS::EC2::Instance</td><td>eu-west-1</td><td>123456789012</td><td class="n">$6.76 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr><tr><td>i-0<br><span class="muted mono">i-5822cb77</span></td><td>AWS::EC2::Instance</td><td>eu-west-1</td><td>123456789012</td><td class="n">$6.43 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr><tr><td>i-12<br><span class="muted mono">i-806c10b5</span></td><td>AWS::EC2::Instance</td><td>eu-west-1</td><td>123456789012</td><td class="n">$6.12 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr><tr><td>i-2<br><span class="muted mono">i-007d1034</span></td><td>AWS::EC2::Instance</td><td>eu-west-1</td><td>123456789012</td><td class="n">$5.63 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr><tr><td>i-4<br><span class="muted mono">i-b8c9817a</span></td><td>AWS::EC2::Instance</td><td>eu-west-1</td><td>123456789012</td><td class="n">$4.12 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr><tr><td>i-11<br><span class="muted mono">i-bd6b881a</span></td><td>AWS::EC2::Instance</td><td>eu-west-1</td><td>123456789012</td><td class="n">$3.97 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr></tbody></table></div>
+</details>
+<div class="row"><span class="pill pill-flat">team=platform (4)</span><span class="pill pill-flat">team=data (2)</span><span class="pill pill-flat">team=payments (2)</span><span class="pill pill-flat">team=security (2)</span><span class="pill pill-flat">no owner tag (4)</span></div>
+
+<div class="decide">
+<div class="seg" role="group" aria-label="Decision for Remove 14 EC2 Instances">
+<button type="button" data-v="approve" aria-pressed="false">Approve</button>
+<button type="button" data-v="investigate" aria-pressed="false">Investigate</button>
+<button type="button" data-v="keep" aria-pressed="false">Keep</button>
+</div>
+<div class="fields">
+<div><label for="c4-owner">Owner</label><input id="c4-owner" class="f-owner" type="text" maxlength="200" autocomplete="off"></div>
+<div><label for="c4-note">Note</label><input id="c4-note" class="f-note" type="text" maxlength="1000" autocomplete="off"></div>
+<div><label for="c4-expires" class="f-expires-l" hidden>Keep until</label><input id="c4-expires" class="f-expires" type="date" hidden></div>
+</div>
+<p class="hint" hidden></p>
+</div>
+</div>
+</article><article class="card" id="opp-d04aa801a6fc" data-id="opp-d04aa801a6fc" data-lane="easy" data-action="remove">
+<div class="stripe"></div>
+<div class="body">
+<div class="card-top">
+<h3>Remove 12 EC2 EIPs</h3>
+<div class="range mono">$43.07 <small>a month</small></div>
+</div>
+<div class="row"><span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price $43.07</span></div>
+<div class="row"><span class="pill pill-easy">Easy</span><span class="pill pill-flat">Remove</span><span class="pill pill-flat">confident</span><span class="pill pill-flat">12 members</span><span class="pill pill-flat">priority medium</span></div>
+<p class="risk"><b>Risk.</b> Removal cannot be undone; data is lost unless it is saved first.</p>
+<details class="more"><summary>Evidence and what to check first</summary>
+<h4>Evidence</h4><ul><li>Found: 12 by deterministic rules, 0 by model review.</li><li>Dollars: $43.07 list price.</li><li>Lowest confidence: high.</li></ul>
+<h4>Check first</h4><ol><li>Check partner, broker and firewall allowlists before releasing; a released address cannot be recovered.</li><li>Confirm nothing still uses it (DNS, allowlists, scripts, infrastructure code).</li><li>Check the owner and tags, and ask the owner if unsure.</li><li>Save anything that might matter before removing it.</li><li>Remove it in a change window and keep the ticket link.</li></ol>
+</details>
+<details class="more"><summary>Members (12)</summary>
+<div class="tablewrap"><table><caption class="sr">Members of Remove 12 EC2 EIPs</caption><thead><tr><th scope="col">Resource</th><th scope="col">Type</th><th scope="col">Region</th><th scope="col">Account</th><th scope="col" class="n">Monthly</th><th scope="col">Confidence</th><th scope="col">Flag</th></tr></thead><tbody><tr><td>eipalloc-9<br><span class="muted mono">eipalloc-f3d74f82</span></td><td>AWS::EC2::EIP</td><td>eu-west-1</td><td>123456789012</td><td class="n">$5.72 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr><tr><td>eipalloc-8<br><span class="muted mono">eipalloc-a906922f</span></td><td>AWS::EC2::EIP</td><td>eu-west-1</td><td>123456789012</td><td class="n">$5.46 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr><tr><td>eipalloc-4<br><span class="muted mono">eipalloc-46f5a1b4</span></td><td>AWS::EC2::EIP</td><td>eu-west-1</td><td>123456789012</td><td class="n">$4.40 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr><tr><td>eipalloc-3<br><span class="muted mono">eipalloc-e998d0ee</span></td><td>AWS::EC2::EIP</td><td>eu-west-1</td><td>123456789012</td><td class="n">$4.24 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr><tr><td>eipalloc-5<br><span class="muted mono">eipalloc-ed84e91e</span></td><td>AWS::EC2::EIP</td><td>eu-west-1</td><td>123456789012</td><td class="n">$4.04 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr><tr><td>eipalloc-1<br><span class="muted mono">eipalloc-8e317041</span></td><td>AWS::EC2::EIP</td><td>eu-west-1</td><td>123456789012</td><td class="n">$3.38 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr><tr><td>eipalloc-6<br><span class="muted mono">eipalloc-729135bd</span></td><td>AWS::EC2::EIP</td><td>eu-west-1</td><td>123456789012</td><td class="n">$2.93 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr><tr><td>eipalloc-10<br><span class="muted mono">eipalloc-83feb17b</span></td><td>AWS::EC2::EIP</td><td>eu-west-1</td><td>123456789012</td><td class="n">$2.78 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr><tr><td>eipalloc-0<br><span class="muted mono">eipalloc-243d3570</span></td><td>AWS::EC2::EIP</td><td>eu-west-1</td><td>123456789012</td><td class="n">$2.74 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr><tr><td>eipalloc-11<br><span class="muted mono">eipalloc-5daf106d</span></td><td>AWS::EC2::EIP</td><td>eu-west-1</td><td>123456789012</td><td class="n">$2.53 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr><tr><td>eipalloc-7<br><span class="muted mono">eipalloc-3d9a8079</span></td><td>AWS::EC2::EIP</td><td>eu-west-1</td><td>123456789012</td><td class="n">$2.45 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr><tr><td>eipalloc-2<br><span class="muted mono">eipalloc-30f97058</span></td><td>AWS::EC2::EIP</td><td>eu-west-1</td><td>123456789012</td><td class="n">$2.40 <span class="bchip chip-list" title="List price: priced from the public list price, not billed.">list price</span></td><td>high</td><td></td></tr></tbody></table></div>
+</details>
+<div class="row"><span class="pill pill-flat">team=data (2)</span><span class="pill pill-flat">team=platform (2)</span><span class="pill pill-flat">team=security (2)</span><span class="pill pill-flat">team=growth (1)</span><span class="pill pill-flat">team=payments (1)</span><span class="pill pill-flat">no owner tag (4)</span></div>
+
+<div class="decide">
+<div class="seg" role="group" aria-label="Decision for Remove 12 EC2 EIPs">
+<button type="button" data-v="approve" aria-pressed="false">Approve</button>
+<button type="button" data-v="investigate" aria-pressed="false">Investigate</button>
+<button type="button" data-v="keep" aria-pressed="false">Keep</button>
+</div>
+<div class="fields">
+<div><label for="c5-owner">Owner</label><input id="c5-owner" class="f-owner" type="text" maxlength="200" autocomplete="off"></div>
+<div><label for="c5-note">Note</label><input id="c5-note" class="f-note" type="text" maxlength="1000" autocomplete="off"></div>
+<div><label for="c5-expires" class="f-expires-l" hidden>Keep until</label><input id="c5-expires" class="f-expires" type="date" hidden></div>
+</div>
+<p class="hint" hidden></p>
+</div>
+</div>
+</article><article class="card" id="opp-c3804c13c900" data-id="opp-c3804c13c900" data-lane="doubt" data-action="review">
+<div class="stripe"></div>
+<div class="body">
+<div class="card-top">
+<h3>Review 4 EC2 Instances</h3>
+<div class="range mono">$0 to $6,962 <small>a month</small></div>
+</div>
+<div class="row"><span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est. $6,962</span></div>
+<div class="row"><span class="pill pill-doubt">Needs an owner</span><span class="pill pill-flat">Review</span><span class="pill pill-bad">needs human review</span><span class="pill pill-flat">4 members</span><span class="pill pill-flat">priority high</span></div>
+<p class="risk"><b>Risk.</b> Argus could not decide from the data. Do not act before an owner confirms. Flagged for human review: high_unbilled_estimate, prod_like_name. Low confidence: the evidence behind some findings was missing or short.</p>
+<details class="more"><summary>Evidence and what to check first</summary>
+<h4>Evidence</h4><ul><li>Found: 0 by deterministic rules, 4 by model review.</li><li>Metrics available for 4 of 4 model-reviewed members.</li><li>Last activity checked for 0 of 4 model-reviewed members.</li><li>Dollars: $6,962.11 model estimate.</li><li>Lowest confidence: low.</li></ul>
+<h4>Check first</h4><ol><li>Ask the resource owner whether it is still used.</li><li>Look at recent access in the audit trail.</li><li>Extend the metrics window or enable missing metrics.</li><li>Decide: keep, remove or resize.</li></ol>
+</details>
+<details class="more"><summary>Members (4)</summary>
+<div class="tablewrap"><table><caption class="sr">Members of Review 4 EC2 Instances</caption><thead><tr><th scope="col">Resource</th><th scope="col">Type</th><th scope="col">Region</th><th scope="col">Account</th><th scope="col" class="n">Monthly</th><th scope="col">Confidence</th><th scope="col">Flag</th></tr></thead><tbody><tr><td>prod-billing-2<br><span class="muted mono">billing-429a7079</span></td><td>AWS::EC2::Instance</td><td>eu-west-1</td><td>123456789012</td><td class="n">$1,875 <span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est.</span></td><td>low</td><td><span class="pill pill-bad">review</span></td></tr><tr><td>prod-billing-3<br><span class="muted mono">billing-1ea77228</span></td><td>AWS::EC2::Instance</td><td>eu-west-1</td><td>123456789012</td><td class="n">$1,776 <span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est.</span></td><td>low</td><td><span class="pill pill-bad">review</span></td></tr><tr><td>prod-billing-0<br><span class="muted mono">billing-de962a6d</span></td><td>AWS::EC2::Instance</td><td>eu-west-1</td><td>123456789012</td><td class="n">$1,701 <span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est.</span></td><td>low</td><td><span class="pill pill-bad">review</span></td></tr><tr><td>prod-billing-1<br><span class="muted mono">billing-2bb71c68</span></td><td>AWS::EC2::Instance</td><td>eu-west-1</td><td>123456789012</td><td class="n">$1,610 <span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est.</span></td><td>low</td><td><span class="pill pill-bad">review</span></td></tr></tbody></table></div>
+</details>
+<div class="row"><span class="pill pill-flat">team=data (1)</span><span class="pill pill-flat">team=growth (1)</span><span class="pill pill-flat">team=security (1)</span><span class="pill pill-flat">no owner tag (1)</span></div>
+
+<div class="decide">
+<div class="seg" role="group" aria-label="Decision for Review 4 EC2 Instances">
+<button type="button" data-v="approve" aria-pressed="false">Approve</button>
+<button type="button" data-v="investigate" aria-pressed="false">Investigate</button>
+<button type="button" data-v="keep" aria-pressed="false">Keep</button>
+</div>
+<div class="fields">
+<div><label for="c6-owner">Owner</label><input id="c6-owner" class="f-owner" type="text" maxlength="200" autocomplete="off"></div>
+<div><label for="c6-note">Note</label><input id="c6-note" class="f-note" type="text" maxlength="1000" autocomplete="off"></div>
+<div><label for="c6-expires" class="f-expires-l" hidden>Keep until</label><input id="c6-expires" class="f-expires" type="date" hidden></div>
+</div>
+<p class="hint" hidden></p>
+</div>
+</div>
+</article><article class="card" id="opp-6472cfdcaa59" data-id="opp-6472cfdcaa59" data-lane="doubt" data-action="rightsize">
+<div class="stripe"></div>
+<div class="body">
+<div class="card-top">
+<h3>Right-size 6 RDS Instances</h3>
+<div class="range mono">$0 to $1,997 <small>a month</small></div>
+</div>
+<div class="row"><span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est. $1,997</span></div>
+<div class="row"><span class="pill pill-doubt">Needs an owner</span><span class="pill pill-flat">Right-size</span><span class="pill pill-flat">confident</span><span class="pill pill-flat">6 members</span><span class="pill pill-flat">priority high</span></div>
+<p class="risk"><b>Risk.</b> Resizing usually needs a restart, and memory use is not measured, so a smaller size can run out of memory.</p>
+<details class="more"><summary>Evidence and what to check first</summary>
+<h4>Evidence</h4><ul><li>Found: 0 by deterministic rules, 6 by model review.</li><li>Metrics available for 6 of 6 model-reviewed members.</li><li>Last activity checked for 3 of 6 model-reviewed members.</li><li>Dollars: $1,996.84 model estimate.</li><li>Lowest confidence: medium.</li></ul>
+<h4>Check first</h4><ol><li>Collect memory and peak CPU over a representative period.</li><li>Try one non-critical instance first.</li><li>Plan a restart window.</li><li>Compare the bill after one full billing cycle.</li></ol>
+</details>
+<details class="more"><summary>Members (6)</summary>
+<div class="tablewrap"><table><caption class="sr">Members of Right-size 6 RDS Instances</caption><thead><tr><th scope="col">Resource</th><th scope="col">Type</th><th scope="col">Region</th><th scope="col">Account</th><th scope="col" class="n">Monthly</th><th scope="col">Confidence</th><th scope="col">Flag</th></tr></thead><tbody><tr><td>db-4<br><span class="muted mono">db-a1826327</span></td><td>AWS::RDS::DBInstance</td><td>eu-west-1</td><td>123456789012</td><td class="n">$438 <span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est.</span></td><td>medium</td><td></td></tr><tr><td>db-1<br><span class="muted mono">db-0c5b4c59</span></td><td>AWS::RDS::DBInstance</td><td>eu-west-1</td><td>123456789012</td><td class="n">$369 <span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est.</span></td><td>medium</td><td></td></tr><tr><td>db-5<br><span class="muted mono">db-b835e8a5</span></td><td>AWS::RDS::DBInstance</td><td>eu-west-1</td><td>123456789012</td><td class="n">$356 <span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est.</span></td><td>medium</td><td></td></tr><tr><td>db-3<br><span class="muted mono">db-c5ef5cfb</span></td><td>AWS::RDS::DBInstance</td><td>eu-west-1</td><td>123456789012</td><td class="n">$284 <span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est.</span></td><td>medium</td><td></td></tr><tr><td>db-0<br><span class="muted mono">db-5f49f0fc</span></td><td>AWS::RDS::DBInstance</td><td>eu-west-1</td><td>123456789012</td><td class="n">$276 <span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est.</span></td><td>medium</td><td></td></tr><tr><td>db-2<br><span class="muted mono">db-ef82d1a3</span></td><td>AWS::RDS::DBInstance</td><td>eu-west-1</td><td>123456789012</td><td class="n">$275 <span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est.</span></td><td>medium</td><td></td></tr></tbody></table></div>
+</details>
+<div class="row"><span class="pill pill-flat">team=platform (1)</span><span class="pill pill-flat">team=security (1)</span><span class="pill pill-flat">no owner tag (4)</span></div>
+
+<div class="decide">
+<div class="seg" role="group" aria-label="Decision for Right-size 6 RDS Instances">
+<button type="button" data-v="approve" aria-pressed="false">Approve</button>
+<button type="button" data-v="investigate" aria-pressed="false">Investigate</button>
+<button type="button" data-v="keep" aria-pressed="false">Keep</button>
+</div>
+<div class="fields">
+<div><label for="c7-owner">Owner</label><input id="c7-owner" class="f-owner" type="text" maxlength="200" autocomplete="off"></div>
+<div><label for="c7-note">Note</label><input id="c7-note" class="f-note" type="text" maxlength="1000" autocomplete="off"></div>
+<div><label for="c7-expires" class="f-expires-l" hidden>Keep until</label><input id="c7-expires" class="f-expires" type="date" hidden></div>
+</div>
+<p class="hint" hidden></p>
+</div>
+</div>
+</article><article class="card" id="opp-0b0272599aaf" data-id="opp-0b0272599aaf" data-lane="doubt" data-action="review">
+<div class="stripe"></div>
+<div class="body">
+<div class="card-top">
+<h3>Review 2 OpenSearch Domains</h3>
+<div class="range mono">$0 to $1,520 <small>a month</small></div>
+</div>
+<div class="row"><span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est. $1,520</span></div>
+<div class="row"><span class="pill pill-doubt">Needs an owner</span><span class="pill pill-flat">Review</span><span class="pill pill-flat">low confidence</span><span class="pill pill-flat">2 members</span><span class="pill pill-flat">priority high</span></div>
+<p class="risk"><b>Risk.</b> Argus could not decide from the data. Do not act before an owner confirms. Low confidence: the evidence behind some findings was missing or short.</p>
+<details class="more"><summary>Evidence and what to check first</summary>
+<h4>Evidence</h4><ul><li>Found: 0 by deterministic rules, 2 by model review.</li><li>Metrics available for 2 of 2 model-reviewed members.</li><li>Last activity checked for 2 of 2 model-reviewed members.</li><li>Dollars: $1,519.60 model estimate.</li><li>Lowest confidence: low.</li></ul>
+<h4>Check first</h4><ol><li>Ask the resource owner whether it is still used.</li><li>Look at recent access in the audit trail.</li><li>Extend the metrics window or enable missing metrics.</li><li>Decide: keep, remove or resize.</li></ol>
+</details>
+<details class="more"><summary>Members (2)</summary>
+<div class="tablewrap"><table><caption class="sr">Members of Review 2 OpenSearch Domains</caption><thead><tr><th scope="col">Resource</th><th scope="col">Type</th><th scope="col">Region</th><th scope="col">Account</th><th scope="col" class="n">Monthly</th><th scope="col">Confidence</th><th scope="col">Flag</th></tr></thead><tbody><tr><td>search-1<br><span class="muted mono">search-7d652135</span></td><td>AWS::OpenSearchService::Domain</td><td>eu-west-1</td><td>123456789012</td><td class="n">$847 <span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est.</span></td><td>low</td><td></td></tr><tr><td>search-0<br><span class="muted mono">search-f7d17ebd</span></td><td>AWS::OpenSearchService::Domain</td><td>eu-west-1</td><td>123456789012</td><td class="n">$673 <span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est.</span></td><td>low</td><td></td></tr></tbody></table></div>
+</details>
+<div class="row"><span class="pill pill-flat">team=growth (2)</span></div>
+
+<div class="decide">
+<div class="seg" role="group" aria-label="Decision for Review 2 OpenSearch Domains">
+<button type="button" data-v="approve" aria-pressed="false">Approve</button>
+<button type="button" data-v="investigate" aria-pressed="false">Investigate</button>
+<button type="button" data-v="keep" aria-pressed="false">Keep</button>
+</div>
+<div class="fields">
+<div><label for="c8-owner">Owner</label><input id="c8-owner" class="f-owner" type="text" maxlength="200" autocomplete="off"></div>
+<div><label for="c8-note">Note</label><input id="c8-note" class="f-note" type="text" maxlength="1000" autocomplete="off"></div>
+<div><label for="c8-expires" class="f-expires-l" hidden>Keep until</label><input id="c8-expires" class="f-expires" type="date" hidden></div>
+</div>
+<p class="hint" hidden></p>
+</div>
+</div>
+</article><article class="card" id="opp-9e3d40d50555" data-id="opp-9e3d40d50555" data-lane="doubt" data-action="remove">
+<div class="stripe"></div>
+<div class="body">
+<div class="card-top">
+<h3>Remove 3 EBS Volumes</h3>
+<div class="range mono">$0 to $417 <small>a month</small></div>
+</div>
+<div class="row"><span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est. $417</span></div>
+<div class="row"><span class="pill pill-doubt">Needs an owner</span><span class="pill pill-flat">Remove</span><span class="pill pill-bad">needs human review</span><span class="pill pill-flat">3 members</span><span class="pill pill-flat">priority medium</span></div>
+<p class="risk"><b>Risk.</b> Removal cannot be undone; data is lost unless it is saved first. Flagged for human review: prod_like_name.</p>
+<details class="more"><summary>Evidence and what to check first</summary>
+<h4>Evidence</h4><ul><li>Found: 0 by deterministic rules, 3 by model review.</li><li>Metrics available for 3 of 3 model-reviewed members.</li><li>Last activity checked for 1 of 3 model-reviewed members.</li><li>Dollars: $417.03 model estimate.</li><li>Lowest confidence: medium.</li></ul>
+<h4>Check first</h4><ol><li>Take a snapshot first unless one already exists and restores cleanly.</li><li>Confirm nothing still uses it (DNS, allowlists, scripts, infrastructure code).</li><li>Check the owner and tags, and ask the owner if unsure.</li><li>Save anything that might matter before removing it.</li><li>Remove it in a change window and keep the ticket link.</li></ol>
+</details>
+<details class="more"><summary>Members (3)</summary>
+<div class="tablewrap"><table><caption class="sr">Members of Remove 3 EBS Volumes</caption><thead><tr><th scope="col">Resource</th><th scope="col">Type</th><th scope="col">Region</th><th scope="col">Account</th><th scope="col" class="n">Monthly</th><th scope="col">Confidence</th><th scope="col">Flag</th></tr></thead><tbody><tr><td>prod-dbvol-0<br><span class="muted mono">dbvol-3853933d</span></td><td>AWS::EC2::Volume</td><td>eu-west-1</td><td>123456789012</td><td class="n">$181 <span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est.</span></td><td>medium</td><td><span class="pill pill-bad">review</span></td></tr><tr><td>prod-dbvol-1<br><span class="muted mono">dbvol-31419775</span></td><td>AWS::EC2::Volume</td><td>eu-west-1</td><td>123456789012</td><td class="n">$126 <span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est.</span></td><td>medium</td><td><span class="pill pill-bad">review</span></td></tr><tr><td>prod-dbvol-2<br><span class="muted mono">dbvol-5e49422a</span></td><td>AWS::EC2::Volume</td><td>eu-west-1</td><td>123456789012</td><td class="n">$110 <span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est.</span></td><td>medium</td><td><span class="pill pill-bad">review</span></td></tr></tbody></table></div>
+</details>
+<div class="row"><span class="pill pill-flat">team=platform (1)</span><span class="pill pill-flat">team=security (1)</span><span class="pill pill-flat">no owner tag (1)</span></div>
+
+<div class="decide">
+<div class="seg" role="group" aria-label="Decision for Remove 3 EBS Volumes">
+<button type="button" data-v="approve" aria-pressed="false">Approve</button>
+<button type="button" data-v="investigate" aria-pressed="false">Investigate</button>
+<button type="button" data-v="keep" aria-pressed="false">Keep</button>
+</div>
+<div class="fields">
+<div><label for="c9-owner">Owner</label><input id="c9-owner" class="f-owner" type="text" maxlength="200" autocomplete="off"></div>
+<div><label for="c9-note">Note</label><input id="c9-note" class="f-note" type="text" maxlength="1000" autocomplete="off"></div>
+<div><label for="c9-expires" class="f-expires-l" hidden>Keep until</label><input id="c9-expires" class="f-expires" type="date" hidden></div>
+</div>
+<p class="hint" hidden></p>
+</div>
+</div>
+</article><article class="card" id="opp-343e92d8a8bf" data-id="opp-343e92d8a8bf" data-lane="doubt" data-action="review">
+<div class="stripe"></div>
+<div class="body">
+<div class="card-top">
+<h3>Review 5 NAT Gateways</h3>
+<div class="range mono">$0 to $190 <small>a month</small></div>
+</div>
+<div class="row"><span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est. $190</span></div>
+<div class="row"><span class="pill pill-doubt">Needs an owner</span><span class="pill pill-flat">Review</span><span class="pill pill-flat">low confidence</span><span class="pill pill-flat">5 members</span><span class="pill pill-flat">priority medium</span></div>
+<p class="risk"><b>Risk.</b> Argus could not decide from the data. Do not act before an owner confirms. Low confidence: the evidence behind some findings was missing or short.</p>
+<details class="more"><summary>Evidence and what to check first</summary>
+<h4>Evidence</h4><ul><li>Found: 0 by deterministic rules, 5 by model review.</li><li>Metrics available for 5 of 5 model-reviewed members.</li><li>Last activity checked for 1 of 5 model-reviewed members.</li><li>Dollars: $190.17 model estimate.</li><li>Lowest confidence: low.</li></ul>
+<h4>Check first</h4><ol><li>Ask the resource owner whether it is still used.</li><li>Look at recent access in the audit trail.</li><li>Extend the metrics window or enable missing metrics.</li><li>Decide: keep, remove or resize.</li></ol>
+</details>
+<details class="more"><summary>Members (5)</summary>
+<div class="tablewrap"><table><caption class="sr">Members of Review 5 NAT Gateways</caption><thead><tr><th scope="col">Resource</th><th scope="col">Type</th><th scope="col">Region</th><th scope="col">Account</th><th scope="col" class="n">Monthly</th><th scope="col">Confidence</th><th scope="col">Flag</th></tr></thead><tbody><tr><td>nat-0<br><span class="muted mono">nat-8902dafc</span></td><td>AWS::EC2::NatGateway</td><td>eu-west-1</td><td>123456789012</td><td class="n">$44.49 <span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est.</span></td><td>low</td><td></td></tr><tr><td>nat-4<br><span class="muted mono">nat-b16107f1</span></td><td>AWS::EC2::NatGateway</td><td>eu-west-1</td><td>123456789012</td><td class="n">$41.30 <span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est.</span></td><td>low</td><td></td></tr><tr><td>nat-3<br><span class="muted mono">nat-a48c1d5c</span></td><td>AWS::EC2::NatGateway</td><td>eu-west-1</td><td>123456789012</td><td class="n">$40.16 <span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est.</span></td><td>low</td><td></td></tr><tr><td>nat-2<br><span class="muted mono">nat-61ef7bd1</span></td><td>AWS::EC2::NatGateway</td><td>eu-west-1</td><td>123456789012</td><td class="n">$36.10 <span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est.</span></td><td>low</td><td></td></tr><tr><td>nat-1<br><span class="muted mono">nat-43fb9fbc</span></td><td>AWS::EC2::NatGateway</td><td>eu-west-1</td><td>123456789012</td><td class="n">$28.12 <span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est.</span></td><td>low</td><td></td></tr></tbody></table></div>
+</details>
+<div class="row"><span class="pill pill-flat">team=growth (2)</span><span class="pill pill-flat">team=platform (2)</span><span class="pill pill-flat">team=data (1)</span></div>
+
+<div class="decide">
+<div class="seg" role="group" aria-label="Decision for Review 5 NAT Gateways">
+<button type="button" data-v="approve" aria-pressed="false">Approve</button>
+<button type="button" data-v="investigate" aria-pressed="false">Investigate</button>
+<button type="button" data-v="keep" aria-pressed="false">Keep</button>
+</div>
+<div class="fields">
+<div><label for="c10-owner">Owner</label><input id="c10-owner" class="f-owner" type="text" maxlength="200" autocomplete="off"></div>
+<div><label for="c10-note">Note</label><input id="c10-note" class="f-note" type="text" maxlength="1000" autocomplete="off"></div>
+<div><label for="c10-expires" class="f-expires-l" hidden>Keep until</label><input id="c10-expires" class="f-expires" type="date" hidden></div>
+</div>
+<p class="hint" hidden></p>
+</div>
+</div>
+</article><article class="card" id="opp-0247fffdc545" data-id="opp-0247fffdc545" data-lane="doubt" data-action="review">
+<div class="stripe"></div>
+<div class="body">
+<div class="card-top">
+<h3>Review 4 Application/Network Load Balancers</h3>
+<div class="range mono">$0 to $66.88 <small>a month</small></div>
+</div>
+<div class="row"><span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est. $66.88</span></div>
+<div class="row"><span class="pill pill-doubt">Needs an owner</span><span class="pill pill-flat">Review</span><span class="pill pill-flat">low confidence</span><span class="pill pill-flat">4 members</span><span class="pill pill-flat">priority medium</span></div>
+<p class="risk"><b>Risk.</b> Argus could not decide from the data. Do not act before an owner confirms. Low confidence: the evidence behind some findings was missing or short.</p>
+<details class="more"><summary>Evidence and what to check first</summary>
+<h4>Evidence</h4><ul><li>Found: 0 by deterministic rules, 4 by model review.</li><li>Metrics available for 4 of 4 model-reviewed members.</li><li>Last activity checked for 0 of 4 model-reviewed members.</li><li>Dollars: $66.88 model estimate.</li><li>Lowest confidence: low.</li></ul>
+<h4>Check first</h4><ol><li>Ask the resource owner whether it is still used.</li><li>Look at recent access in the audit trail.</li><li>Extend the metrics window or enable missing metrics.</li><li>Decide: keep, remove or resize.</li></ol>
+</details>
+<details class="more"><summary>Members (4)</summary>
+<div class="tablewrap"><table><caption class="sr">Members of Review 4 Application/Network Load Balancers</caption><thead><tr><th scope="col">Resource</th><th scope="col">Type</th><th scope="col">Region</th><th scope="col">Account</th><th scope="col" class="n">Monthly</th><th scope="col">Confidence</th><th scope="col">Flag</th></tr></thead><tbody><tr><td>alb-2<br><span class="muted mono">alb-8c90473e</span></td><td>AWS::ElasticLoadBalancingV2::LoadBalancer</td><td>eu-west-1</td><td>123456789012</td><td class="n">$25.49 <span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est.</span></td><td>low</td><td></td></tr><tr><td>alb-1<br><span class="muted mono">alb-491961a1</span></td><td>AWS::ElasticLoadBalancingV2::LoadBalancer</td><td>eu-west-1</td><td>123456789012</td><td class="n">$20.94 <span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est.</span></td><td>low</td><td></td></tr><tr><td>alb-0<br><span class="muted mono">alb-ac084ba5</span></td><td>AWS::ElasticLoadBalancingV2::LoadBalancer</td><td>eu-west-1</td><td>123456789012</td><td class="n">$10.57 <span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est.</span></td><td>low</td><td></td></tr><tr><td>alb-3<br><span class="muted mono">alb-757f1cba</span></td><td>AWS::ElasticLoadBalancingV2::LoadBalancer</td><td>eu-west-1</td><td>123456789012</td><td class="n">$9.88 <span class="bchip chip-model" title="Model estimate: the AI&#x27;s guess, not billed.">model est.</span></td><td>low</td><td></td></tr></tbody></table></div>
+</details>
+<div class="row"><span class="pill pill-flat">team=growth (2)</span><span class="pill pill-flat">team=data (1)</span><span class="pill pill-flat">no owner tag (1)</span></div>
+
+<div class="decide">
+<div class="seg" role="group" aria-label="Decision for Review 4 Application/Network Load Balancers">
+<button type="button" data-v="approve" aria-pressed="false">Approve</button>
+<button type="button" data-v="investigate" aria-pressed="false">Investigate</button>
+<button type="button" data-v="keep" aria-pressed="false">Keep</button>
+</div>
+<div class="fields">
+<div><label for="c11-owner">Owner</label><input id="c11-owner" class="f-owner" type="text" maxlength="200" autocomplete="off"></div>
+<div><label for="c11-note">Note</label><input id="c11-note" class="f-note" type="text" maxlength="1000" autocomplete="off"></div>
+<div><label for="c11-expires" class="f-expires-l" hidden>Keep until</label><input id="c11-expires" class="f-expires" type="date" hidden></div>
+</div>
+<p class="hint" hidden></p>
+</div>
+</div>
+</article><article class="card" id="opp-0077f7524be2" data-id="opp-0077f7524be2" data-lane="doubt" data-action="review">
+<div class="stripe"></div>
+<div class="body">
+<div class="card-top">
+<h3>Review 9 ECS Services</h3>
+<div class="range mono">$0 <small>a month</small></div>
+</div>
+<div class="row"><span class="bchip chip-unpriced" title="Unpriced: no dollar figure could be established.">9 unpriced</span></div>
+<div class="row"><span class="pill pill-doubt">Needs an owner</span><span class="pill pill-flat">Review</span><span class="pill pill-flat">low confidence</span><span class="pill pill-flat">9 members</span><span class="pill pill-flat">priority medium</span></div>
+<p class="risk"><b>Risk.</b> Argus could not decide from the data. Do not act before an owner confirms. Low confidence: the evidence behind some findings was missing or short. 9 members have no dollar figure; check the bill before using the savings range.</p>
+<details class="more"><summary>Evidence and what to check first</summary>
+<h4>Evidence</h4><ul><li>Found: 0 by deterministic rules, 9 by model review.</li><li>Metrics available for 9 of 9 model-reviewed members.</li><li>Last activity checked for 2 of 9 model-reviewed members.</li><li>Dollars: 9 unpriced.</li><li>Lowest confidence: low.</li></ul>
+<h4>Check first</h4><ol><li>Ask the resource owner whether it is still used.</li><li>Look at recent access in the audit trail.</li><li>Extend the metrics window or enable missing metrics.</li><li>Decide: keep, remove or resize.</li><li>Check the bill for the real monthly cost; some members have no dollar figure.</li></ol>
+</details>
+<details class="more"><summary>Members (9)</summary>
+<div class="tablewrap"><table><caption class="sr">Members of Review 9 ECS Services</caption><thead><tr><th scope="col">Resource</th><th scope="col">Type</th><th scope="col">Region</th><th scope="col">Account</th><th scope="col" class="n">Monthly</th><th scope="col">Confidence</th><th scope="col">Flag</th></tr></thead><tbody><tr><td>svc-7<br><span class="muted mono">svc-00721f84</span></td><td>AWS::ECS::Service</td><td>eu-west-1</td><td>123456789012</td><td class="n">- <span class="bchip chip-unpriced" title="Unpriced: no dollar figure could be established.">unpriced</span></td><td>low</td><td></td></tr><tr><td>svc-1<br><span class="muted mono">svc-35f10300</span></td><td>AWS::ECS::Service</td><td>eu-west-1</td><td>123456789012</td><td class="n">- <span class="bchip chip-unpriced" title="Unpriced: no dollar figure could be established.">unpriced</span></td><td>low</td><td></td></tr><tr><td>svc-0<br><span class="muted mono">svc-44c6b895</span></td><td>AWS::ECS::Service</td><td>eu-west-1</td><td>123456789012</td><td class="n">- <span class="bchip chip-unpriced" title="Unpriced: no dollar figure could be established.">unpriced</span></td><td>low</td><td></td></tr><tr><td>svc-6<br><span class="muted mono">svc-580dc5ab</span></td><td>AWS::ECS::Service</td><td>eu-west-1</td><td>123456789012</td><td class="n">- <span class="bchip chip-unpriced" title="Unpriced: no dollar figure could be established.">unpriced</span></td><td>low</td><td></td></tr><tr><td>svc-2<br><span class="muted mono">svc-5c0bb40f</span></td><td>AWS::ECS::Service</td><td>eu-west-1</td><td>123456789012</td><td class="n">- <span class="bchip chip-unpriced" title="Unpriced: no dollar figure could be established.">unpriced</span></td><td>low</td><td></td></tr><tr><td>svc-4<br><span class="muted mono">svc-64e27602</span></td><td>AWS::ECS::Service</td><td>eu-west-1</td><td>123456789012</td><td class="n">- <span class="bchip chip-unpriced" title="Unpriced: no dollar figure could be established.">unpriced</span></td><td>low</td><td></td></tr><tr><td>svc-5<br><span class="muted mono">svc-ae7c8f09</span></td><td>AWS::ECS::Service</td><td>eu-west-1</td><td>123456789012</td><td class="n">- <span class="bchip chip-unpriced" title="Unpriced: no dollar figure could be established.">unpriced</span></td><td>low</td><td></td></tr><tr><td>svc-3<br><span class="muted mono">svc-e3096619</span></td><td>AWS::ECS::Service</td><td>eu-west-1</td><td>123456789012</td><td class="n">- <span class="bchip chip-unpriced" title="Unpriced: no dollar figure could be established.">unpriced</span></td><td>low</td><td></td></tr><tr><td>svc-8<br><span class="muted mono">svc-ed2879c1</span></td><td>AWS::ECS::Service</td><td>eu-west-1</td><td>123456789012</td><td class="n">- <span class="bchip chip-unpriced" title="Unpriced: no dollar figure could be established.">unpriced</span></td><td>low</td><td></td></tr></tbody></table></div>
+</details>
+<div class="row"><span class="pill pill-flat">team=growth (2)</span><span class="pill pill-flat">team=data (1)</span><span class="pill pill-flat">team=security (1)</span><span class="pill pill-flat">no owner tag (5)</span></div>
+
+<div class="decide">
+<div class="seg" role="group" aria-label="Decision for Review 9 ECS Services">
+<button type="button" data-v="approve" aria-pressed="false">Approve</button>
+<button type="button" data-v="investigate" aria-pressed="false">Investigate</button>
+<button type="button" data-v="keep" aria-pressed="false">Keep</button>
+</div>
+<div class="fields">
+<div><label for="c12-owner">Owner</label><input id="c12-owner" class="f-owner" type="text" maxlength="200" autocomplete="off"></div>
+<div><label for="c12-note">Note</label><input id="c12-note" class="f-note" type="text" maxlength="1000" autocomplete="off"></div>
+<div><label for="c12-expires" class="f-expires-l" hidden>Keep until</label><input id="c12-expires" class="f-expires" type="date" hidden></div>
+</div>
+<p class="hint" hidden></p>
+</div>
+</div>
+</article></div>
+<p id="no-match" class="empty" hidden>No opportunity matches these filters.</p>
+</div>
+</div>
+</section>
+<section id="keep" aria-labelledby="h-keep">
+<h2 id="h-keep"><span class="num">03</span> Kept on purpose</h2>
+<div class="panels"><div class="panel"><ul id="keep-list"></ul><p id="keep-empty" class="muted">Nothing is marked Keep.</p></div></div>
+</section>
+</main>
+<footer class="foot">
+<details class="about"><summary>About this report</summary>
+<ul>
+<li>Scan 00000000-0000-4000-8000-000000000002, generated 2026-10-30T09:00:00+00:00, schema 1.2.0.</li>
+<li>Analysed 1418 of 1420 resources, 2 dropped, 3200 free configuration objects skipped, 3 regions. Metrics window 90 days.</li>
+<li><b>Opportunity</b>: findings that call for the same action on the same kind of resource, grouped without a model. <b>Easy</b> means removal, stop or retention with confident findings and no review flag; everything else needs an owner.</li>
+<li><b>Range</b>: the low end is billed plus list-priced dollars, the high end adds the model's estimates, unpriced members are in neither. <b>Billed</b> is verified, <b>list price</b> is deterministic but not billed, <b>model est.</b> is a guess.</li>
+<li>An opportunity keeps its id from scan to scan, so exported decisions still match a later report.</li>
+<li>Nothing is sent anywhere: decisions stay in this browser or in the file you export. Argus never changes a resource, and commitments (Savings Plans, reservations) are not analysed in this version.</li>
+</ul></details>
+<p>Generated by Argus. This page makes no network requests.</p>
+</footer>
+<script type="application/json" id="board-data">{"scan_id":"00000000-0000-4000-8000-000000000002","generated_at":"2026-10-30T09:00:00+00:00","cloud":"aws","total_low":688.61,"total_high":12343.85,"opportunities":[{"id":"opp-74f66f2422a6","title":"Remove 16 snapshots","lane":"easy","action":"remove","tier":"sure","low":0.0,"high":377.6,"unpriced":0,"members":16,"search":"remove 16 snapshots remove easy ec2:snapshot rds:snapshot 123456789012 team=payments team=data team=security team=growth team=platform"},{"id":"opp-a67cf90e4091","title":"Remove 34 EBS Volumes","lane":"easy","action":"remove","tier":"sure","low":330.66,"high":330.66,"unpriced":0,"members":34,"search":"remove 34 ebs volumes remove easy aws::ec2::volume 123456789012 team=security team=payments team=data team=platform team=growth"},{"id":"opp-8c65784929ce","title":"Remove 3 EC2 client VPN endpoints","lane":"easy","action":"remove","tier":"sure","low":215.05,"high":215.05,"unpriced":0,"members":3,"search":"remove 3 ec2 client vpn endpoints remove easy ec2:client-vpn-endpoint 123456789012 team=data team=growth team=platform"},{"id":"opp-0ee96927357a","title":"Set retention on 11 CloudWatch log groups","lane":"easy","action":"retention","tier":"sure","low":0.0,"high":125.01,"unpriced":0,"members":11,"search":"set retention on 11 cloudwatch log groups retention easy logs:log-group 123456789012 team=data team=payments team=growth team=security"},{"id":"opp-e581f18cbb46","title":"Remove 14 EC2 Instances","lane":"easy","action":"remove","tier":"sure","low":99.83,"high":99.83,"unpriced":0,"members":14,"search":"remove 14 ec2 instances remove easy aws::ec2::instance 123456789012 team=platform team=data team=payments team=security"},{"id":"opp-d04aa801a6fc","title":"Remove 12 EC2 EIPs","lane":"easy","action":"remove","tier":"sure","low":43.07,"high":43.07,"unpriced":0,"members":12,"search":"remove 12 ec2 eips remove easy aws::ec2::eip 123456789012 team=data team=platform team=security team=growth team=payments"},{"id":"opp-c3804c13c900","title":"Review 4 EC2 Instances","lane":"doubt","action":"review","tier":"flagged","low":0.0,"high":6962.11,"unpriced":0,"members":4,"search":"review 4 ec2 instances review doubt aws::ec2::instance 123456789012 team=data team=growth team=security"},{"id":"opp-6472cfdcaa59","title":"Right-size 6 RDS Instances","lane":"doubt","action":"rightsize","tier":"sure","low":0.0,"high":1996.84,"unpriced":0,"members":6,"search":"right-size 6 rds instances rightsize doubt aws::rds::dbinstance 123456789012 team=platform team=security"},{"id":"opp-0b0272599aaf","title":"Review 2 OpenSearch Domains","lane":"doubt","action":"review","tier":"unsure","low":0.0,"high":1519.6,"unpriced":0,"members":2,"search":"review 2 opensearch domains review doubt aws::opensearchservice::domain 123456789012 team=growth"},{"id":"opp-9e3d40d50555","title":"Remove 3 EBS Volumes","lane":"doubt","action":"remove","tier":"flagged","low":0.0,"high":417.03,"unpriced":0,"members":3,"search":"remove 3 ebs volumes remove doubt aws::ec2::volume 123456789012 team=platform team=security"},{"id":"opp-343e92d8a8bf","title":"Review 5 NAT Gateways","lane":"doubt","action":"review","tier":"unsure","low":0.0,"high":190.17,"unpriced":0,"members":5,"search":"review 5 nat gateways review doubt aws::ec2::natgateway 123456789012 team=growth team=platform team=data"},{"id":"opp-0247fffdc545","title":"Review 4 Application/Network Load Balancers","lane":"doubt","action":"review","tier":"unsure","low":0.0,"high":66.88,"unpriced":0,"members":4,"search":"review 4 application/network load balancers review doubt aws::elasticloadbalancingv2::loadbalancer 123456789012 team=growth team=data"},{"id":"opp-0077f7524be2","title":"Review 9 ECS Services","lane":"doubt","action":"review","tier":"unsure","low":0.0,"high":0.0,"unpriced":9,"members":9,"search":"review 9 ecs services review doubt aws::ecs::service 123456789012 team=growth team=data team=security"}]}</script>
+<script>
+var BoardLogic=(function(){
+'use strict';
+var STATES={approve:1,investigate:1,keep:1};
+function fmtUsd(n){
+  var v=Number(n)||0;
+  var s=v===0?'0':(Math.abs(v)>=100?Math.round(v).toLocaleString('en-US'):v.toFixed(2));
+  return '$'+s;
+}
+function computeTally(opps,decisions){
+  var t={approved:{low:0,high:0,count:0},investigating:{low:0,high:0,count:0},
+    kept:{count:0,withoutReason:0},undecided:0,totalHigh:0,shareOfHigh:0};
+  opps.forEach(function(o){
+    t.totalHigh+=o.high;
+    var d=decisions&&decisions[o.id];
+    if(!d||!STATES[d.state]){t.undecided++;return;}
+    if(d.state==='approve'){t.approved.low+=o.low;t.approved.high+=o.high;t.approved.count++;}
+    else if(d.state==='investigate'){t.investigating.low+=o.low;t.investigating.high+=o.high;t.investigating.count++;}
+    else{t.kept.count++;if(!String(d.note||'').trim()){t.kept.withoutReason++;}}
+  });
+  t.shareOfHigh=t.totalHigh>0?t.approved.high/t.totalHigh:0;
+  return t;
+}
+function csvCell(v){
+  var s=v===null||v===undefined?'':String(v);
+  if(/^[=+\-@\t\r]/.test(s)){s="'"+s;}
+  if(/[",\n\r]/.test(s)){s='"'+s.replace(/"/g,'""')+'"';}
+  return s;
+}
+function toCsv(rows){
+  return rows.map(function(r){return r.map(csvCell).join(',');}).join('\r\n')+'\r\n';
+}
+function clip(v,n){return String(v===undefined||v===null?'':v).slice(0,n);}
+function normalize(d){
+  if(!d||!STATES[d.state]){return null;}
+  return {state:d.state,note:clip(d.note,1000),owner:clip(d.owner,200),
+    expires:clip(d.expires,10),decided_at:clip(d.decided_at,40)};
+}
+function normalizeAll(map){
+  var out={};
+  Object.keys(map||{}).forEach(function(id){
+    var n=normalize(map[id]);
+    if(n){out[id]=n;}
+  });
+  return out;
+}
+function parseImport(text){
+  var obj;
+  try{obj=JSON.parse(text);}catch(e){return {ok:false,error:'The file is not valid JSON.'};}
+  if(!obj||obj.schema!=='argus-board-decisions/1'||!Array.isArray(obj.decisions)){
+    return {ok:false,error:'This is not an Argus board decisions file.'};
+  }
+  var map={};
+  obj.decisions.forEach(function(d){
+    if(d&&typeof d.opportunity_id==='string'){
+      var n=normalize(d);
+      if(n){map[clip(d.opportunity_id,64)]=n;}
+    }
+  });
+  return {ok:true,decisions:map,scan_id:clip(obj.scan_id,64)};
+}
+function mergeDecisions(current,incoming){
+  var out={};
+  Object.keys(current||{}).forEach(function(id){out[id]=current[id];});
+  Object.keys(incoming||{}).forEach(function(id){
+    var have=out[id];
+    if(!have||String(incoming[id].decided_at)>String(have.decided_at)){out[id]=incoming[id];}
+  });
+  return out;
+}
+function matches(o,d,f){
+  var state=d&&STATES[d.state]?d.state:null;
+  var chip=f.chip;
+  if(chip==='easy'&&o.lane!=='easy'){return false;}
+  if(chip==='doubt'&&o.lane!=='doubt'){return false;}
+  if(chip==='undecided'&&state){return false;}
+  if((chip==='approve'||chip==='investigate'||chip==='keep')&&state!==chip){return false;}
+  if(f.action&&f.action!=='all'&&o.action!==f.action){return false;}
+  var words=String(f.query||'').toLowerCase().split(/\s+/).filter(Boolean);
+  for(var i=0;i<words.length;i++){if(o.search.indexOf(words[i])<0){return false;}}
+  return true;
+}
+return {fmtUsd:fmtUsd,computeTally:computeTally,csvCell:csvCell,toCsv:toCsv,
+  normalizeAll:normalizeAll,parseImport:parseImport,mergeDecisions:mergeDecisions,matches:matches};
+})();
+
+(function(){
+'use strict';
+var L=BoardLogic;
+var data=JSON.parse(document.getElementById('board-data').textContent);
+var KEY='argus-board-decisions-v1',TKEY='argus-board-theme';
+var root=document.documentElement;
+var cards=[].slice.call(document.querySelectorAll('article.card'));
+var byId={};
+data.opportunities.forEach(function(o){byId[o.id]=o;});
+var filter={chip:'all',action:'all',query:''};
+var decisions=load();
+
+function $(id){return document.getElementById(id);}
+function load(){
+  try{var raw=localStorage.getItem(KEY);if(raw){return L.normalizeAll(JSON.parse(raw));}}catch(e){}
+  return {};
+}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(decisions));}catch(e){}}
+function say(msg){$('status').textContent=msg;}
+
+function applyTheme(mode){
+  if(mode==='light'||mode==='dark'){root.setAttribute('data-theme',mode);}
+  else{root.removeAttribute('data-theme');}
+  var dark=mode==='dark'||(mode!=='light'&&window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches);
+  $('theme').textContent=dark?'Switch to light theme':'Switch to dark theme';
+}
+function initTheme(){
+  var mode='auto';
+  var m=/theme=(light|dark)/.exec(location.hash);
+  if(m){mode=m[1];}
+  else{try{mode=localStorage.getItem(TKEY)||'auto';}catch(e){}}
+  applyTheme(mode);
+}
+function toggleTheme(){
+  var dark=root.getAttribute('data-theme')==='dark'||(!root.getAttribute('data-theme')&&window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches);
+  var next=dark?'light':'dark';
+  try{localStorage.setItem(TKEY,next);}catch(e){}
+  applyTheme(next);
+}
+
+function paintCard(card){
+  var id=card.getAttribute('data-id');
+  var d=decisions[id]||null;
+  var state=d?d.state:'';
+  if(state){card.setAttribute('data-state',state);}else{card.removeAttribute('data-state');}
+  [].forEach.call(card.querySelectorAll('button[data-v]'),function(b){
+    b.setAttribute('aria-pressed',b.getAttribute('data-v')===state?'true':'false');
+  });
+  var owner=card.querySelector('.f-owner'),note=card.querySelector('.f-note'),exp=card.querySelector('.f-expires');
+  var expL=card.querySelector('.f-expires-l'),hint=card.querySelector('.hint');
+  if(document.activeElement!==owner){owner.value=d?d.owner:'';}
+  if(document.activeElement!==note){note.value=d?d.note:'';}
+  if(document.activeElement!==exp){exp.value=d?d.expires:'';}
+  var isKeep=state==='keep';
+  expL.hidden=!isKeep;exp.hidden=!isKeep;
+  var missing=isKeep&&!String(d.note||'').trim();
+  hint.hidden=!missing;
+  hint.textContent=missing?'Keep needs a reason. Write one in the note.':'';
+}
+
+function render(){
+  cards.forEach(function(card){
+    var o=byId[card.getAttribute('data-id')];
+    paintCard(card);
+    card.hidden=!L.matches(o,decisions[o.id],filter);
+  });
+  var shown=cards.filter(function(c){return !c.hidden;}).length;
+  $('count').textContent='Showing '+shown+' of '+cards.length+' opportunities';
+  var empty=$('no-match');
+  if(empty){empty.hidden=shown!==0||cards.length===0;}
+  var t=L.computeTally(data.opportunities,decisions);
+  var range=function(x){return x.low===x.high?L.fmtUsd(x.high):L.fmtUsd(x.low)+' to '+L.fmtUsd(x.high);};
+  $('t-approved').textContent=t.approved.count?range(t.approved):'$0';
+  $('t-approved-s').textContent=t.approved.count?(t.approved.count+' approved, '+L.fmtUsd(t.approved.high*12)+' a year at most, '+Math.round(t.shareOfHigh*100)+'% of the total'):'Nothing approved yet';
+  $('t-investigating').textContent=t.investigating.count?range(t.investigating):'$0';
+  $('t-investigating-s').textContent=t.investigating.count+' under investigation';
+  $('t-kept').textContent=String(t.kept.count);
+  $('t-kept-s').textContent=t.kept.withoutReason?(t.kept.withoutReason+' without a reason'):'Kept on purpose';
+  $('t-undecided').textContent=String(t.undecided);
+  $('t-undecided-s').textContent='of '+data.opportunities.length+' opportunities';
+  renderKeep();
+  root.style.setProperty('--tally-h',$('tally').offsetHeight+'px');
+}
+
+function renderKeep(){
+  var list=$('keep-list');list.textContent='';
+  var n=0;
+  data.opportunities.forEach(function(o){
+    var d=decisions[o.id];
+    if(d&&d.state==='keep'){
+      n++;
+      var li=document.createElement('li');
+      li.textContent=o.title+' - '+(d.note?d.note:'no reason given')+(d.expires?' (until '+d.expires+')':'')+(d.owner?' - owner '+d.owner:'');
+      list.appendChild(li);
+    }
+  });
+  $('keep-empty').hidden=n!==0;
+}
+
+function setState(id,state){
+  var cur=decisions[id];
+  if(cur&&cur.state===state){delete decisions[id];}
+  else{
+    decisions[id]={state:state,note:cur?cur.note:'',owner:cur?cur.owner:'',expires:cur?cur.expires:'',decided_at:new Date().toISOString()};
+  }
+  save();render();
+}
+function setField(id,field,value){
+  var cur=decisions[id];
+  if(!cur){return;}
+  cur[field]=value;cur.decided_at=new Date().toISOString();
+  save();
+  var card=document.getElementById(id);
+  if(card){paintCard(card);}
+  var t=L.computeTally(data.opportunities,decisions);
+  $('t-kept-s').textContent=t.kept.withoutReason?(t.kept.withoutReason+' without a reason'):'Kept on purpose';
+  renderKeep();
+}
+
+function download(name,type,text){
+  var blob=new Blob([text],{type:type});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);a.download=name;
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  setTimeout(function(){URL.revokeObjectURL(a.href);},1000);
+}
+function exportDecisions(){
+  var list=Object.keys(decisions).map(function(id){
+    var d=decisions[id];
+    return {opportunity_id:id,state:d.state,note:d.note,owner:d.owner,expires:d.expires,decided_at:d.decided_at};
+  });
+  download('argus-board-decisions-'+data.scan_id.slice(0,8)+'.json','application/json',
+    JSON.stringify({schema:'argus-board-decisions/1',scan_id:data.scan_id,exported_at:new Date().toISOString(),decisions:list},null,2));
+  say('Exported '+list.length+' decisions.');
+}
+function exportCsv(){
+  var rows=[['opportunity_id','title','lane','action','members','low_usd','high_usd','unpriced','decision','owner','note','keep_until']];
+  data.opportunities.forEach(function(o){
+    var d=decisions[o.id]||{};
+    rows.push([o.id,o.title,o.lane,o.action,o.members,o.low,o.high,o.unpriced,d.state||'',d.owner||'',d.note||'',d.expires||'']);
+  });
+  download('argus-board-'+data.scan_id.slice(0,8)+'.csv','text/csv',L.toCsv(rows));
+  say('Exported '+data.opportunities.length+' opportunities to CSV.');
+}
+function importDecisions(file){
+  var reader=new FileReader();
+  reader.onload=function(){
+    var r=L.parseImport(String(reader.result));
+    if(!r.ok){say(r.error);return;}
+    var known={},skipped=0;
+    Object.keys(r.decisions).forEach(function(id){if(byId[id]){known[id]=r.decisions[id];}else{skipped++;}});
+    decisions=L.mergeDecisions(decisions,known);
+    save();render();
+    say('Imported '+Object.keys(known).length+' decisions'+(skipped?', '+skipped+' skipped (not in this report)':'')+(r.scan_id&&r.scan_id!==data.scan_id?'. They come from a different scan.':'.'));
+  };
+  reader.readAsText(file);
+}
+
+document.addEventListener('click',function(e){
+  var t=e.target;
+  var dec=t.closest&&t.closest('button[data-v]');
+  if(dec){setState(dec.closest('article.card').getAttribute('data-id'),dec.getAttribute('data-v'));return;}
+  var chip=t.closest&&t.closest('button[data-chip]');
+  if(chip){
+    filter.chip=chip.getAttribute('data-chip');
+    [].forEach.call(document.querySelectorAll('button[data-chip]'),function(b){b.setAttribute('aria-pressed',b===chip?'true':'false');});
+    render();return;
+  }
+  var id=t.id;
+  if(id==='theme'){toggleTheme();}
+  else if(id==='export-json'){exportDecisions();}
+  else if(id==='export-csv'){exportCsv();}
+  else if(id==='clear-all'){
+    if(Object.keys(decisions).length&&window.confirm('Clear every decision on this page?')){decisions={};save();render();say('All decisions cleared.');}
+  }
+  else if(id==='reset-filters'){
+    filter={chip:'all',action:'all',query:''};
+    $('f-search').value='';$('f-action').value='all';
+    [].forEach.call(document.querySelectorAll('button[data-chip]'),function(b){b.setAttribute('aria-pressed',b.getAttribute('data-chip')==='all'?'true':'false');});
+    render();
+  }
+});
+document.addEventListener('input',function(e){
+  var t=e.target;
+  if(t.id==='f-search'){filter.query=t.value;render();return;}
+  var card=t.closest&&t.closest('article.card');
+  if(!card){return;}
+  var id=card.getAttribute('data-id');
+  if(t.classList.contains('f-note')){setField(id,'note',t.value);}
+  else if(t.classList.contains('f-owner')){setField(id,'owner',t.value);}
+  else if(t.classList.contains('f-expires')){setField(id,'expires',t.value);}
+});
+document.addEventListener('change',function(e){
+  var t=e.target;
+  if(t.id==='f-action'){filter.action=t.value;render();}
+  else if(t.id==='import-file'&&t.files&&t.files[0]){importDecisions(t.files[0]);t.value='';}
+});
+window.addEventListener('resize',function(){root.style.setProperty('--tally-h',$('tally').offsetHeight+'px');});
+initTheme();
+render();
+})();
+</script>
+</body>
+</html>

@@ -6,6 +6,22 @@ import sys
 
 import structlog
 
+from core.progress import StderrProgress, get_progress
+
+
+class _ProgressAwareHandler(logging.StreamHandler):  # type: ignore[type-arg]
+    """Log lines scroll above a live progress bar instead of landing on it."""
+
+    def emit(self, record: logging.LogRecord) -> None:
+        progress = get_progress()
+        if isinstance(progress, StderrProgress) and progress.live:
+            try:
+                progress.note(self.format(record))
+            except Exception:  # noqa: BLE001
+                self.handleError(record)
+            return
+        super().emit(record)
+
 
 def configure_logging() -> None:
     """
@@ -56,7 +72,7 @@ def configure_logging() -> None:
         foreign_pre_chain=shared_processors,
     )
 
-    handler = logging.StreamHandler()
+    handler = _ProgressAwareHandler()
     handler.setFormatter(formatter)
 
     root = logging.getLogger()

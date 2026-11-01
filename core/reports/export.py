@@ -12,6 +12,7 @@ from typing import Any
 
 import structlog
 
+from core.reports.basis import headline_noun
 from core.reports.generator import waste_caveat
 
 logger = structlog.get_logger(__name__)
@@ -60,7 +61,8 @@ def export_pptx(report: dict[str, Any], output_path: Path) -> Path:
     slide.shapes.title.text = f"Argus — {report['cloud'].upper()} Waste Report"
     slide.placeholders[1].text = (
         f"Generated: {report['generated_at'][:10]}\n"
-        f"Total estimated waste: ${report['total_estimated_waste_usd']:,.2f}/month"
+        f"Total {headline_noun(report)}: "
+        f"${report['total_estimated_waste_usd']:,.2f}/month"
         f"{_caveat_suffix(report)}\n"
         f"Findings: {report['findings_count']}"
     )

@@ -17,6 +17,7 @@ from typing import Any
 import structlog
 
 from adapters.base import CloudAdapter, Resource
+from core.progress import get_progress
 
 logger = structlog.get_logger(__name__)
 
@@ -94,7 +95,16 @@ def collect_evidence(
     if not resources:
         return []
 
+    progress = get_progress()
+    progress.stage("evidence", len(resources), "resources")
+
     def fetch(resource: Resource) -> Evidence:
+        try:
+            return _fetch(resource)
+        finally:
+            progress.advance()
+
+    def _fetch(resource: Resource) -> Evidence:
         ev = Evidence(
             resource=resource,
             billed_cost_usd=costs.get(resource.resource_id) or None,
@@ -123,7 +133,9 @@ def collect_evidence(
         wanted = [
             e for e in evidence if activity_mode == "all" or e.metrics_status != "ok"
         ][:activity_cap]
+        progress.extend(len(wanted))
         _look_up_activity(adapter, wanted)
+    progress.finish()
     logger.info(
         "evidence_collected",
         resources=len(evidence),
@@ -134,6 +146,8 @@ def collect_evidence(
 
 
 def _look_up_activity(adapter: CloudAdapter, items: list[Evidence]) -> None:
+    progress = get_progress()
+
     def look(ev: Evidence) -> None:
         try:
             ev.last_activity = adapter.get_last_activity(
@@ -147,6 +161,8 @@ def _look_up_activity(adapter: CloudAdapter, items: list[Evidence]) -> None:
                 resource_id=ev.resource.resource_id,
                 error=str(exc),
             )
+        finally:
+            progress.advance()
 
     if not items:
         return

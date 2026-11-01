@@ -73,6 +73,8 @@ Every week (or on demand), Argus:
 
 The **Full report** button links to a self-contained HTML file (S3 / GCS / Azure Blob) with a filterable/sortable table and expandable AI reasoning per finding. Works offline, no login required.
 
+To decide what to do about the findings, `argus board --report <scan>.json` builds a single offline page that groups them into a short list of opportunities, with savings ranges, risk and check-first steps, and Approve / Investigate / Keep buttons. See [`examples/sample-board.html`](examples/sample-board.html) and the [Decision board](docs/concepts/board-report.md) page.
+
 > **See realistic examples:** [`sample-report-aws.json`](examples/sample-report-aws.json) · [`sample-report-gcp.json`](examples/sample-report-gcp.json) · [`sample-report-azure.json`](examples/sample-report-azure.json) — 5 findings each with AI-written reasoning, metrics, and cost data.
 
 ---
@@ -306,6 +308,7 @@ Available REPL commands: `/help`, `/scan`, `/cost`, `/clear`, `/summary`, `/quit
 ```
 argus scan [--cloud aws|gcp|azure] [options]    # full batch scan
 argus chat [--cloud aws|gcp|azure] [options]    # interactive Q&A
+argus board --report FILE.json [--out PATH]     # static decision board page (no cloud access)
 argus --run-now --cloud aws [options]           # backward compat
 
   --cloud CLOUD              Cloud provider (auto-detected from env vars if omitted)
@@ -322,7 +325,30 @@ argus --run-now --cloud aws [options]           # backward compat
   --expect-account ID        Abort (exit 4) unless the AWS credentials belong to this account
   --strict-coverage          Fail (exit 1) if the cap or a search limit leaves resources unanalysed
   --skip-preflight           Skip the AWS pre-scan environment checks (recorded in the report)
+  --no-progress              Do not show scan progress on stderr (also ARGUS_PROGRESS=off)
 ```
+
+### Scan progress
+
+`argus scan` reports its stages on stderr while it runs, so a long scan never looks hung. In a terminal it is one live line that updates in place, and log lines scroll above it. In a log file or a background task it is plain, throttled lines:
+
+```text
+[1/5] Discovering resources: 35 searches
+[1/5] Discovering resources: 18/35 (51%) 00:18 elapsed, about 00:17 left, region eu-central-1
+[1/5] Discovering resources: 127/211 (60%) 01:00 elapsed, about 00:40 left, eu-central-1 / lambda
+[1/5] Discovering resources: done, 211 searches in 01:28, 1,420 resources found
+[2/5] Applying rules: done in 00:09, 83 findings from rules
+[3/5] Collecting evidence: 1,337 resources
+[3/5] Collecting evidence: 340/1,337 (25%) 01:12 elapsed, about 03:36 left
+[3/5] Collecting evidence: done, 1,337 resources in 04:51
+LLM plan: 1254 residual candidates after rules (83). Budget covers all of them (estimated $1.13).
+[4/5] Reviewing with the model: 26 batches
+[4/5] Reviewing with the model: done, 26 batches in 06:30, $1.38 of $2.00
+[5/5] Building reports: done in 00:02
+Total time 12:14
+```
+
+Discovery counts its Resource Explorer searches. When a region returns the 1,000-result limit it is split by service, and those searches are added to the total, so the count can grow while it runs; the percentage always means "of the work known so far". stdout stays the JSON result, so `argus scan | jq` still works. Turn it off with `--no-progress` or `ARGUS_PROGRESS=off`; `ARGUS_PROGRESS=plain` forces the line output even in a terminal. Lambda, Cloud Run and Azure Function runs never show it.
 
 ---
 

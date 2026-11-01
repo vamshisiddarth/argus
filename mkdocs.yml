@@ -120,6 +120,8 @@ nav:
     - How It Works: concepts/how-it-works.md
     - AI Reasoning: concepts/ai-reasoning.md
     - Baseline Rules: concepts/baseline-rules.md
+    - Opportunities: concepts/opportunities.md
+    - Decision Board: concepts/board-report.md
     - Cloud Adapters: concepts/adapters.md
     - AI Providers: concepts/ai-providers.md
   - Remediation:

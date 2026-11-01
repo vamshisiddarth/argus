@@ -22,6 +22,7 @@ from core.agent.selection import HIGH_IMPACT_TYPES
 from core.errors import AgentDidNotSubmitError
 from core.pipeline.evidence import Evidence
 from core.pricing.aws import list_price_proxy
+from core.progress import get_progress
 from core.token_tracker import (
     _DEFAULT_PRICING,
     _PRICING,
@@ -267,8 +268,14 @@ def run_triage(
     in_rate, out_rate = _PRICING.get(tracker.provider, _DEFAULT_PRICING)
     system_tokens = _tokens(system_prompt)
     queue = _make_batches(list(enumerate(evidence)), max_batch_items, max_batch_tokens)
+    progress = get_progress()
+    progress.stage("model", len(queue), "batches")
+    finished_batch = False
 
     while queue:
+        if finished_batch:
+            progress.advance(1, _spend_text(tracker))
+        finished_batch = True
         batch = queue.pop(0)
         if result.stop_reason:
             result.skipped += [(ev, "budget") for _, ev in batch]
@@ -290,6 +297,8 @@ def run_triage(
             halves = _split(batch) if response.stop_reason == "max_tokens" else None
             if halves:
                 queue[:0] = halves
+                progress.extend(len(halves) - 1)
+                finished_batch = False
                 continue
             retry = _retry_once(ai, tracker, batch, system_prompt, result, response)
             findings = _extract(retry) if retry is not None else None
@@ -302,12 +311,22 @@ def run_triage(
                 continue
         _accept(result, batch, findings)
 
+    if finished_batch:
+        progress.advance(1, _spend_text(tracker))
+    progress.finish(_spend_text(tracker))
     if result.failed_batches and not result.analysed:
         raise AgentDidNotSubmitError(
             "The model never returned findings for any batch (no report_findings "
             "call). Check the provider and AI_MAX_TOKENS."
         )
     return result
+
+
+def _spend_text(tracker: TokenTracker) -> str:
+    spent = tracker.estimated_cost_usd
+    if tracker.budget_usd > 0:
+        return f"${spent:.2f} of ${tracker.budget_usd:.2f}"
+    return f"${spent:.2f} spent"
 
 
 def _would_overspend(

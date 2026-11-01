@@ -1,0 +1,599 @@
+{
+  "schema_version": "1.2.0",
+  "scan_id": "00000000-0000-4000-8000-000000000001",
+  "generated_at": "2026-10-30T09:00:00+00:00",
+  "cloud": "aws",
+  "accounts_scanned": [
+    "000000000000"
+  ],
+  "total_estimated_waste_usd": 58.9,
+  "findings_count": 11,
+  "findings": [
+    {
+      "resource_id": "synthetic-w-idle-nat-1",
+      "resource_type": "AWS::EC2::NatGateway",
+      "cloud": "aws",
+      "region": "us-east-1",
+      "name": "synthetic-w-idle-nat-1",
+      "estimated_monthly_cost": 20.0,
+      "waste_reason": "Synthetic finding.",
+      "recommendation": "Synthetic recommendation.",
+      "priority": "medium",
+      "metrics_summary": {
+        "metrics": {
+          "avg": 0.4
+        },
+        "metrics_status": "ok",
+        "has_data": true
+      },
+      "tags": {
+        "argus-testbed-id": "w-idle-nat-1"
+      },
+      "last_activity": null,
+      "scan_time": "2026-10-30T09:00:00+00:00",
+      "status": "new",
+      "account_id": null,
+      "account_name": null,
+      "cost_basis": "model_estimate",
+      "confidence": "medium",
+      "detected_by": "model",
+      "review_required": false,
+      "review_reasons": []
+    },
+    {
+      "resource_id": "synthetic-w-overprov-iops-1",
+      "resource_type": "AWS::EC2::Volume",
+      "cloud": "aws",
+      "region": "us-east-1",
+      "name": "synthetic-w-overprov-iops-1",
+      "estimated_monthly_cost": 12.0,
+      "waste_reason": "Synthetic finding.",
+      "recommendation": "Synthetic recommendation.",
+      "priority": "medium",
+      "metrics_summary": {
+        "metrics": {
+          "avg": 0.4
+        },
+        "metrics_status": "ok",
+        "has_data": true
+      },
+      "tags": {
+        "argus-testbed-id": "w-overprov-iops-1"
+      },
+      "last_activity": null,
+      "scan_time": "2026-10-30T09:00:00+00:00",
+      "status": "new",
+      "account_id": null,
+      "account_name": null,
+      "cost_basis": "model_estimate",
+      "confidence": "medium",
+      "detected_by": "model",
+      "review_required": false,
+      "review_reasons": []
+    },
+    {
+      "resource_id": "synthetic-w-unattached-vol-2",
+      "resource_type": "AWS::EC2::Volume",
+      "cloud": "aws",
+      "region": "us-east-1",
+      "name": "synthetic-w-unattached-vol-2",
+      "estimated_monthly_cost": 8.0,
+      "waste_reason": "Synthetic finding.",
+      "recommendation": "Synthetic recommendation.",
+      "priority": "medium",
+      "metrics_summary": {
+        "metrics_status": "ok",
+        "has_data": true
+      },
+      "tags": {
+        "argus-testbed-id": "w-unattached-vol-2"
+      },
+      "last_activity": null,
+      "scan_time": "2026-10-30T09:00:00+00:00",
+      "status": "new",
+      "account_id": null,
+      "account_name": null,
+      "cost_basis": "list_price",
+      "confidence": "medium",
+      "detected_by": "rule:ebs-volume-unattached",
+      "review_required": false,
+      "review_reasons": []
+    },
+    {
+      "resource_id": "synthetic-other",
+      "resource_type": "AWS::EC2::Instance",
+      "cloud": "aws",
+      "region": "us-east-1",
+      "name": "synthetic-other",
+      "estimated_monthly_cost": 7.6,
+      "waste_reason": "Synthetic finding.",
+      "recommendation": "Synthetic recommendation.",
+      "priority": "low",
+      "metrics_summary": {
+        "metrics": {
+          "avg": 0.4
+        },
+        "metrics_status": "ok",
+        "has_data": true
+      },
+      "tags": {},
+      "last_activity": null,
+      "scan_time": "2026-10-30T09:00:00+00:00",
+      "status": "new",
+      "account_id": null,
+      "account_name": null,
+      "cost_basis": "model_estimate",
+      "confidence": "medium",
+      "detected_by": "model",
+      "review_required": false,
+      "review_reasons": []
+    },
+    {
+      "resource_id": "synthetic-w-unassociated-eip-1",
+      "resource_type": "AWS::EC2::EIP",
+      "cloud": "aws",
+      "region": "us-east-1",
+      "name": "synthetic-w-unassociated-eip-1",
+      "estimated_monthly_cost": 3.65,
+      "waste_reason": "Synthetic finding.",
+      "recommendation": "Synthetic recommendation.",
+      "priority": "medium",
+      "metrics_summary": {
+        "metrics_status": "ok",
+        "has_data": true
+      },
+      "tags": {
+        "argus-testbed-id": "w-unassociated-eip-1"
+      },
+      "last_activity": null,
+      "scan_time": "2026-10-30T09:00:00+00:00",
+      "status": "new",
+      "account_id": null,
+      "account_name": null,
+      "cost_basis": "list_price",
+      "confidence": "medium",
+      "detected_by": "rule:elastic-ip-unassociated",
+      "review_required": false,
+      "review_reasons": []
+    },
+    {
+      "resource_id": "synthetic-w-unassociated-eip-2",
+      "resource_type": "AWS::EC2::EIP",
+      "cloud": "aws",
+      "region": "us-east-1",
+      "name": "synthetic-w-unassociated-eip-2",
+      "estimated_monthly_cost": 3.65,
+      "waste_reason": "Synthetic finding.",
+      "recommendation": "Synthetic recommendation.",
+      "priority": "medium",
+      "metrics_summary": {
+        "metrics_status": "ok",
+        "has_data": true
+      },
+      "tags": {
+        "argus-testbed-id": "w-unassociated-eip-2"
+      },
+      "last_activity": null,
+      "scan_time": "2026-10-30T09:00:00+00:00",
+      "status": "new",
+      "account_id": null,
+      "account_name": null,
+      "cost_basis": "list_price",
+      "confidence": "medium",
+      "detected_by": "rule:elastic-ip-unassociated",
+      "review_required": false,
+      "review_reasons": []
+    },
+    {
+      "resource_id": "synthetic-w-unattached-vol-1",
+      "resource_type": "AWS::EC2::Volume",
+      "cloud": "aws",
+      "region": "us-east-1",
+      "name": "synthetic-w-unattached-vol-1",
+      "estimated_monthly_cost": 1.6,
+      "waste_reason": "Synthetic finding.",
+      "recommendation": "Synthetic recommendation.",
+      "priority": "medium",
+      "metrics_summary": {
+        "metrics_status": "ok",
+        "has_data": true
+      },
+      "tags": {
+        "argus-testbed-id": "w-unattached-vol-1"
+      },
+      "last_activity": null,
+      "scan_time": "2026-10-30T09:00:00+00:00",
+      "status": "new",
+      "account_id": null,
+      "account_name": null,
+      "cost_basis": "list_price",
+      "confidence": "medium",
+      "detected_by": "rule:ebs-volume-unattached",
+      "review_required": false,
+      "review_reasons": []
+    },
+    {
+      "resource_id": "synthetic-d-attached-vol-1",
+      "resource_type": "AWS::EC2::Volume",
+      "cloud": "aws",
+      "region": "us-east-1",
+      "name": "synthetic-d-attached-vol-1",
+      "estimated_monthly_cost": 1.6,
+      "waste_reason": "Synthetic finding.",
+      "recommendation": "Synthetic recommendation.",
+      "priority": "low",
+      "metrics_summary": {
+        "metrics": {
+          "avg": 0.4
+        },
+        "metrics_status": "ok",
+        "has_data": true
+      },
+      "tags": {
+        "argus-testbed-id": "d-attached-vol-1"
+      },
+      "last_activity": null,
+      "scan_time": "2026-10-30T09:00:00+00:00",
+      "status": "new",
+      "account_id": null,
+      "account_name": null,
+      "cost_basis": "model_estimate",
+      "confidence": "medium",
+      "detected_by": "model",
+      "review_required": false,
+      "review_reasons": []
+    },
+    {
+      "resource_id": "synthetic-w-stopped-instance-1",
+      "resource_type": "AWS::EC2::Instance",
+      "cloud": "aws",
+      "region": "us-east-1",
+      "name": "synthetic-w-stopped-instance-1",
+      "estimated_monthly_cost": 0.8,
+      "waste_reason": "Synthetic finding.",
+      "recommendation": "Synthetic recommendation.",
+      "priority": "medium",
+      "metrics_summary": {
+        "metrics_status": "ok",
+        "has_data": true
+      },
+      "tags": {
+        "argus-testbed-id": "w-stopped-instance-1"
+      },
+      "last_activity": null,
+      "scan_time": "2026-10-30T09:00:00+00:00",
+      "status": "new",
+      "account_id": null,
+      "account_name": null,
+      "cost_basis": "list_price",
+      "confidence": "medium",
+      "detected_by": "rule:ec2-instance-stopped",
+      "review_required": false,
+      "review_reasons": []
+    },
+    {
+      "resource_id": "synthetic-w-idle-lb-1",
+      "resource_type": "AWS::ElasticLoadBalancingV2::LoadBalancer",
+      "cloud": "aws",
+      "region": "us-east-1",
+      "name": "synthetic-w-idle-lb-1",
+      "estimated_monthly_cost": 0.0,
+      "waste_reason": "Synthetic finding.",
+      "recommendation": "Synthetic recommendation.",
+      "priority": "medium",
+      "metrics_summary": {
+        "metrics": {
+          "avg": 0.4
+        },
+        "metrics_status": "ok",
+        "has_data": true
+      },
+      "tags": {
+        "argus-testbed-id": "w-idle-lb-1"
+      },
+      "last_activity": null,
+      "scan_time": "2026-10-30T09:00:00+00:00",
+      "status": "new",
+      "account_id": null,
+      "account_name": null,
+      "cost_basis": "unknown",
+      "confidence": "medium",
+      "detected_by": "model",
+      "review_required": false,
+      "review_reasons": []
+    },
+    {
+      "resource_id": "synthetic-other",
+      "resource_type": "AWS::EC2::SecurityGroup",
+      "cloud": "aws",
+      "region": "us-east-1",
+      "name": "synthetic-other",
+      "estimated_monthly_cost": 0.0,
+      "waste_reason": "Synthetic finding.",
+      "recommendation": "Synthetic recommendation.",
+      "priority": "low",
+      "metrics_summary": {
+        "metrics": {
+          "avg": 0.4
+        },
+        "metrics_status": "ok",
+        "has_data": true
+      },
+      "tags": {},
+      "last_activity": null,
+      "scan_time": "2026-10-30T09:00:00+00:00",
+      "status": "new",
+      "account_id": null,
+      "account_name": null,
+      "cost_basis": "unknown",
+      "confidence": "medium",
+      "detected_by": "model",
+      "review_required": false,
+      "review_reasons": []
+    }
+  ],
+  "waste_by_confidence": {
+    "high": 0.0,
+    "medium": 58.9,
+    "low": 0.0,
+    "unrated": 0.0
+  },
+  "total_is_estimate": true,
+  "cost_summary": {
+    "waste_by_basis": {
+      "billed": 0.0,
+      "list_price": 17.7,
+      "model_estimate": 41.2,
+      "unknown": 0.0
+    },
+    "findings_by_basis": {
+      "billed": 0,
+      "list_price": 5,
+      "model_estimate": 4,
+      "unknown": 2
+    },
+    "unpriced_findings": 2,
+    "verified_waste_usd": 0.0,
+    "verified_share": 0.0,
+    "headline_is_verified": false
+  },
+  "opportunities": [
+    {
+      "id": "opp-a67cf90e4091",
+      "key": {
+        "action": "remove",
+        "family": "AWS::EC2::Volume",
+        "tier": "sure"
+      },
+      "title": "Remove 2 EBS Volumes",
+      "action": "remove",
+      "lane": "easy",
+      "resource_types": [
+        "AWS::EC2::Volume"
+      ],
+      "accounts": [],
+      "regions": [
+        "us-east-1"
+      ],
+      "owners": [],
+      "unowned_count": 2,
+      "member_count": 2,
+      "members": [
+        "synthetic-w-unattached-vol-2",
+        "synthetic-w-unattached-vol-1"
+      ],
+      "savings": {
+        "low_usd": 9.6,
+        "high_usd": 9.6,
+        "by_basis": {
+          "billed": 0.0,
+          "list_price": 9.6,
+          "model_estimate": 0.0,
+          "unknown": 0.0
+        },
+        "unpriced": 0
+      },
+      "priority": "medium",
+      "confidence": "medium",
+      "review_required_count": 0,
+      "risk_reasons": [],
+      "related": []
+    },
+    {
+      "id": "opp-d04aa801a6fc",
+      "key": {
+        "action": "remove",
+        "family": "AWS::EC2::EIP",
+        "tier": "sure"
+      },
+      "title": "Remove 2 EC2 EIPs",
+      "action": "remove",
+      "lane": "easy",
+      "resource_types": [
+        "AWS::EC2::EIP"
+      ],
+      "accounts": [],
+      "regions": [
+        "us-east-1"
+      ],
+      "owners": [],
+      "unowned_count": 2,
+      "member_count": 2,
+      "members": [
+        "synthetic-w-unassociated-eip-1",
+        "synthetic-w-unassociated-eip-2"
+      ],
+      "savings": {
+        "low_usd": 7.3,
+        "high_usd": 7.3,
+        "by_basis": {
+          "billed": 0.0,
+          "list_price": 7.3,
+          "model_estimate": 0.0,
+          "unknown": 0.0
+        },
+        "unpriced": 0
+      },
+      "priority": "medium",
+      "confidence": "medium",
+      "review_required_count": 0,
+      "risk_reasons": [],
+      "related": []
+    },
+    {
+      "id": "opp-8f335dba595b",
+      "key": {
+        "action": "remove",
+        "family": "other",
+        "tier": "sure"
+      },
+      "title": "Remove 1 other resource",
+      "action": "remove",
+      "lane": "easy",
+      "resource_types": [
+        "AWS::EC2::Instance"
+      ],
+      "accounts": [],
+      "regions": [
+        "us-east-1"
+      ],
+      "owners": [],
+      "unowned_count": 1,
+      "member_count": 1,
+      "members": [
+        "synthetic-w-stopped-instance-1"
+      ],
+      "savings": {
+        "low_usd": 0.8,
+        "high_usd": 0.8,
+        "by_basis": {
+          "billed": 0.0,
+          "list_price": 0.8,
+          "model_estimate": 0.0,
+          "unknown": 0.0
+        },
+        "unpriced": 0
+      },
+      "priority": "medium",
+      "confidence": "medium",
+      "review_required_count": 0,
+      "risk_reasons": [],
+      "related": []
+    },
+    {
+      "id": "opp-0e3a4756e0b9",
+      "key": {
+        "action": "review",
+        "family": "other",
+        "tier": "sure"
+      },
+      "title": "Review 4 other resources",
+      "action": "review",
+      "lane": "doubt",
+      "resource_types": [
+        "AWS::EC2::Instance",
+        "AWS::EC2::NatGateway",
+        "AWS::EC2::SecurityGroup",
+        "AWS::ElasticLoadBalancingV2::LoadBalancer"
+      ],
+      "accounts": [],
+      "regions": [
+        "us-east-1"
+      ],
+      "owners": [],
+      "unowned_count": 4,
+      "member_count": 4,
+      "members": [
+        "synthetic-w-idle-nat-1",
+        "synthetic-other",
+        "synthetic-other",
+        "synthetic-w-idle-lb-1"
+      ],
+      "savings": {
+        "low_usd": 0.0,
+        "high_usd": 27.6,
+        "by_basis": {
+          "billed": 0.0,
+          "list_price": 0.0,
+          "model_estimate": 27.6,
+          "unknown": 0.0
+        },
+        "unpriced": 2
+      },
+      "priority": "medium",
+      "confidence": "medium",
+      "review_required_count": 0,
+      "risk_reasons": [],
+      "related": []
+    },
+    {
+      "id": "opp-9096c20d3eba",
+      "key": {
+        "action": "review",
+        "family": "AWS::EC2::Volume",
+        "tier": "sure"
+      },
+      "title": "Review 2 EBS Volumes",
+      "action": "review",
+      "lane": "doubt",
+      "resource_types": [
+        "AWS::EC2::Volume"
+      ],
+      "accounts": [],
+      "regions": [
+        "us-east-1"
+      ],
+      "owners": [],
+      "unowned_count": 2,
+      "member_count": 2,
+      "members": [
+        "synthetic-w-overprov-iops-1",
+        "synthetic-d-attached-vol-1"
+      ],
+      "savings": {
+        "low_usd": 0.0,
+        "high_usd": 13.6,
+        "by_basis": {
+          "billed": 0.0,
+          "list_price": 0.0,
+          "model_estimate": 13.6,
+          "unknown": 0.0
+        },
+        "unpriced": 0
+      },
+      "priority": "medium",
+      "confidence": "medium",
+      "review_required_count": 0,
+      "risk_reasons": [],
+      "related": []
+    }
+  ],
+  "opportunity_summary": {
+    "findings": 11,
+    "opportunities": 5,
+    "reduction_ratio": 2.2,
+    "lanes": {
+      "easy": 3,
+      "doubt": 2
+    },
+    "largest_members": 4,
+    "other_bucket_members": 5,
+    "min_group_size": 2,
+    "max_opportunities": 50
+  },
+  "findings_needing_review": 0,
+  "waste_needs_review_usd": 0,
+  "executive_summary": "Synthetic fixture for the scoring harness. Not a recorded scan.",
+  "agent_input_tokens": 0,
+  "agent_output_tokens": 0,
+  "estimated_agent_cost_usd": 0.0,
+  "scan_diff": null,
+  "scan_errors": [],
+  "skipped_resource_types": [],
+  "registry_warnings": [],
+  "coverage": null,
+  "scan_window": {
+    "llm_spent_usd": 1.2
+  },
+  "preflight": null
+}

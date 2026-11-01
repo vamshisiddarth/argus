@@ -19,6 +19,17 @@ import argparse
 import json
 import os
 import sys
+import time
+from pathlib import Path
+from typing import Any
+
+from core.progress import (
+    NullProgress,
+    Progress,
+    StderrProgress,
+    format_duration,
+    set_progress,
+)
 
 # ---------------------------------------------------------------------------
 # Minimal ANSI color helper (no dependencies, TTY-aware)
@@ -166,6 +177,12 @@ def main(argv: list[str] | None = None) -> None:
         action="store_true",
         dest="skip_preflight",
         help="Skip the pre-scan environment checks (recorded in the report)",
+    )
+    parser.add_argument(
+        "--no-progress",
+        action="store_true",
+        dest="no_progress",
+        help="Do not show scan progress on stderr (also ARGUS_PROGRESS=off)",
     )
 
     subparsers = parser.add_subparsers(dest="command")
@@ -426,6 +443,33 @@ def main(argv: list[str] | None = None) -> None:
         dest="skip_preflight",
         help="Skip the pre-scan environment checks (recorded in the report)",
     )
+    scan_parser.add_argument(
+        "--no-progress",
+        action="store_true",
+        default=argparse.SUPPRESS,
+        dest="no_progress",
+        help="Do not show scan progress on stderr (also ARGUS_PROGRESS=off)",
+    )
+
+    # --- argus board ---
+    board_parser = subparsers.add_parser(
+        "board",
+        help="Build the static decision board page from a JSON scan report",
+    )
+    board_parser.add_argument(
+        "--report",
+        required=True,
+        dest="board_report",
+        metavar="PATH",
+        help="Scan report JSON (the .json file next to the HTML report)",
+    )
+    board_parser.add_argument(
+        "--out",
+        default=None,
+        dest="board_out",
+        metavar="PATH",
+        help="Where to write the page (default: <report>.board.html next to it)",
+    )
 
     # --- argus chat ---
     chat_parser = subparsers.add_parser("chat", help="Interactive cloud cost Q&A")
@@ -491,6 +535,9 @@ def main(argv: list[str] | None = None) -> None:
         parser.print_help()
         sys.exit(0)
 
+    if args.command == "board":
+        sys.exit(_run_board(args))
+
     # policies subcommands don't require a cloud provider
     if args.command == "policies":
         if not hasattr(args, "policies_command") or not args.policies_command:
@@ -543,6 +590,31 @@ def _positive_int(value: str) -> int:
     return number
 
 
+def _make_progress(args: argparse.Namespace) -> Progress:
+    """Progress on stderr unless turned off by --no-progress or ARGUS_PROGRESS."""
+    mode = os.environ.get("ARGUS_PROGRESS", "auto").strip().lower()
+    if getattr(args, "no_progress", False) or mode in ("off", "0", "false", "no"):
+        return NullProgress()
+    return StderrProgress(tty=False if mode == "plain" else None)
+
+
+def _invoke_scan_handler(args: argparse.Namespace) -> Any:
+    if args.cloud == "aws":
+        from entrypoints.aws_lambda import handler
+
+        return handler({}, None)
+    if args.cloud == "gcp":
+        from entrypoints.gcp_cloudrun import main as gcp_main
+
+        return gcp_main()
+    if args.cloud == "azure":
+        from entrypoints.azure_function import main as azure_main
+
+        return azure_main(None)
+    print(f"Cloud {args.cloud!r} is not supported.", file=sys.stderr)
+    sys.exit(1)
+
+
 def _run_scan(args: argparse.Namespace) -> None:
     os.environ["IGNORE_REGIONS"] = args.ignore_regions
     os.environ["PRIMARY_REGION"] = args.primary_region
@@ -576,22 +648,16 @@ def _run_scan(args: argparse.Namespace) -> None:
         StrictCoverageError,
     )
 
+    reporter = _make_progress(args)
+    previous_reporter = set_progress(reporter)
+    started = time.monotonic()
     try:
-        if args.cloud == "aws":
-            from entrypoints.aws_lambda import handler
-
-            result = handler({}, None)
-        elif args.cloud == "gcp":
-            from entrypoints.gcp_cloudrun import main as gcp_main
-
-            result = gcp_main()  # type: ignore[assignment,func-returns-value]
-        elif args.cloud == "azure":
-            from entrypoints.azure_function import main as azure_main
-
-            result = azure_main(None)  # type: ignore[assignment,func-returns-value]
-        else:
-            print(f"Cloud {args.cloud!r} is not supported.", file=sys.stderr)
-            sys.exit(1)
+        try:
+            result = _invoke_scan_handler(args)
+        except BaseException:
+            reporter.close()
+            raise
+        reporter.close(f"Total time {format_duration(time.monotonic() - started)}")
     except AgentDidNotSubmitError as exc:
         print(f"Scan failed: {exc}", file=sys.stderr)
         sys.exit(EXIT_AGENT_NO_SUBMIT)
@@ -601,6 +667,8 @@ def _run_scan(args: argparse.Namespace) -> None:
     except StrictCoverageError as exc:
         print(f"Scan failed: {exc}", file=sys.stderr)
         sys.exit(1)
+    finally:
+        set_progress(previous_reporter)
 
     if result is not None:
         print(json.dumps(result, indent=2))
@@ -653,6 +721,44 @@ def _run_scan(args: argparse.Namespace) -> None:
         )
     if isinstance(result, dict) and result.get("budget_exceeded"):
         sys.exit(EXIT_BUDGET_EXCEEDED)
+
+
+def _run_board(args: argparse.Namespace) -> int:
+    """Write the self-contained board page for a scan report. No cloud access."""
+    from core.reports.board import build_board_html
+
+    report_path = Path(args.board_report)
+    if not report_path.is_file():
+        print(f"Report not found: {report_path}", file=sys.stderr)
+        return 1
+    try:
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        print(f"Not a valid JSON file: {report_path}", file=sys.stderr)
+        return 1
+    if not isinstance(report, dict) or "findings" not in report:
+        print(
+            f"{report_path} does not look like an Argus scan report "
+            "(no findings list).",
+            file=sys.stderr,
+        )
+        return 1
+
+    out = (
+        Path(args.board_out)
+        if args.board_out
+        else report_path.with_name(f"{report_path.stem}.board.html")
+    )
+    if out.resolve() == report_path.resolve():
+        print(
+            "--out is the same file as the report; choose another path.",
+            file=sys.stderr,
+        )
+        return 1
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(build_board_html(report), encoding="utf-8")
+    print(f"Board written to {out}")
+    return 0
 
 
 def _run_chat(args: argparse.Namespace) -> None:

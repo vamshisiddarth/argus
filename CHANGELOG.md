@@ -3,6 +3,25 @@
 All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## Unreleased
+
+### Changed
+
+- **Totals now say where the dollars come from.** Headlines call the total "billed waste", "estimated waste" or "unverified waste estimate" depending on how much of it is billed (at least half billed is "estimated"; this threshold is provisional). The caveat under the total, the scan summary, the Slack digest, the HTML report and the pptx export split the dollars into `$ billed`, `$ list price`, `$ model estimate` and a count of unpriced findings, then the existing confidence split. The old caveat showed only the confidence split.
+- **HTML rows** tag list-priced amounts "list price" and model guesses "model est."; a finding with no dollar figure shows "unpriced" instead of `$0.00`.
+
+### Added
+
+- **Scan progress.** `argus scan` now reports its stages on stderr while it runs: discovering resources, applying rules, collecting evidence, reviewing with the model (batches, with spend against the budget), building reports, then the total time. In a terminal it is one live line with a bar, percentage, elapsed time and time left, and log lines scroll above it instead of landing on it. In a log or background task it is plain, throttled lines with a heartbeat for long quiet steps. stdout stays the JSON result. `--no-progress` or `ARGUS_PROGRESS=off` turns it off; `ARGUS_PROGRESS=plain` forces plain lines. Discovery shows its searches (regions first, then the services of any region that hit the 1,000-result limit) and what it is working on. Deployed runs never show it. See "Scan progress" in the README.
+- **Testbed and scoring tool** (`testbed/`, `core/calibration/`). A manifest of 10 labelled waste resources in 8 classes plus 3 look-alike decoys, Terraform that creates them in a sandbox account (validated, never applied by this project yet; provider pinned with digests; refuses to run outside the named sandbox account; costly classes off by default), and `python -m core.calibration score` which reports recall, precision, per-class targets, cost error, verified share, evidence completeness and run cost, and exits 1 when a baseline regresses. CI scores an offline synthetic fixture so the scorer cannot silently break; a real baseline needs a real run (see `testbed/README.md`).
+- **Decision board: `argus board --report FILE.json`.** Builds one self-contained HTML page (no server, no network requests, strict Content Security Policy) from a scan report: full-width layout with a filter rail and a card grid, KPI strip, dollars by cost basis, the Easy and Needs-an-owner lanes, a "cost of this run" panel (model spend against budget and estimate, calls, tokens, cost per 1,000 resources), and per opportunity a risk line, evidence, check-first steps, the member list and Approve / Investigate / Keep with owner, note and keep-until. Decisions are stored in the browser, keyed by the stable opportunity id, and can be exported, imported and written to CSV (formula-safe). Light and dark themes; checked with axe at five widths. Opportunities gained `evidence`, `risk` and `check_first` text from deterministic templates. Works on reports from earlier versions. See `docs/concepts/board-report.md` and `examples/sample-board.html`.
+- **Opportunities (prototype).** Findings are grouped into a short list of decisions by action x resource family x tier (`flagged`, `unsure`, `sure`), deterministically and without a model. Report fields `opportunities` and `opportunity_summary` (schema 1.2.0, additive); groups smaller than 2 collapse into an "other resources" opportunity per action and tier, and a cap of 50 raises that minimum until the list fits. Each opportunity has a stable id, a savings range (billed plus list-priced up to adding model estimates), a lane (`easy` or `doubt`), its owners and every member. `python -m core.opportunities summary --report R` measures a report. Not yet used by the HTML report, Slack digest or tickets. See `docs/concepts/opportunities.md`.
+- **Report schema 1.2.0 (additive): `cost_summary`** with `waste_by_basis`, `findings_by_basis`, `unpriced_findings`, `verified_waste_usd`, `verified_share` and `headline_is_verified`. Multi-cloud merged reports recompute it from all findings. Existing fields and `cost_basis` values are unchanged.
+
+### Fixed
+
+- **Bedrock no longer fails on models that reject `temperature`.** Newer Claude models answer `temperature is deprecated for this model` with a `ValidationException`, which stopped the scan. The Bedrock provider now retries once without `temperature`, remembers it for the rest of the run, and logs a warning. Dropping it does not use up the throttling retries; any other validation error, including an out-of-range temperature, still raises immediately.
+
 ## v0.7.0 (2026-10-22)
 
 A trust release. Argus now tells you what it covered, fails loudly when it could not do its job, and stops presenting missing data as evidence. Prompted by a real-user run on v0.6.1; see the upgrade notes for behaviour that changes.

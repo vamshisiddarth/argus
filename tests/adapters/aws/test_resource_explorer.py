@@ -563,3 +563,151 @@ class TestSplittingAnOverflowingRegion:
         discover(session)
 
         assert not [q for q in queries if q.startswith("region:us-east-1 ")]
+
+
+class TestDiscoveryProgress:
+    """Discovery reports its searches: regions first, then services in a full region."""
+
+    class Recorder:
+        def __init__(self) -> None:
+            self.calls: list[tuple] = []
+
+        def stage(self, *a, **k):
+            self.calls.append(("stage", a))
+
+        def advance(self, n=1, detail=""):
+            self.calls.append(("advance", (n, detail)))
+
+        def extend(self, n, unit=""):
+            self.calls.append(("extend", (n, unit)))
+
+        def note(self, text):
+            self.calls.append(("note", (text,)))
+
+        def tick(self):
+            pass
+
+        def finish(self, summary=""):
+            self.calls.append(("finish", (summary,)))
+
+        def close(self, summary=""):
+            pass
+
+        def of(self, kind):
+            return [a for k, a in self.calls if k == kind]
+
+    def _split(self):
+        return TestSplittingAnOverflowingRegion()
+
+    def _discover(self, session):
+        from core.progress import use_progress
+
+        rec = self.Recorder()
+        with use_progress(rec):
+            found = discover(session)
+        return found, rec
+
+    def test_a_small_account_reports_nothing_extra(self):
+        helper = TestPerRegionDiscovery()
+        session, _ = helper._session({"*": helper._raw("us-east-1", 10, "a")})
+
+        _, rec = self._discover(session)
+
+        assert rec.calls == []
+
+    def test_the_region_pass_is_sized_by_the_regions_to_search(self):
+        helper = TestPerRegionDiscovery()
+        first = helper._raw("us-east-1", 1000, "a")
+        session, _ = helper._session(
+            {"*": first, "region:us-east-1": first[:5], "region:eu-west-1": []}
+        )
+
+        _, rec = self._discover(session)
+
+        assert rec.of("extend")[0] == (3, "searches")
+        assert [a[0] for a in rec.of("advance")] == [1, 1, 1]
+        assert sorted(a[1] for a in rec.of("advance")) == [
+            "region eu-west-1",
+            "region global",
+            "region us-east-1",
+        ]
+
+    def test_ignored_regions_are_not_counted(self):
+        helper = TestPerRegionDiscovery()
+        first = helper._raw("us-east-1", 1000, "a")
+        session, _ = helper._session({"*": first, "region:us-east-1": first[:3]})
+
+        from core.progress import use_progress
+
+        rec = self.Recorder()
+        with use_progress(rec):
+            discover(session, ignore_regions=["eu-west-1", "global"])
+
+        assert rec.of("extend")[0] == (1, "searches")
+
+    def test_splitting_a_full_region_adds_its_services_to_the_total(self):
+        helper = self._split()
+        ec2 = helper._raw("us-east-1", "ec2", "volume", 900, "v")
+        logs = helper._raw("us-east-1", "logs", "log-group", 400, "l")
+        full = (ec2 + logs)[:1000]
+        session, _ = helper._session(
+            {
+                "*": full,
+                "region:us-east-1": full,
+                "region:us-east-1 service:ec2": ec2,
+                "region:us-east-1 service:logs": logs,
+            },
+            supported=[("ec2", "volume"), ("logs", "log-group")],
+        )
+
+        _, rec = self._discover(session)
+
+        extends = rec.of("extend")
+        assert extends[0] == (2, "searches")  # us-east-1 and global
+        assert extends[1] == (2, "")  # ec2 and logs
+        details = [a[1] for a in rec.of("advance")]
+        assert "us-east-1 / ec2" in details and "us-east-1 / logs" in details
+        assert sum(a[0] for a in rec.of("advance")) == 2 + 2
+
+    def test_a_full_service_is_split_by_type_and_those_searches_are_counted(self):
+        helper = self._split()
+        a = helper._raw("us-east-1", "ec2", "snapshot", 1000, "s")
+        b = helper._raw("us-east-1", "ec2", "volume", 300, "v")
+        session, _ = helper._session(
+            {
+                "*": a,
+                "region:us-east-1": a,
+                "region:us-east-1 service:ec2": a,
+                "region:us-east-1 resourcetype:ec2:snapshot": a[:600],
+                "region:us-east-1 resourcetype:ec2:volume": b,
+            },
+            supported=[("ec2", "snapshot"), ("ec2", "volume")],
+        )
+
+        _, rec = self._discover(session)
+
+        extends = [e for e in rec.of("extend")]
+        assert extends[-1] == (2, "")
+        details = [x[1] for x in rec.of("advance")]
+        assert "us-east-1 / ec2:snapshot" in details
+        assert "us-east-1 / ec2:volume" in details
+
+    def test_progress_never_changes_what_is_found(self):
+        helper = TestPerRegionDiscovery()
+        first = helper._raw("us-east-1", 1000, "a")
+        data = {
+            "*": first,
+            "region:us-east-1": first[:700],
+            "region:eu-west-1": helper._raw("eu-west-1", 600, "b"),
+            "region:global": helper._raw("global", 5, "g"),
+        }
+        plain, _ = helper._session(data)
+        watched, _ = helper._session(data)
+
+        base = discover(plain)
+        with_progress, _ = self._discover(watched)
+
+        assert {r.resource_id for r in base.resources} == {
+            r.resource_id for r in with_progress.resources
+        }
+        assert base.complete == with_progress.complete

@@ -231,10 +231,20 @@ def test_summary_is_deterministic_and_labels_estimates():
     assert "Analysed 2 of 2" in s1
 
 
+def test_summary_splits_the_total_by_cost_basis():
+    res = [_vol(0), _vol(1)]
+    adapter = Adapter(res, metrics={r.resource_id: _ok(r.resource_id) for r in res})
+
+    _, summary, _, _ = _run(adapter, [_report(_f(0), _f(1, priority="low"))])
+
+    assert "estimate only, not billed, unverified: " in summary
+    assert "model estimate" in summary
+
+
 def test_summary_calls_out_findings_that_need_human_review():
     res = [
         Resource(
-            "vol-000", VOL, "aws", "us-east-1", name="PROD - Trading - DO NOT TOUCH"
+            "vol-000", VOL, "aws", "us-east-1", name="PROD - Payments - DO NOT TOUCH"
         ),
         _vol(1),
     ]

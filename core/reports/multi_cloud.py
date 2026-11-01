@@ -12,6 +12,8 @@ from datetime import datetime, timezone
 from typing import Any
 
 from core.models.coverage import Coverage
+from core.opportunities import build_opportunity_block
+from core.reports.basis import cost_summary
 from core.reports.generator import SCHEMA_VERSION, waste_breakdown
 
 RESOURCE_TAXONOMY: dict[str, str] = {
@@ -113,6 +115,7 @@ def merge_reports(reports: list[dict[str, Any]]) -> dict[str, Any]:
     total_waste = sum(f["estimated_monthly_cost"] for f in all_findings)
 
     waste_by_confidence, total_is_estimate = waste_breakdown(all_findings)
+    opportunities, opportunity_stats = build_opportunity_block(all_findings)
     scan_window = _merge_windows([r.get("scan_window") for r in reports])
     preflight = _merge_preflights([r.get("preflight") for r in reports])
     coverages = [
@@ -137,6 +140,9 @@ def merge_reports(reports: list[dict[str, Any]]) -> dict[str, Any]:
         "coverage": merged_coverage,
         "waste_by_confidence": waste_by_confidence,
         "total_is_estimate": total_is_estimate,
+        "cost_summary": cost_summary(all_findings),
+        "opportunities": opportunities,
+        "opportunity_summary": opportunity_stats,
         "scan_window": scan_window,
         "preflight": preflight,
     }

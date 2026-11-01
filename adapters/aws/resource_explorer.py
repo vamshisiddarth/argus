@@ -11,6 +11,7 @@ from botocore.exceptions import ClientError
 from adapters.aws.config import BOTO_TIMEOUT_CONFIG
 from adapters.aws.type_map import canonical_type, is_config_only
 from adapters.base import Resource
+from core.progress import get_progress
 
 logger = structlog.get_logger(__name__)
 
@@ -172,8 +173,12 @@ def discover(
     regions = set(session.get_available_regions("resource-explorer-2")) | {"global"}
     supported: dict[str, list[str]] | None = None
     supported_fetched = False
-    for region in sorted(regions - ignore_set):
+    progress = get_progress()
+    to_search = sorted(regions - ignore_set)
+    progress.extend(len(to_search), "searches")
+    for region in to_search:
         items, total, skipped = _search(client, f"region:{region}", ignore_set)
+        progress.advance(1, f"region {region}")
         by_arn.update({r.resource_id: r for r in items})
         filtered.update(skipped)
         if total < _SEARCH_RESULT_LIMIT:
@@ -239,18 +244,24 @@ def _split_region(
     # Without the list of supported services we only know the ones already seen, so
     # we can never prove nothing is missing.
     complete = bool(supported)
+    progress = get_progress()
+    progress.extend(len(services))
     for service in services:
         items, total, skipped = _search(
             client, f"region:{region} service:{service}", ignore_set
         )
+        progress.advance(1, f"{region} / {service}")
         by_arn.update({r.resource_id: r for r in items})
         filtered.update(skipped)
         if total < _SEARCH_RESULT_LIMIT:
             continue
-        for rtype in sorted((supported or {}).get(service, [])):
+        types = sorted((supported or {}).get(service, []))
+        progress.extend(len(types))
+        for rtype in types:
             items, total, skipped = _search(
                 client, f"region:{region} resourcetype:{rtype}", ignore_set
             )
+            progress.advance(1, f"{region} / {rtype}")
             by_arn.update({r.resource_id: r for r in items})
             filtered.update(skipped)
             if total >= _SEARCH_RESULT_LIMIT:

@@ -40,6 +40,7 @@ from core.config import get_settings
 from core.errors import AgentDidNotSubmitError, StrictCoverageError
 from core.log import configure_logging
 from core.models.finding import ResourceFinding
+from core.progress import get_progress
 from core.registry import get_registry
 from core.reports.comparison import compare_scans
 from core.reports.delivery import (
@@ -114,6 +115,8 @@ def main() -> dict[str, Any]:
     previous_report = _load_previous_report(cloud, gcs_bucket)
     all_findings, scan_diff = compare_scans(all_findings, previous_report)
 
+    progress = get_progress()
+    progress.stage("reports")
     report = build_report(
         all_findings,
         cloud=cloud,
@@ -150,6 +153,7 @@ def main() -> dict[str, Any]:
     )
     delivered = notify_all(payload)
 
+    progress.finish()
     budget_exceeded = executive_summary.startswith("Scan aborted")
     logger.info(
         "scan_complete",

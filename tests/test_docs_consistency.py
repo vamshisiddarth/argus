@@ -141,6 +141,11 @@ def test_report_schema_documents_the_new_fields():
     for key in (
         "waste_by_confidence",
         "total_is_estimate",
+        "cost_summary",
+        "headline_is_verified",
+        "opportunities",
+        "opportunity_summary",
+        "check_first",
         "discovery_complete",
         "detected_by",
         "confidence",
@@ -215,3 +220,20 @@ def test_state_rules_are_listed_with_their_prices():
     ):
         assert rule_id in page
     assert "3.65" in page
+
+
+def test_board_command_is_documented_everywhere_users_look():
+    readme = _read("README.md")
+    changelog = _read("CHANGELOG.md").split("## v0.7.0", 1)[0]
+
+    assert "argus board" in readme
+    assert "concepts/board-report.md" in _read("mkdocs.yml")
+    assert "argus board" in changelog
+    assert "argus board" in _read("docs/concepts/board-report.md")
+
+
+def test_progress_option_is_documented():
+    assert "--no-progress" in _read("README.md")
+    assert "ARGUS_PROGRESS" in _read("docs/reference/env-vars.md")
+    assert "ARGUS_PROGRESS" in _read("README.md")
+    assert "Scan progress" in _read("CHANGELOG.md").split("## v0.7.0", 1)[0]

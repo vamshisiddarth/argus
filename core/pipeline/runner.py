@@ -24,6 +24,8 @@ from core.pipeline.triage import (
     ranking_basis,
     run_triage,
 )
+from core.progress import get_progress
+from core.reports.basis import basis_split_text, cost_summary
 from core.reports.generator import review_summary, waste_breakdown
 from core.token_tracker import TokenTracker
 
@@ -54,7 +56,10 @@ def run_pipeline(
     )
     window = _lookback_days()
 
+    progress = get_progress()
+    progress.stage("discover")
     resources, costs = loop._discover_and_cost(ignore_regions)
+    progress.finish(f"{len(resources):,} resources found")
     if loop.scan_window is None:
         loop.scan_window = {}
     window_info: dict[str, Any] = loop.scan_window
@@ -66,9 +71,11 @@ def run_pipeline(
 
     loop._baseline = BaselineResult()
     if scan.baseline_rules:
+        progress.stage("rules")
         loop._baseline = run_baseline(
             loop._adapter, resources, costs, window, scan.adapter_concurrency
         )
+        progress.finish(f"{len(loop._baseline.finding_ids):,} findings from rules")
     decided = loop._baseline.finding_ids
     pool = [r for r in resources if r.resource_id not in decided]
 
@@ -125,6 +132,7 @@ def run_pipeline(
     window_info["llm_estimate_usd"] = estimate
     window_info["llm_plan"] = {**plan.to_dict(), "order": order, "line": plan_line}
     logger.info("llm_plan", line=plan_line)
+    progress.note(plan_line)
     if scan.strict_coverage and plan.covered < plan.candidates:
         raise StrictCoverageError(
             f"{plan_line} Strict coverage is on, so the scan stopped before any "
@@ -322,9 +330,15 @@ def _summarise(
             for p in ("high", "medium", "low")
         }
         parts = ", ".join(f"{n} {p}" for p, n in by_priority.items() if n)
-        _, is_estimate = waste_breakdown([f.to_dict() for f in findings])
-        label = "estimate only, not billed, unverified" if is_estimate else "billed"
-        review_n, review_usd = review_summary([f.to_dict() for f in findings])
+        finding_dicts = [f.to_dict() for f in findings]
+        _, is_estimate = waste_breakdown(finding_dicts)
+        label = "billed"
+        if is_estimate:
+            label = "estimate only, not billed, unverified"
+            split = basis_split_text(cost_summary(finding_dicts))
+            if split:
+                label += f": {split}"
+        review_n, review_usd = review_summary(finding_dicts)
         review = (
             f" ${review_usd:,.2f} of that is in {review_n} "
             f"finding{'s' if review_n != 1 else ''} that need human review before "

@@ -18,6 +18,13 @@ from datetime import datetime, timezone
 from typing import Any
 
 from core.registry import get_registry
+from core.reports.basis import (
+    LIST_PRICE,
+    MODEL_ESTIMATE,
+    UNKNOWN,
+    headline_noun,
+    normalize_basis,
+)
 from core.reports.generator import review_reasons, waste_caveat
 
 
@@ -137,7 +144,7 @@ tbody tr:last-child td{{border-bottom:none}}
       <span class="meta">{generated_at} &nbsp;·&nbsp; Scan {scan_id[:8]} &nbsp;·&nbsp; Accounts: {html.escape(accounts)}{window_html}</span>
     </div>
     <div class="stats">
-      <div class="stat"><div class="stat-val red">${total:,.2f}</div><div class="stat-lbl">estimated waste / month{caveat_html}</div></div>
+      <div class="stat"><div class="stat-val red">${total:,.2f}</div><div class="stat-lbl">{headline_noun(report)} / month{caveat_html}</div></div>
       <div class="stat"><div class="stat-val">{count}</div><div class="stat-lbl">findings</div></div>
       <div class="stat"><div class="stat-val">{len(report.get("accounts_scanned", []))}</div><div class="stat-lbl">accounts scanned</div></div>
       {spend_html}
@@ -267,6 +274,27 @@ function downloadJson(e) {{
 </html>"""
 
 
+_BASIS_TAGS = {
+    LIST_PRICE: ("list price", "Priced from the public list price, not billed"),
+    MODEL_ESTIMATE: ("model est.", "The model's estimate, not billed"),
+}
+
+
+def _cost_cell(cost: float, basis: str) -> str:
+    if basis == UNKNOWN:
+        return (
+            '<span class="muted" title="No dollar figure could be established">'
+            "unpriced</span>"
+        )
+    tag = _BASIS_TAGS.get(basis)
+    if tag is None:
+        return f"${cost:,.2f}"
+    label, title = tag
+    return (
+        f'${cost:,.2f} <span class="muted" title="{html.escape(title)}">{label}</span>'
+    )
+
+
 def _build_rows(findings: list[dict[str, Any]]) -> str:
     registry = get_registry()
     parts: list[str] = []
@@ -308,12 +336,7 @@ def _build_rows(findings: list[dict[str, Any]]) -> str:
             if confidence
             else ""
         )
-        est_label = (
-            ' <span class="muted" title="Estimated from list price, not billed">'
-            "est.</span>"
-            if f.get("cost_basis") not in (None, "billed")
-            else ""
-        )
+        cost_cell = _cost_cell(cost, normalize_basis(f.get("cost_basis"), cost))
         pill_class = f"pill-{priority}"
         review_html = (
             '<br><span class="pill pill-high">needs review</span>'
@@ -328,7 +351,7 @@ def _build_rows(findings: list[dict[str, Any]]) -> str:
   <td><span class="mono">{display_name}</span>{"<br><span class='mono muted'>" + resource_id + "</span>" if name else ""}</td>
   <td class="muted">{rtype_label}</td>
   <td class="muted">{region}</td>
-  <td class="{cost_class}">${cost:,.2f}{est_label}</td>
+  <td class="{cost_class}">{cost_cell}</td>
   <td class="muted">{last_activity_str}</td>
 </tr>
 <tr class="detail-row">

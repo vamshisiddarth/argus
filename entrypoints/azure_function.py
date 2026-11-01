@@ -39,6 +39,7 @@ from core.agent.loop import AgentLoop
 from core.config import get_settings
 from core.errors import StrictCoverageError
 from core.log import configure_logging
+from core.progress import get_progress
 from core.registry import get_registry
 from core.reports.comparison import compare_scans
 from core.reports.delivery import (
@@ -114,6 +115,8 @@ def main(mytimer: Any) -> dict[str, Any] | None:
     findings, scan_diff = compare_scans(findings, previous_report)
 
     token_summary = loop.tracker.summary()
+    progress = get_progress()
+    progress.stage("reports")
     report = build_report(
         findings,
         cloud=cloud,
@@ -148,6 +151,7 @@ def main(mytimer: Any) -> dict[str, Any] | None:
     )
     delivered = notify_all(payload)
 
+    progress.finish()
     budget_exceeded = executive_summary.startswith("Scan aborted")
     logger.info(
         "scan_complete",
