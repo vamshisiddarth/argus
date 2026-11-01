@@ -16,6 +16,7 @@ from core.errors import StrictCoverageError
 from core.models.finding import ResourceFinding
 from core.pipeline.evidence import Evidence, collect_evidence
 from core.pipeline.gate import gate
+from core.pipeline.guards import screen
 from core.pipeline.triage import (
     Flagged,
     TriageResult,
@@ -93,6 +94,15 @@ def run_pipeline(
     else:
         window_info["max_resources_source"] = "budget"
 
+    states = dict(loop._baseline.states)
+    try:
+        states.update(
+            loop._adapter.collect_state(
+                [r for r in pool if r.resource_id not in states]
+            )
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("context_state_failed", error=str(exc)[:200])
     evidence = collect_evidence(
         loop._adapter,
         pool,
@@ -101,7 +111,7 @@ def run_pipeline(
         activity_days=scan.activity_lookback_days,
         activity_mode=scan.activity_lookup,
         concurrency=scan.adapter_concurrency,
-        states=loop._baseline.states,
+        states=states,
     )
     gate_mode = scan.gate
     settled: list[Evidence] = []
@@ -157,9 +167,11 @@ def run_pipeline(
     window_info["llm_calibration"] = _calibration_summary(triage)
 
     no_data_ids = {e.resource.resource_id for e in evidence if e.metrics_status != "ok"}
+    kept, withheld = screen(triage.flagged)
+    if withheld:
+        logger.warning("findings_withheld", count=len(withheld))
     model_findings = [
-        _to_finding(flag, window, no_data_ids, _resolve_confidence)
-        for flag in triage.flagged
+        _to_finding(flag, window, no_data_ids, _resolve_confidence) for flag in kept
     ]
     findings = loop._merge_baseline(model_findings)
     findings = _attach_accounts(findings, accounts)
@@ -189,6 +201,7 @@ def run_pipeline(
         1 for e in evidence if _throttled(e.metrics_note)
     )
     loop.coverage.stop_reason = _stop_reason(triage, skipped)
+    loop.coverage.withheld = [w.to_dict() for w in withheld]
     gate_stage: dict[str, Any] = {
         "mode": gate_mode,
         "settled": len(settled),

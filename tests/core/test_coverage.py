@@ -45,6 +45,7 @@ def test_to_dict_has_documented_keys():
         "skipped_by_reason",
         "free_config_skipped",
         "metrics_lost_to_throttling",
+        "withheld",
         "stages",
         "regions_covered",
         "types",
@@ -196,3 +197,16 @@ def test_merge_sums_stage_counts_and_keeps_labels():
 
 def test_merge_without_stages_stays_none():
     assert Coverage.merge([_cov(), _cov()]).stages is None
+
+
+def test_withheld_round_trips_and_merges():
+    item = {
+        "resource_id": "a",
+        "resource_type": "t",
+        "kind": "no_metrics",
+        "reason": "r",
+    }
+    cov = _cov(withheld=[item])
+
+    assert Coverage.from_dict(cov.to_dict()).withheld == [item]
+    assert len(Coverage.merge([cov, _cov(withheld=[item])]).withheld) == 2

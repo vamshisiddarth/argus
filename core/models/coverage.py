@@ -34,6 +34,9 @@ class Coverage:
     # Per-stage view: {"rules": {...}, "gate": {...}, "model": {...}}; None when the
     # engine does not run in stages.
     stages: dict[str, dict[str, Any]] | None = None
+    # Model findings withheld from the waste total because the evidence could not
+    # support them (no metrics for a traffic-based type, replica with failover, ...).
+    withheld: list[dict[str, str]] = field(default_factory=list)
 
     @property
     def dropped(self) -> int:
@@ -61,6 +64,7 @@ class Coverage:
             "free_config_skipped": self.free_config_skipped,
             "metrics_lost_to_throttling": self.metrics_lost_to_throttling,
             "stages": self.stages,
+            "withheld": [dict(w) for w in self.withheld],
             "regions_covered": sorted(self.regions_covered),
             "types": {
                 t: {"discovered": c.discovered, "analysed": c.analysed}
@@ -81,6 +85,7 @@ class Coverage:
             free_config_skipped=int(d.get("free_config_skipped", 0)),
             metrics_lost_to_throttling=int(d.get("metrics_lost_to_throttling", 0)),
             stages=d.get("stages"),
+            withheld=[dict(w) for w in d.get("withheld", [])],
             regions_covered=list(d.get("regions_covered", [])),
             types={
                 t: TypeCoverage(c["discovered"], c["analysed"])
@@ -126,6 +131,7 @@ class Coverage:
             free_config_skipped=sum(i.free_config_skipped for i in items),
             metrics_lost_to_throttling=sum(i.metrics_lost_to_throttling for i in items),
             stages=_merge_stages([i.stages for i in items]),
+            withheld=[w for i in items for w in i.withheld],
         )
 
 

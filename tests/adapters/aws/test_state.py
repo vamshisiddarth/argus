@@ -174,3 +174,117 @@ def test_other_resource_types_make_no_calls():
     assert collect_state(_session({"us-east-1": client}), res) == {}
     client.get_paginator.assert_not_called()
     client.describe_addresses.assert_not_called()
+
+
+def _ec_client(groups, clusters, snaps=None, images=None):
+    client = MagicMock()
+
+    def paginator(name):
+        pag = MagicMock()
+        data = {
+            "describe_replication_groups": [{"ReplicationGroups": groups}],
+            "describe_cache_clusters": [{"CacheClusters": clusters}],
+        }[name]
+        pag.paginate.return_value = data
+        return pag
+
+    client.get_paginator.side_effect = paginator
+    client.describe_snapshots.return_value = {"Snapshots": snaps or []}
+    client.describe_images.return_value = {"Images": images or []}
+    return client
+
+
+def _multi_session(ec2, elasticache):
+    session = MagicMock()
+    session.client.side_effect = lambda name, region_name=None, **kw: (
+        elasticache if name == "elasticache" else ec2
+    )
+    return session
+
+
+def test_cache_node_state_carries_role_and_failover_settings():
+    group = {
+        "ReplicationGroupId": "shared",
+        "AutomaticFailover": "enabled",
+        "MultiAZ": "enabled",
+        "NodeGroups": [
+            {
+                "NodeGroupMembers": [
+                    {"CacheClusterId": "shared-001", "CurrentRole": "primary"},
+                    {"CacheClusterId": "shared-002", "CurrentRole": "replica"},
+                ]
+            }
+        ],
+    }
+    clusters = [
+        {"CacheClusterId": "shared-001", "ReplicationGroupId": "shared"},
+        {"CacheClusterId": "shared-002", "ReplicationGroupId": "shared"},
+        {"CacheClusterId": "solo"},
+    ]
+    session = _multi_session(MagicMock(), _ec_client([group], clusters))
+    res = [
+        Resource(
+            f"arn:aws:elasticache:us-east-1:1:cluster:{n}",
+            "AWS::ElastiCache::CacheCluster",
+            "aws",
+            "us-east-1",
+        )
+        for n in ("shared-002", "solo")
+    ]
+
+    out = collect_state(session, res)
+
+    replica = out[res[0].resource_id]
+    assert replica["role"] == "replica" and replica["automatic_failover"] == "enabled"
+    assert replica["replication_group"] == "shared" and replica["group_size"] == 2
+    assert out[res[1].resource_id]["role"] == "standalone"
+
+
+def test_cache_state_is_missing_when_describe_is_denied():
+    ec = MagicMock()
+    pag = MagicMock()
+    pag.paginate.side_effect = _denied("DescribeReplicationGroups")
+    ec.get_paginator.return_value = pag
+    session = _multi_session(MagicMock(), ec)
+    res = [
+        Resource(
+            "arn:aws:elasticache:us-east-1:1:cluster:x",
+            "AWS::ElastiCache::CacheCluster",
+            "aws",
+            "us-east-1",
+        )
+    ]
+
+    assert collect_state(session, res) == {}
+
+
+def test_snapshot_state_says_whether_an_ami_uses_it():
+    ec2 = MagicMock()
+    ec2.describe_snapshots.return_value = {
+        "Snapshots": [
+            {"SnapshotId": "snap-1", "VolumeSize": 500},
+            {"SnapshotId": "snap-2", "VolumeSize": 20},
+        ]
+    }
+    ec2.describe_images.return_value = {
+        "Images": [
+            {
+                "ImageId": "ami-9",
+                "BlockDeviceMappings": [{"Ebs": {"SnapshotId": "snap-1"}}],
+            }
+        ]
+    }
+    session = _multi_session(ec2, MagicMock())
+    res = [
+        Resource(
+            f"arn:aws:ec2:us-east-1::snapshot/{s}", "ec2:snapshot", "aws", "us-east-1"
+        )
+        for s in ("snap-1", "snap-2")
+    ]
+
+    out = collect_state(session, res)
+
+    assert out[res[0].resource_id]["ami_backed"] is True
+    assert out[res[0].resource_id]["ami"] == "ami-9"
+    assert out[res[1].resource_id]["ami_backed"] is False
+    assert out[res[0].resource_id]["size_gb"] == 500

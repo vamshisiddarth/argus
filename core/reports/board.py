@@ -459,6 +459,36 @@ def _preflight_lines(report: dict) -> list[str]:
     return lines
 
 
+_WITHHELD_LABELS = {
+    "no_metrics": "traffic metrics were unavailable",
+    "failover_replica": "a cache node that belongs to a failover group",
+    "state_unavailable": "configuration could not be read",
+    "ami_backed": "an AMI still uses the snapshot",
+    "protected_by_tag": "a tag marks it as a retained copy",
+}
+
+
+def _withheld_lines(items: list[dict]) -> list[str]:
+    if not items:
+        return []
+    by_kind: dict[str, list[str]] = {}
+    for w in items:
+        by_kind.setdefault(str(w.get("kind", "")), []).append(
+            str(w.get("resource_id", "")).rsplit("/", 1)[-1].rsplit(":", 1)[-1]
+        )
+    lines = []
+    for kind, ids in sorted(by_kind.items()):
+        shown = ", ".join(ids[:5]) + (
+            f" and {len(ids) - 5} more" if len(ids) > 5 else ""
+        )
+        lines.append(
+            f"Could not judge {len(ids)} resource{'s' if len(ids) != 1 else ''} "
+            f"({_WITHHELD_LABELS.get(kind, kind)}): {shown}. Not in the waste total; "
+            "check them before acting."
+        )
+    return lines
+
+
 def _coverage_lines(report: dict) -> list[str]:
     cov = report.get("coverage") or {}
     lines = []
@@ -473,6 +503,7 @@ def _coverage_lines(report: dict) -> list[str]:
             "Discovery incomplete: a search hit the provider's result limit, "
             "so the inventory is understated."
         )
+    lines.extend(_withheld_lines(cov.get("withheld") or []))
     lost = cov.get("metrics_lost_to_throttling") or 0
     if lost:
         lines.append(

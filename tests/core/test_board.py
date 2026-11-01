@@ -825,3 +825,30 @@ class TestHeadlineHonesty:
         text = self._kpi_text([_f("v1", cost=100.0, basis="billed")])
 
         assert "All of it is billed." in text and "Not a savings figure" not in text
+
+
+class TestWithheldBanner:
+    def test_withheld_findings_are_named_and_kept_out_of_the_total(self):
+        report = _report()
+        report["preflight"] = None
+        report["scan_errors"] = []
+        report["coverage"] = {
+            "discovered": 5,
+            "analysed": 5,
+            "dropped": 0,
+            "withheld": [
+                {
+                    "resource_id": "arn:aws:ec2:eu-west-1:1:natgateway/nat-0abc",
+                    "resource_type": "AWS::EC2::NatGateway",
+                    "kind": "no_metrics",
+                    "reason": "x",
+                }
+            ],
+        }
+
+        out = build_board_html(report)
+        banner = out[out.index('class="banner"') : out.index('class="kpis"')]
+
+        assert "Could not judge 1 resource" in banner
+        assert "traffic metrics were unavailable" in banner and "nat-0abc" in banner
+        assert "Not in the waste total" in banner

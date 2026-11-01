@@ -22,6 +22,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 - **Opportunities (prototype).** Findings are grouped into a short list of decisions by action x resource family x tier (`flagged`, `unsure`, `sure`), deterministically and without a model. Report fields `opportunities` and `opportunity_summary` (schema 1.2.0, additive); groups smaller than 2 collapse into an "other resources" opportunity per action and tier, and a cap of 50 raises that minimum until the list fits. Each opportunity has a stable id, a savings range (billed plus list-priced up to adding model estimates), a lane (`easy` or `doubt`), its owners and every member. `python -m core.opportunities summary --report R` measures a report. Not yet used by the HTML report, Slack digest or tickets. See `docs/concepts/opportunities.md`.
 - **Report schema 1.2.0 (additive): `cost_summary`** with `waste_by_basis`, `findings_by_basis`, `unpriced_findings`, `verified_waste_usd`, `verified_share` and `headline_is_verified`. Multi-cloud merged reports recompute it from all findings. Existing fields and `cost_basis` values are unchanged.
 
+### Fixed (from the customer retest)
+
+- **A missing metric is no longer idle money.** When the model flags a traffic-based resource (NAT gateway, load balancer, WAF web ACL, Client VPN, Transit Gateway attachment, VPC endpoint, VPN, firewall) and its traffic metrics were unavailable or empty, the finding is withheld from the waste total and the board says "Could not judge N resources". Previously it could land as a priced idle finding.
+- **Failover replicas are not called waste.** Cache nodes now carry their replication group, role, automatic failover and Multi-AZ settings. A node in a group with failover or Multi-AZ is withheld; a node whose settings could not be read is withheld too.
+- **Snapshots are checked before delete advice.** Snapshot state includes size, age and whether an AMI uses it. AMI-backed snapshots, snapshots tagged as retained or safety copies, and snapshots whose state could not be read are withheld. Snapshots stay unpriced: their stored size is incremental, so a list price on the full volume size would overstate them.
+- Report field `coverage.withheld` lists each withheld resource with its reason (additive). An idle load balancer that publishes no datapoints is now "could not judge" rather than a finding.
+
 ### Known limitations
 
 - **Model-estimated compute prices are not billing-grade.** When a finding's `cost_basis` is `model_estimate`, instance prices come from the model and can be far from the real rate. Treat them as estimates, not savings figures. Billed numbers need resource-level data enabled in the payer account's Cost Explorer settings.

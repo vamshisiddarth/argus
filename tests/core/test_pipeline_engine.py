@@ -551,3 +551,71 @@ def test_the_pipeline_works_for_other_clouds_too():
     assert [f.cloud for f in findings] == ["gcp"]
     assert findings[0].resource_type == "compute.googleapis.com/Instance"
     assert "GCP" in ai.chat.call_args.kwargs["system_prompt"]
+
+
+class StateAdapter(Adapter):
+    def __init__(self, resources, states=None, **kw):
+        super().__init__(resources, **kw)
+        self._states = states or {}
+
+    def collect_state(self, resources):
+        return {
+            r.resource_id: self._states[r.resource_id]
+            for r in resources
+            if r.resource_id in self._states
+        }
+
+
+def _ask(adapter, rid):
+    ai = MagicMock(spec=AIProvider)
+    ai.chat.side_effect = lambda messages, tools, system_prompt=None: _report(
+        _f(_index_of_in(messages, rid), estimated_monthly_cost=38.0)
+    )
+    loop = AgentLoop(ai, adapter)
+    findings, _ = loop.run("aws", [], ACCOUNTS)
+    return findings, loop
+
+
+def test_a_busy_nat_with_no_metrics_never_enters_the_waste_total():
+    nat = Resource("nat-0abc", NAT, "aws", "us-east-1")
+    adapter = Adapter([nat])
+
+    findings, loop = _ask(adapter, "nat-0abc")
+
+    assert findings == []
+    assert [w["kind"] for w in loop.coverage.withheld] == ["no_metrics"]
+    assert loop.coverage.to_dict()["withheld"][0]["resource_id"] == "nat-0abc"
+
+
+def test_a_nat_with_real_metrics_can_still_be_flagged():
+    nat = Resource("nat-0abc", NAT, "aws", "us-east-1")
+    adapter = Adapter([nat], metrics={"nat-0abc": _ok("nat-0abc", NAT, **IDLE_NAT)})
+
+    findings, loop = _ask(adapter, "nat-0abc")
+
+    assert [f.resource_id for f in findings] == ["nat-0abc"]
+    assert loop.coverage.withheld == []
+
+
+def test_a_failover_replica_is_not_called_waste():
+    cache = "AWS::ElastiCache::CacheCluster"
+    node = Resource(
+        "arn:aws:elasticache:us-east-1:1:cluster:shared-002", cache, "aws", "us-east-1"
+    )
+    state = {
+        "kind": "elasticache_node",
+        "replication_group": "shared",
+        "role": "replica",
+        "automatic_failover": "enabled",
+        "multi_az": "enabled",
+    }
+    adapter = StateAdapter(
+        [node],
+        states={node.resource_id: state},
+        metrics={node.resource_id: _ok(node.resource_id, cache, CacheHits=0.0)},
+    )
+
+    findings, loop = _ask(adapter, "shared-002")
+
+    assert findings == []
+    assert [w["kind"] for w in loop.coverage.withheld] == ["failover_replica"]
