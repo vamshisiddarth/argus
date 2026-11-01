@@ -347,3 +347,134 @@ class TestThrottlingRetry:
 
         assert len(sleep_calls) == 2
         assert sleep_calls[1] == sleep_calls[0] * 2
+
+
+# ---------------------------------------------------------------------------
+# Parameters a model rejects (for example temperature on newer Claude models)
+# ---------------------------------------------------------------------------
+
+
+def _validation_error(message: str) -> ClientError:
+    return ClientError(
+        {"Error": {"Code": "ValidationException", "Message": message}}, "Converse"
+    )
+
+
+_TEMPERATURE_DEPRECATED = (
+    "The model returned the following errors: `temperature` is deprecated for "
+    "this model."
+)
+
+
+def _inference_config(mock_client: MagicMock, call_index: int) -> dict:
+    return mock_client.converse.call_args_list[call_index].kwargs["inferenceConfig"]
+
+
+class TestRejectedTemperature:
+    def test_temperature_is_sent_by_default(self):
+        mock_client = MagicMock()
+        mock_client.converse.return_value = _text_response()
+        provider = _make_provider(mock_client)
+
+        provider.chat(messages=[Message(role="user", text="go")], tools=[])
+
+        assert "temperature" in _inference_config(mock_client, 0)
+
+    def test_drops_temperature_and_retries_once(self):
+        mock_client = MagicMock()
+        mock_client.converse.side_effect = [
+            _validation_error(_TEMPERATURE_DEPRECATED),
+            _text_response("ok"),
+        ]
+        provider = _make_provider(mock_client)
+
+        with patch("ai.bedrock.time.sleep") as mock_sleep:
+            response = provider.chat(
+                messages=[Message(role="user", text="go")], tools=[]
+            )
+
+        assert response.text == "ok"
+        assert mock_client.converse.call_count == 2
+        assert "temperature" in _inference_config(mock_client, 0)
+        assert "temperature" not in _inference_config(mock_client, 1)
+        assert "maxTokens" in _inference_config(mock_client, 1)
+        mock_sleep.assert_not_called()
+
+    def test_later_calls_do_not_send_temperature_again(self):
+        mock_client = MagicMock()
+        mock_client.converse.side_effect = [
+            _validation_error(_TEMPERATURE_DEPRECATED),
+            _text_response("first"),
+            _text_response("second"),
+        ]
+        provider = _make_provider(mock_client)
+
+        provider.chat(messages=[Message(role="user", text="a")], tools=[])
+        provider.chat(messages=[Message(role="user", text="b")], tools=[])
+
+        assert mock_client.converse.call_count == 3
+        assert "temperature" not in _inference_config(mock_client, 2)
+
+    @pytest.mark.parametrize(
+        "message",
+        [
+            "temperature is not supported for this model",
+            "Unsupported parameter: temperature",
+        ],
+    )
+    def test_other_rejection_wordings_are_handled(self, message):
+        mock_client = MagicMock()
+        mock_client.converse.side_effect = [
+            _validation_error(message),
+            _text_response("ok"),
+        ]
+        provider = _make_provider(mock_client)
+
+        response = provider.chat(messages=[Message(role="user", text="go")], tools=[])
+
+        assert response.text == "ok"
+        assert "temperature" not in _inference_config(mock_client, 1)
+
+    def test_out_of_range_temperature_is_not_swallowed(self):
+        mock_client = MagicMock()
+        mock_client.converse.side_effect = _validation_error(
+            "temperature must be between 0 and 1"
+        )
+        provider = _make_provider(mock_client)
+
+        with pytest.raises(ClientError):
+            provider.chat(messages=[Message(role="user", text="go")], tools=[])
+
+        assert mock_client.converse.call_count == 1
+
+    def test_does_not_loop_when_error_persists_without_temperature(self):
+        mock_client = MagicMock()
+        mock_client.converse.side_effect = _validation_error(_TEMPERATURE_DEPRECATED)
+        provider = _make_provider(mock_client)
+
+        with pytest.raises(ClientError):
+            provider.chat(messages=[Message(role="user", text="go")], tools=[])
+
+        assert mock_client.converse.call_count == 2
+
+    def test_dropping_temperature_does_not_use_up_throttle_retries(self):
+        throttle = ClientError(
+            {"Error": {"Code": "ThrottlingException", "Message": "Rate exceeded"}},
+            "Converse",
+        )
+        mock_client = MagicMock()
+        mock_client.converse.side_effect = [
+            _validation_error(_TEMPERATURE_DEPRECATED),
+            throttle,
+            throttle,
+            _text_response("ok"),
+        ]
+        provider = _make_provider(mock_client)
+
+        with patch("ai.bedrock.time.sleep"):
+            response = provider.chat(
+                messages=[Message(role="user", text="go")], tools=[]
+            )
+
+        assert response.text == "ok"
+        assert mock_client.converse.call_count == 4

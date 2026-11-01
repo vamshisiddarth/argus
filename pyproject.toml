@@ -19,7 +19,7 @@ classifiers = [
     "Topic :: System :: Systems Administration",
 ]
 dependencies = [
-    "anthropic>=0.40.0",
+    "anthropic>=0.40.0,<3",
     "python-dotenv>=1.0.1",
     "PyYAML>=6.0.2",
     "pydantic>=2.9.2",
@@ -47,7 +47,6 @@ dependencies = [
 
 [project.optional-dependencies]
 export = [
-    "weasyprint>=62.0",
     "python-pptx>=1.0.0",
 ]
 chat = [
@@ -103,7 +102,8 @@ line-length = 88
 select = ["E", "F", "W", "I", "B", "BLE"]
 
 [tool.ruff.lint.per-file-ignores]
-"core/reports/html.py" = ["E501"]
+"core/reports/board.py" = ["E501"]
+"core/reports/board_assets.py" = ["E501"]
 "core/agent/prompts.py" = ["E501"]
 "tests/adapters/azure/*.py" = ["E501"]
 

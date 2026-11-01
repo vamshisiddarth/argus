@@ -35,6 +35,15 @@ class ResourceFinding:
     # Used by remediation `accounts` scope filters and runbook templates.
     account_id: str | None = None
     account_name: str | None = None
+    # "billed" (cloud cost API), "list_price" (Argus price catalog), "model_estimate"
+    # (the AI's guess) or "unknown".
+    # Set by the agent loop, never trusted from the model.
+    cost_basis: str | None = None
+    # "low" | "medium" | "high". Forced to "low" by the agent loop when the
+    # metrics behind the finding were unavailable.
+    confidence: str | None = None
+    # "model" for AI findings, "rule:<id>" for deterministic baseline rules.
+    detected_by: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -56,6 +65,9 @@ class ResourceFinding:
             "status": self.status,
             "account_id": self.account_id,
             "account_name": self.account_name,
+            "cost_basis": self.cost_basis,
+            "confidence": self.confidence,
+            "detected_by": self.detected_by,
         }
 
     @classmethod
@@ -81,4 +93,7 @@ class ResourceFinding:
             status=data.get("status", "new"),
             account_id=data.get("account_id"),
             account_name=data.get("account_name"),
+            cost_basis=data.get("cost_basis"),
+            confidence=data.get("confidence"),
+            detected_by=data.get("detected_by"),
         )

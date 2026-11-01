@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "tag_key": "argus-testbed-id",
+  "notes": "expected_monthly_usd uses approximate us-east-1 list prices (730 hours per month). target_recall values are proposals, not measurements.",
+  "classes": {
+    "unattached_volume": {"resource_type": "AWS::EC2::Volume", "target_recall": 0.95, "costly": false},
+    "stopped_instance": {"resource_type": "AWS::EC2::Instance", "target_recall": 0.9, "costly": false},
+    "unassociated_eip": {"resource_type": "AWS::EC2::EIP", "target_recall": 0.9, "costly": false},
+    "overprovisioned_iops": {"resource_type": "AWS::EC2::Volume", "target_recall": 0.9, "costly": false},
+    "log_group_no_retention": {"resource_type": "logs:log-group", "target_recall": 0.9, "costly": false},
+    "idle_nat": {"resource_type": "AWS::EC2::NatGateway", "target_recall": 0.9, "costly": true},
+    "idle_lb": {"resource_type": "AWS::ElasticLoadBalancingV2::LoadBalancer", "target_recall": 0.9, "costly": true},
+    "idle_client_vpn": {"resource_type": "ec2:client-vpn-endpoint", "target_recall": 0.9, "costly": true}
+  },
+  "resources": [
+    {"id": "w-unattached-vol-1", "class": "unattached_volume", "kind": "waste", "expected_monthly_usd": 1.6},
+    {"id": "w-unattached-vol-2", "class": "unattached_volume", "kind": "waste", "expected_monthly_usd": 8.0},
+    {"id": "w-stopped-instance-1", "class": "stopped_instance", "kind": "waste", "expected_monthly_usd": 0.64},
+    {"id": "w-unassociated-eip-1", "class": "unassociated_eip", "kind": "waste", "expected_monthly_usd": 3.65},
+    {"id": "w-unassociated-eip-2", "class": "unassociated_eip", "kind": "waste", "expected_monthly_usd": 3.65},
+    {"id": "w-overprov-iops-1", "class": "overprovisioned_iops", "kind": "waste", "expected_monthly_usd": 28.0},
+    {"id": "w-log-group-no-retention-1", "class": "log_group_no_retention", "kind": "waste", "expected_monthly_usd": null},
+    {"id": "w-idle-nat-1", "class": "idle_nat", "kind": "waste", "expected_monthly_usd": 32.85},
+    {"id": "w-idle-lb-1", "class": "idle_lb", "kind": "waste", "expected_monthly_usd": 16.43},
+    {"id": "w-idle-client-vpn-1", "class": "idle_client_vpn", "kind": "waste", "expected_monthly_usd": 73.0},
+    {"id": "d-attached-vol-1", "class": "unattached_volume", "kind": "decoy"},
+    {"id": "d-associated-eip-1", "class": "unassociated_eip", "kind": "decoy"},
+    {"id": "d-log-group-retention-1", "class": "log_group_no_retention", "kind": "decoy"}
+  ]
+}

@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import os as _os
+import threading
+import weakref
+from collections.abc import Iterator
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -291,7 +294,14 @@ def get_metrics(
     """
     metric_defs = _metrics_for(resource_type)
     if not metric_defs:
-        metric_defs = _discover_metrics(session, resource_id, resource_type)
+        try:
+            metric_defs = _discover_metrics(session, resource_id, resource_type)
+        except ClientError as exc:
+            logger.warning(
+                "cloudwatch_list_metrics_failed",
+                extra={"resource_id": resource_id, "error": str(exc)},
+            )
+            return _error_summary(resource_id, resource_type, days, exc)
     if not metric_defs:
         return MetricSummary(
             resource_id=resource_id,
@@ -339,13 +349,7 @@ def get_metrics(
             "cloudwatch_get_metric_data_failed",
             extra={"resource_id": resource_id, "error": str(exc)},
         )
-        return MetricSummary(
-            resource_id=resource_id,
-            resource_type=resource_type,
-            period_days=days,
-            metrics={},
-            has_data=False,
-        )
+        return _error_summary(resource_id, resource_type, days, exc)
 
     summary = _parse_results(
         results=response.get("MetricDataResults", []),
@@ -360,6 +364,21 @@ def get_metrics(
     _enrich_instance_details(session, resource_id, resource_type, summary.metrics)
 
     return summary
+
+
+def _error_summary(
+    resource_id: str, resource_type: str, days: int, exc: ClientError
+) -> MetricSummary:
+    code = exc.response.get("Error", {}).get("Code", "ClientError")
+    return MetricSummary(
+        resource_id=resource_id,
+        resource_type=resource_type,
+        period_days=days,
+        metrics={},
+        has_data=False,
+        status="error",
+        error=f"{code}: {exc.response.get('Error', {}).get('Message', '')}".strip(),
+    )
 
 
 def _enrich_instance_details(
@@ -579,59 +598,90 @@ def _parse_results(
 _FALLBACK_METRIC_LIMIT = 5  # max metrics to auto-discover per unknown resource
 
 
+class _RegionListing:
+    """One region's ListMetrics result, fetched at most once per session."""
+
+    def __init__(self) -> None:
+        self.lock = threading.Lock()
+        self.done = False
+        self.index: dict[str, list[tuple[str, str, str]]] = {}
+        self.error: ClientError | None = None
+
+
+_LISTINGS: weakref.WeakKeyDictionary[Any, dict[str, _RegionListing]] = (
+    weakref.WeakKeyDictionary()
+)
+_LISTINGS_LOCK = threading.Lock()
+
+
+def _region_listing(session: boto3.Session, region: str) -> _RegionListing:
+    with _LISTINGS_LOCK:
+        per_session = _LISTINGS.setdefault(session, {})
+        listing = per_session.get(region)
+        if listing is None:
+            listing = per_session[region] = _RegionListing()
+    if listing.done:
+        return listing
+    with listing.lock:
+        if not listing.done:
+            client = session.client(
+                "cloudwatch", region_name=region, config=BOTO_TIMEOUT_CONFIG
+            )
+            try:
+                for page in _list_metrics_pages(client):
+                    for m in page.get("Metrics", []):
+                        for dim in m.get("Dimensions", []):
+                            listing.index.setdefault(dim.get("Value"), []).append(
+                                (m["MetricName"], m["Namespace"], dim["Name"])
+                            )
+            except ClientError as exc:
+                listing.index = {}
+                listing.error = exc
+            listing.done = True
+    return listing
+
+
+def _stat_for(metric_name: str) -> str:
+    # Sum for count/bytes-sounding names, Average otherwise.
+    counting = ("count", "bytes", "records", "invocations", "requests")
+    return "Sum" if any(kw in metric_name.lower() for kw in counting) else "Average"
+
+
 def _discover_metrics(
     session: boto3.Session,
     resource_id: str,
     resource_type: str,
 ) -> list[tuple[str, str, str, str]]:
     """
-    For resource types not in _METRICS, ask CloudWatch what metrics exist
-    for this resource and return up to _FALLBACK_METRIC_LIMIT definitions.
+    For resource types not in _METRICS, look up which metrics exist for this
+    resource in the region's metric list (fetched once per session and region)
+    and return up to _FALLBACK_METRIC_LIMIT definitions.
     Uses the ARN as a dimension value where possible.
+    Raises the ClientError that ended the listing, if it failed.
     """
-    region = _region_from_arn(resource_id)
-    client = session.client(
-        "cloudwatch", region_name=region, config=BOTO_TIMEOUT_CONFIG
-    )
+    listing = _region_listing(session, _region_from_arn(resource_id))
+    if listing.error is not None:
+        raise listing.error
 
-    # Try to find metrics that reference this resource by ARN or last-segment name.
     dim_value = _dimension_value(resource_id, resource_type)
-    discovered: list[tuple[str, str, str, str]] = []
+    keys = [resource_id] if dim_value == resource_id else [resource_id, dim_value]
+    found = [e for k in keys for e in listing.index.get(k, [])]
+    return [
+        (name, namespace, _stat_for(name), dim_key)
+        for name, namespace, dim_key in found[:_FALLBACK_METRIC_LIMIT]
+    ]
 
-    try:
-        paginator = client.get_paginator("list_metrics")
-        for page in paginator.paginate():
-            for m in page.get("Metrics", []):
-                for dim in m.get("Dimensions", []):
-                    if dim.get("Value") in (resource_id, dim_value):
-                        metric_name: str = m["MetricName"]
-                        namespace: str = m["Namespace"]
-                        dim_key: str = dim["Name"]
-                        # Use Sum for count/bytes-sounding names, Average otherwise.
-                        stat = (
-                            "Sum"
-                            if any(
-                                kw in metric_name.lower()
-                                for kw in (
-                                    "count",
-                                    "bytes",
-                                    "records",
-                                    "invocations",
-                                    "requests",
-                                )
-                            )
-                            else "Average"
-                        )
-                        discovered.append((metric_name, namespace, stat, dim_key))
-                        if len(discovered) >= _FALLBACK_METRIC_LIMIT:
-                            return discovered
-    except ClientError as exc:
-        logger.warning(
-            "cloudwatch_list_metrics_failed",
-            extra={"resource_id": resource_id, "error": str(exc)},
-        )
 
-    return discovered
+def _list_metrics_pages(client: Any) -> Iterator[dict[str, Any]]:
+    """Yield ListMetrics pages, retrying each call on throttling."""
+    kwargs: dict[str, Any] = {}
+    while True:
+        page = retry_on_transient(client.list_metrics, **kwargs)
+        yield page
+        token = page.get("NextToken")
+        if not token:
+            return
+        kwargs["NextToken"] = token
 
 
 def _region_from_arn(arn: str) -> str:

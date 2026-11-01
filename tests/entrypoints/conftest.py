@@ -15,3 +15,9 @@ import pytest
 def _dry_run_by_default(monkeypatch):
     """Set DRY_RUN=true for every entrypoint test unless already set."""
     monkeypatch.setenv("DRY_RUN", "true")
+
+
+@pytest.fixture(autouse=True)
+def _skip_preflight_by_default(monkeypatch):
+    """Handler tests mock the adapter; preflight tests opt in explicitly."""
+    monkeypatch.setenv("ARGUS_SKIP_PREFLIGHT", "true")

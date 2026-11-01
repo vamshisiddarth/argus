@@ -10,7 +10,7 @@ hide:
 <div class="hero-inner">
 <div class="hero-left" markdown>
 
-<div class="hero-badge" markdown><span class="hero-badge-version">v0.6.0</span> · Open Source · MIT License</div>
+<div class="hero-badge" markdown><span class="hero-badge-version">v0.7.0</span> · Open Source · MIT License</div>
 
 <p class="hero-tagline">AI Cloud Detective</p>
 
@@ -34,8 +34,8 @@ hide:
 <div class="hero-stats">
   <div class="hero-stat"><strong data-count="3">3</strong><span>clouds</span></div>
   <div class="hero-stat"><strong data-count="114">114</strong><span>resource types</span></div>
-  <div class="hero-stat"><strong data-count="1800" data-suffix="+">1800+</strong><span>tests</span></div>
-  <div class="hero-stat"><strong data-count="0.25" data-prefix="~$">~$0.25</strong><span>per scan</span></div>
+  <div class="hero-stat"><strong data-count="2700" data-suffix="+">2700+</strong><span>tests</span></div>
+  <div class="hero-stat"><strong data-count="2" data-prefix="$">$2</strong><span>default budget cap per scan</span></div>
 </div>
 
 </div>
@@ -134,7 +134,7 @@ Argus investigates live and answers with costs and recommendations.
   <div class="how-step">
     <div class="how-num">2</div>
     <h3>Investigate</h3>
-    <p>A ReAct agent loop reasons like a human analyst — pulling 90-day metrics, actual spend, and last-activity timestamps only for resources where it matters. No hardcoded thresholds.</p>
+    <p>A ReAct agent loop reasons like a human analyst — pulling metrics over your lookback window (90 days by default), actual spend, and last-activity timestamps only for resources where it matters. No hardcoded thresholds.</p>
   </div>
   <div class="how-connector">→</div>
   <div class="how-step">
@@ -245,11 +245,8 @@ Argus uses a **ReAct agent loop** — the AI decides what to investigate, calls 
 
 ---
 
-!!! tip "Total cost of a weekly scan"
-    A full AWS scan typically costs **$0.10–0.30** in AI tokens with the Anthropic API or AWS Bedrock
-    (same model, same price) and less with Vertex AI — see [typical scan cost](getting-started/first-scan.md#typical-scan-cost).
-    A single right-sizing recommendation
-    (e.g. `db.r5.4xlarge → db.r5.xlarge`) typically saves **100–1,000× the scan cost** per month.
+!!! tip "What a scan costs"
+    Model cost is capped by `LLM_BUDGET_USD` (default $2.00) and shown before the model runs. One measured run on 1,614 resources cost about $1.4 to $1.55 on Bedrock; see [scan cost](getting-started/first-scan.md#scan-cost). Dollar figures in a report are labelled billed, list price or model estimate, and an estimate is not a savings figure.
 
 <div class="cta-strip">
   <h2>Ready to find what's wasting money?</h2>

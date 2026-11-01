@@ -36,23 +36,27 @@ import structlog
 
 from adapters.azure.adapter import AzureAdapter
 from core.agent.loop import AgentLoop
+from core.config import get_settings
+from core.errors import StrictCoverageError
 from core.log import configure_logging
+from core.progress import get_progress
 from core.registry import get_registry
+from core.reports.board import build_board_html
 from core.reports.comparison import compare_scans
 from core.reports.delivery import (
     notify_all,
     save_reports_locally,
 )
 from core.reports.generator import build_report, build_slack_payload
-from core.reports.html import build_html_report
 from core.secrets import resolve_secrets
 from core.validation import ConfigurationError, validate_environment
+from entrypoints._meta import ScanMeta
 
 configure_logging()
 logger = structlog.get_logger(__name__)
 
 
-def main(mytimer: Any) -> None:
+def main(mytimer: Any) -> dict[str, Any] | None:
     """
     Azure Function timer trigger entry point.
 
@@ -69,7 +73,7 @@ def main(mytimer: Any) -> None:
         validate_environment(cloud)
     except ConfigurationError as exc:
         logger.error("startup_validation_failed", error=str(exc))
-        return
+        return None
 
     ignore_regions = [
         r.strip() for r in os.environ.get("IGNORE_REGIONS", "").split(",") if r.strip()
@@ -97,12 +101,22 @@ def main(mytimer: Any) -> None:
         ignore_regions=ignore_regions,
         accounts=accounts,
     )
+    meta = ScanMeta()
+    meta.add_loop(loop)
+    strict_error: Exception | None = None
+    try:
+        meta.enforce_strict(get_settings().scan.strict_coverage)
+    except StrictCoverageError as exc:
+        # Keep going: the scan was paid for, so write and deliver the report first.
+        strict_error = exc
 
     storage_account = os.environ.get("REPORT_STORAGE_ACCOUNT", "").strip()
     previous_report = _load_previous_report(cloud, storage_account)
     findings, scan_diff = compare_scans(findings, previous_report)
 
     token_summary = loop.tracker.summary()
+    progress = get_progress()
+    progress.stage("reports")
     report = build_report(
         findings,
         cloud=cloud,
@@ -113,6 +127,8 @@ def main(mytimer: Any) -> None:
         scan_diff=scan_diff,
         scan_errors=[],
         registry_warnings=get_registry().load_warnings,
+        coverage=meta.coverage_dict(),
+        scan_window=meta.scan_window,
     )
     report_url: str | None = None
     if storage_account:
@@ -135,22 +151,34 @@ def main(mytimer: Any) -> None:
     )
     delivered = notify_all(payload)
 
+    progress.finish()
     budget_exceeded = executive_summary.startswith("Scan aborted")
     logger.info(
         "scan_complete",
         findings=report["findings_count"],
         total_waste_usd=round(report["total_estimated_waste_usd"], 2),
         budget_exceeded=budget_exceeded,
-        slack_delivered=delivered,
+        slack_delivered=delivered and not get_settings().report.dry_run,
     )
     if budget_exceeded:
         import sys
 
         sys.exit(2)
+    if strict_error is not None:
+        raise strict_error
     if not delivered:
         import sys
 
         sys.exit(1)
+    return {
+        "statusCode": 200,
+        "scan_id": report["scan_id"],
+        "findings_count": report["findings_count"],
+        "total_estimated_waste_usd": report["total_estimated_waste_usd"],
+        "budget_exceeded": False,
+        "coverage": meta.summary(),
+        "llm": meta.llm_summary(),
+    }
 
 
 def _get_subscription_ids() -> tuple[list[str], dict[str, str]]:
@@ -281,7 +309,7 @@ def _save_reports_to_blob(report: dict[str, Any], storage_account: str) -> str |
 
         container_client.upload_blob(
             html_key,
-            build_html_report(report).encode("utf-8"),
+            build_board_html(report).encode("utf-8"),
             content_settings={"content_type": "text/html; charset=utf-8"},
             overwrite=True,
         )

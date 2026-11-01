@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 import random
 import time
 from typing import Any
@@ -24,14 +25,13 @@ class AnthropicProvider(AIProvider):
     """
 
     DEFAULT_MODEL = "claude-sonnet-4-6"
-    DEFAULT_MAX_TOKENS = 4096
     DEFAULT_TEMPERATURE = 0.0
 
     def __init__(
         self,
         api_key: str | None = None,
         model: str | None = None,
-        max_tokens: int = DEFAULT_MAX_TOKENS,
+        max_tokens: int | None = None,
         temperature: float | None = None,
     ) -> None:
         from core.config import get_settings
@@ -42,10 +42,13 @@ class AnthropicProvider(AIProvider):
             raise EnvironmentError(
                 "ANTHROPIC_API_KEY is not set. Export it or pass api_key= explicitly."
             )
-        self._client = anthropic_sdk.Anthropic(api_key=resolved_key, timeout=60.0)
+        self._client = anthropic_sdk.Anthropic(
+            api_key=resolved_key, timeout=cfg.timeout_seconds
+        )
         self._model = model or cfg.resolved_model("anthropic")
-        self._max_tokens = max_tokens
+        self._max_tokens = cfg.max_tokens if max_tokens is None else max_tokens
         self._temperature = temperature if temperature is not None else cfg.temperature
+        self._send_temperature = _accepts_temperature(self._client.messages.create)
 
     def chat(
         self,
@@ -56,10 +59,11 @@ class AnthropicProvider(AIProvider):
         kwargs: dict[str, Any] = {
             "model": self._model,
             "max_tokens": self._max_tokens,
-            "temperature": self._temperature,
             "messages": [self._to_anthropic_message(m) for m in messages],
             "tools": [self._to_anthropic_tool(t) for t in tools],
         }
+        if self._send_temperature:
+            kwargs["temperature"] = self._temperature
         if system_prompt:
             # cache_control pins the system prompt in Anthropic's prompt cache.
             # After the first iteration it's served from cache — no reprocessing charge.
@@ -87,6 +91,7 @@ class AnthropicProvider(AIProvider):
             except (
                 anthropic_sdk.RateLimitError,
                 anthropic_sdk.InternalServerError,
+                anthropic_sdk.APIConnectionError,  # includes APITimeoutError
             ) as exc:
                 if attempt < _MAX_RETRIES - 1:
                     jitter = random.uniform(0, delay * 0.5)  # noqa: S311
@@ -168,6 +173,35 @@ class AnthropicProvider(AIProvider):
             stop_reason=response.stop_reason,
             text=text,
             tool_calls=tool_calls,
-            input_tokens=getattr(usage, "input_tokens", 0) if usage else 0,
+            input_tokens=_billable_input_tokens(usage),
             output_tokens=getattr(usage, "output_tokens", 0) if usage else 0,
         )
+
+
+_CACHE_WRITE_FACTOR = 1.25  # cache writes bill at 125% of plain input
+_CACHE_READ_FACTOR = 0.10  # cache reads bill at 10%
+
+
+def _billable_input_tokens(usage: Any) -> int:
+    """Input tokens in plain-input equivalents, including cached prompt tokens.
+
+    The SDK's input_tokens excludes cache writes and reads, so using it alone
+    understates spend whenever the system prompt is cached.
+    """
+    if not usage:
+        return 0
+    plain = getattr(usage, "input_tokens", 0) or 0
+    written = getattr(usage, "cache_creation_input_tokens", 0) or 0
+    read = getattr(usage, "cache_read_input_tokens", 0) or 0
+    return int(round(plain + written * _CACHE_WRITE_FACTOR + read * _CACHE_READ_FACTOR))
+
+
+def _accepts_temperature(create: Any) -> bool:
+    """Anthropic SDK 2.x removed `temperature` from Messages.create; 0.x/1.x have it."""
+    try:
+        params = inspect.signature(create).parameters
+    except (TypeError, ValueError):
+        return True
+    return "temperature" in params or any(
+        p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values()
+    )

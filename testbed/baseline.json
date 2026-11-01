@@ -1,0 +1,101 @@
+{
+  "manifest_version": 1,
+  "schema_version": "1.2.0",
+  "recall": 0.8,
+  "precision": 0.8888888888888888,
+  "true_positives": [
+    "w-unattached-vol-1",
+    "w-unattached-vol-2",
+    "w-stopped-instance-1",
+    "w-unassociated-eip-1",
+    "w-unassociated-eip-2",
+    "w-overprov-iops-1",
+    "w-idle-nat-1",
+    "w-idle-lb-1"
+  ],
+  "false_negatives": [
+    "w-log-group-no-retention-1",
+    "w-idle-client-vpn-1"
+  ],
+  "false_positives": [
+    "d-attached-vol-1"
+  ],
+  "unlabelled_findings": 2,
+  "findings_total": 11,
+  "by_class": {
+    "unattached_volume": {
+      "total": 2,
+      "found": 2,
+      "recall": 1.0,
+      "target": 0.95,
+      "target_met": true
+    },
+    "stopped_instance": {
+      "total": 1,
+      "found": 1,
+      "recall": 1.0,
+      "target": 0.9,
+      "target_met": true
+    },
+    "unassociated_eip": {
+      "total": 2,
+      "found": 2,
+      "recall": 1.0,
+      "target": 0.9,
+      "target_met": true
+    },
+    "overprovisioned_iops": {
+      "total": 1,
+      "found": 1,
+      "recall": 1.0,
+      "target": 0.9,
+      "target_met": true
+    },
+    "log_group_no_retention": {
+      "total": 1,
+      "found": 0,
+      "recall": 0.0,
+      "target": 0.9,
+      "target_met": false
+    },
+    "idle_nat": {
+      "total": 1,
+      "found": 1,
+      "recall": 1.0,
+      "target": 0.9,
+      "target_met": true
+    },
+    "idle_lb": {
+      "total": 1,
+      "found": 1,
+      "recall": 1.0,
+      "target": 0.9,
+      "target_met": true
+    },
+    "idle_client_vpn": {
+      "total": 1,
+      "found": 0,
+      "recall": 0.0,
+      "target": 0.9,
+      "target_met": false
+    }
+  },
+  "cost": {
+    "errors": {
+      "w-unattached-vol-1": 0.0,
+      "w-unattached-vol-2": 0.0,
+      "w-stopped-instance-1": 0.25,
+      "w-unassociated-eip-1": 0.0,
+      "w-unassociated-eip-2": 0.0,
+      "w-overprov-iops-1": 0.5714,
+      "w-idle-nat-1": 0.3912
+    },
+    "mean_error": 0.1732,
+    "median_error": 0.0,
+    "max_error": 0.5714,
+    "unpriced_true_positives": 1,
+    "verified_share": 0.0
+  },
+  "evidence_complete_share": 1.0,
+  "llm_cost_usd": 1.2
+}

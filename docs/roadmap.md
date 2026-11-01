@@ -5,9 +5,21 @@ description: Argus project status — what has shipped, known gaps, and what's n
 
 # Roadmap
 
-This page is the current status of Argus as of **v0.6.0**: what has shipped, what is known to be incomplete, and what is planned next. It is the single source of truth for project status; older planning documents have been retired. No dates are promised; items ship when they're ready and well-tested.
+This page is the current status of Argus as of **v0.7.0**: what has shipped, what is known to be incomplete, and what is planned next. It is the single source of truth for project status; older planning documents have been retired. No dates are promised; items ship when they're ready and well-tested.
 
 Have a feature request? [Open an issue](https://github.com/vamshisiddarth/argus/issues) — community input shapes what gets built next.
+
+---
+
+## :material-check-circle-outline: Shipped in v0.7.0
+
+A trust release. **Contains breaking changes**; see the [changelog](https://github.com/vamshisiddarth/argus/blob/main/CHANGELOG.md).
+
+- **Honest money.** Dollars are labelled billed, list price or model estimate; with no billed data the headline says "unverified waste estimate".
+- **Coverage, preflight and loud failure.** Reports state what was analysed and what was not; AWS preflight runs before any model spend; failed scans exit 3 or 4.
+- **Guards.** A missing metric is "could not judge", not idle; ElastiCache failover replicas and AMI-backed or retained snapshots are not recommended for deletion.
+- **Decision board is the only HTML report.** PDF export is removed. `argus board --client-safe` writes a redacted copy for clients.
+- **Depth differs by cloud.** AWS is the proven path; GCP and Azure have no state rules, preflight or tag fallback yet.
 
 ---
 
@@ -52,8 +64,6 @@ Small, known issues in what has shipped. Not scheduled; contributions welcome.
 - **No decision tracing.** There is no trace of the agent's tool calls and reasoning per finding (Langfuse-style). Debugging a wrong "idle" call relies on logs and the report's AI reasoning text.
 - **Logs, not metrics.** Remediation outcomes are structured log lines only; there are no counters exported to CloudWatch / Cloud Monitoring / Azure Monitor.
 - **`SLACK_WEBHOOK_URL` is always required.** Startup validation insists on it (unless `DRY_RUN=true`) even when `NOTIFICATION_PROVIDER` only lists `teams` or `webhook`.
-- **`BEDROCK_MAX_TOKENS` is ignored.** The Bedrock provider always requests up to 4096 output tokens.
-- **AWS template doesn't expose `RESOURCE_EXPLORER_REGION`.** Deployed Lambdas assume the aggregator index is in `us-east-1` unless you add the variable by hand.
 - **GCP deploy script doesn't enable the Vertex AI API** even though Vertex AI is the default provider on Cloud Run.
 - **Bundled policies aren't in the PyPI package.** `pip install` users don't get `config/policies/`; copy it from the repository (or write your own) and point `ARGUS_POLICY_DIR` at it.
 
@@ -61,7 +71,7 @@ Small, known issues in what has shipped. Not scheduled; contributions welcome.
 
 ## :material-wrench-outline: Remediation v2 — Auto-execution
 
-**Status: planned, not started.** Everything below this line is future work; none of it is in v0.6.0.
+**Status: planned, not started.** Everything below this line is future work; none of it is in v0.7.0.
 
 **The problem:** Remediation v1 (shipped in v0.5.0, made opt-in in v0.6.0) creates tickets. Acting on them still requires manual work.
 

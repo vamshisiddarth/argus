@@ -186,11 +186,11 @@ DRY_RUN=false
 argus scan
 ```
 
-Argus posts a **compact digest** — stats, a short (3–5 sentence) AI executive summary, and the top 5 findings as single lines. The full AI reasoning (why each resource is idle, what to do) lives in a separate HTML report.
+Argus posts a **compact digest** — stats, a short (3–5 sentence) AI executive summary, and the top 5 findings as single lines. The full AI reasoning (why each resource is idle, what to do) lives in the decision board, a separate HTML page.
 
-### Optional: HTML report with "Full report" button
+### Optional: decision board with "Full report" button
 
-To get the **Full report** button in the Slack digest, Argus needs an S3 bucket to upload the HTML report to.
+To get the **Full report** button in the Slack digest, Argus needs an S3 bucket to upload the board to.
 
 - **Lambda deployment** — the SAM template creates the bucket automatically (`argus-reports-{accountId}-{region}`) and sets `REPORT_S3_BUCKET` in the Lambda environment. Nothing to configure.
 - **Local CLI runs** — create a bucket manually and set it in `.env`:
@@ -246,7 +246,7 @@ Options:
   --ai-provider PROVIDER     anthropic | bedrock | vertexai | azure_openai (default: anthropic)
   --accounts PATH            Path to accounts.yaml for multi-account mode
   --primary-region REGION    AWS region for boto3 session (default: us-east-1)
-  --max-resources N          Max resources to analyze per scan (default: 200; scan only)
+  --max-resources N          Max resources to analyze per scan (default: scaled from --llm-budget, 300 at $2.00; scan only)
   --lookback-days DAYS       Metrics lookback window in days (default: 90; scan only)
   --llm-budget USD           Cost budget per scan/session (default: $2.00 scan, $1.00 chat; 0 = unlimited)
 ```

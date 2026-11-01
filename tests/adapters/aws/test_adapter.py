@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 from adapters.aws.adapter import AWSAdapter
+from adapters.aws.resource_explorer import Discovery
 from adapters.base import MetricSummary, Resource
 
 SAMPLE_ARN = "arn:aws:ec2:us-east-1:123456789012:instance/i-0abc123"
@@ -26,8 +27,8 @@ class TestAWSAdapterDelegation:
         expected = [Resource(SAMPLE_ARN, SAMPLE_TYPE, "aws", "us-east-1")]
 
         with patch(
-            "adapters.aws.adapter.resource_explorer.list_resources",
-            return_value=expected,
+            "adapters.aws.adapter.resource_explorer.discover",
+            return_value=Discovery(expected, True),
         ) as mock_fn:
             result = adapter.list_resources(ignore_regions=[])
 
@@ -112,3 +113,23 @@ class TestForAccountClassMethod:
             adapter = AWSAdapter.for_account(account=None, region="eu-west-1")
 
         assert adapter._aggregator_region == "us-east-1"
+
+
+def test_list_resources_records_whether_discovery_was_complete():
+    from unittest.mock import MagicMock, patch
+
+    from adapters.aws.adapter import AWSAdapter
+
+    adapter = AWSAdapter(MagicMock(), aggregator_region="us-east-1")
+    assert adapter.discovery_complete is None
+
+    with patch(
+        "adapters.aws.adapter.resource_explorer.discover",
+        return_value=Discovery(
+            [], False, {"arn:a": "ec2:subnet", "arn:b": "ec2:subnet"}
+        ),
+    ):
+        adapter.list_resources()
+
+    assert adapter.discovery_complete is False
+    assert adapter.filtered_by_type == {"ec2:subnet": 2}

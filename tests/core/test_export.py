@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
-from core.reports.export import export_pdf, export_pptx, get_report_formats
+from core.reports.export import export_pptx, get_report_formats
 
 
 def _fake_report() -> dict:
@@ -62,25 +62,6 @@ class TestGetReportFormats:
         assert get_report_formats() == {"json"}
 
 
-class TestExportPdf:
-    def test_raises_without_weasyprint(self):
-        with patch.dict("sys.modules", {"weasyprint": None}):
-            with pytest.raises(ImportError, match="weasyprint"):
-                export_pdf(_fake_report(), Path("/tmp/test"))
-
-    def test_calls_weasyprint(self, tmp_path):
-        mock_html_cls = MagicMock()
-        mock_weasyprint = MagicMock()
-        mock_weasyprint.HTML = mock_html_cls
-
-        with patch.dict("sys.modules", {"weasyprint": mock_weasyprint}):
-            result = export_pdf(_fake_report(), tmp_path / "report")
-
-        assert str(result).endswith(".pdf")
-        mock_html_cls.assert_called_once()
-        mock_html_cls.return_value.write_pdf.assert_called_once()
-
-
 class TestExportPptx:
     def test_raises_without_python_pptx(self):
         with patch.dict("sys.modules", {"pptx": None, "pptx.util": None}):
@@ -118,17 +99,24 @@ class TestSaveReportsLocally:
         assert len(json_files) == 1
         assert len(html_files) == 0
 
-    def test_pdf_skipped_gracefully_when_not_installed(self, tmp_path, monkeypatch):
+    def test_html_format_writes_the_decision_board(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("REPORT_FORMAT", "json,html")
+        monkeypatch.setenv("LOCAL_REPORT_DIR", str(tmp_path))
+
+        from core.reports.delivery import save_reports_locally
+
+        path = save_reports_locally(_fake_report())
+
+        page = Path(path).read_text(encoding="utf-8")
+        assert page.startswith("<!doctype html>")
+        assert 'id="board-data"' in page
+
+    def test_pdf_format_writes_no_pdf(self, tmp_path, monkeypatch):
         monkeypatch.setenv("REPORT_FORMAT", "json,pdf")
         monkeypatch.setenv("LOCAL_REPORT_DIR", str(tmp_path))
 
-        with patch(
-            "core.reports.export.export_pdf",
-            side_effect=ImportError("weasyprint not installed"),
-        ):
-            from core.reports.delivery import save_reports_locally
+        from core.reports.delivery import save_reports_locally
 
-            save_reports_locally(_fake_report())
+        save_reports_locally(_fake_report())
 
-        json_files = list(tmp_path.rglob("*.json"))
-        assert len(json_files) == 1
+        assert list(tmp_path.rglob("*.pdf")) == []

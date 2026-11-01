@@ -19,6 +19,17 @@ import argparse
 import json
 import os
 import sys
+import time
+from pathlib import Path
+from typing import Any
+
+from core.progress import (
+    NullProgress,
+    Progress,
+    StderrProgress,
+    format_duration,
+    set_progress,
+)
 
 # ---------------------------------------------------------------------------
 # Minimal ANSI color helper (no dependencies, TTY-aware)
@@ -124,11 +135,54 @@ def main(argv: list[str] | None = None) -> None:
         metavar="DAYS",
     )
     parser.add_argument(
+        "--cost-days",
+        default=None,
+        dest="cost_days",
+        type=_positive_int,
+        metavar="DAYS",
+        help="Per-resource cost window in days (default: 14, the most AWS "
+        "resource-level cost data holds)",
+    )
+    parser.add_argument(
+        "--activity-days",
+        default=None,
+        dest="activity_days",
+        type=_positive_int,
+        metavar="DAYS",
+        help="Last-activity (CloudTrail) window in days (default: 90, the most "
+        "CloudTrail can look back)",
+    )
+    parser.add_argument(
         "--llm-budget",
         default=None,
         dest="llm_budget",
         type=float,
         metavar="USD",
+    )
+    parser.add_argument(
+        "--strict-coverage",
+        action="store_true",
+        dest="strict_coverage",
+        help="Fail the scan if the resource cap leaves resources unanalysed",
+    )
+    parser.add_argument(
+        "--expect-account",
+        default=None,
+        dest="expect_account",
+        metavar="ACCOUNT_ID",
+        help="Abort (exit 4) unless the credentials belong to this AWS account",
+    )
+    parser.add_argument(
+        "--skip-preflight",
+        action="store_true",
+        dest="skip_preflight",
+        help="Skip the pre-scan environment checks (recorded in the report)",
+    )
+    parser.add_argument(
+        "--no-progress",
+        action="store_true",
+        dest="no_progress",
+        help="Do not show scan progress on stderr (also ARGUS_PROGRESS=off)",
     )
 
     subparsers = parser.add_subparsers(dest="command")
@@ -280,66 +334,157 @@ def main(argv: list[str] | None = None) -> None:
 
     # --- argus scan ---
     scan_parser = subparsers.add_parser(
-        "scan", help="Run a full cost optimization scan"
+        "scan",
+        help="Run a full cost optimization scan",
+        epilog=(
+            "exit codes: 0 ok, 1 error, 2 LLM budget exceeded, "
+            "3 agent stopped without submitting findings, 4 preflight failed"
+        ),
     )
     scan_parser.add_argument(
         "--cloud",
-        default=None,
+        default=argparse.SUPPRESS,
         choices=["aws", "gcp", "azure"],
         help="Cloud provider (auto-detected from env vars if omitted)",
     )
     scan_parser.add_argument(
         "--dry-run",
+        default=argparse.SUPPRESS,
         action="store_true",
         help="Log the Slack payload instead of posting it",
     )
     scan_parser.add_argument(
         "--ignore-regions",
-        default=os.environ.get("IGNORE_REGIONS", ""),
+        default=argparse.SUPPRESS,
         dest="ignore_regions",
         metavar="REGIONS",
         help="Comma-separated regions to exclude (default: none)",
     )
     scan_parser.add_argument(
         "--primary-region",
-        default=os.environ.get("PRIMARY_REGION", "us-east-1"),
+        default=argparse.SUPPRESS,
         dest="primary_region",
         help="AWS region for boto3/Bedrock (default: us-east-1)",
     )
     scan_parser.add_argument(
         "--ai-provider",
-        default=os.environ.get("AI_PROVIDER", "anthropic"),
+        default=argparse.SUPPRESS,
         choices=["anthropic", "bedrock", "vertexai", "azure_openai"],
         help="AI provider (default: anthropic)",
     )
     scan_parser.add_argument(
         "--accounts",
+        default=argparse.SUPPRESS,
         metavar="PATH",
         help="Path to accounts.yaml for multi-account mode",
     )
     scan_parser.add_argument(
         "--max-resources",
-        default=os.environ.get("MAX_RESOURCES_PER_SCAN", "200"),
+        default=argparse.SUPPRESS,
         dest="max_resources",
         type=int,
         metavar="N",
-        help="Max resources to analyze per scan (default: 200)",
+        help="Max resources to analyze per scan (default: scaled from --llm-budget)",
     )
+    # default=SUPPRESS on options also defined on the top-level parser, so a value
+    # given before the subcommand is not overwritten by the subparser's default.
     scan_parser.add_argument(
         "--lookback-days",
-        default=os.environ.get("METRICS_LOOKBACK_DAYS", "90"),
+        default=argparse.SUPPRESS,
         dest="lookback_days",
         type=int,
         metavar="DAYS",
         help="Metrics lookback window in days (default: 90)",
     )
     scan_parser.add_argument(
+        "--cost-days",
+        default=argparse.SUPPRESS,
+        dest="cost_days",
+        type=_positive_int,
+        metavar="DAYS",
+        help="Per-resource cost window in days (default: 14, the most AWS "
+        "resource-level cost data holds)",
+    )
+    scan_parser.add_argument(
+        "--activity-days",
+        default=argparse.SUPPRESS,
+        dest="activity_days",
+        type=_positive_int,
+        metavar="DAYS",
+        help="Last-activity (CloudTrail) window in days (default: 90, the most "
+        "CloudTrail can look back)",
+    )
+    scan_parser.add_argument(
         "--llm-budget",
-        default=os.environ.get("LLM_BUDGET_USD", "2.0"),
+        default=argparse.SUPPRESS,
         dest="llm_budget",
         type=float,
         metavar="USD",
         help="LLM cost budget per scan in USD (default: 2.00, 0=unlimited)",
+    )
+    scan_parser.add_argument(
+        "--strict-coverage",
+        action="store_true",
+        default=argparse.SUPPRESS,
+        dest="strict_coverage",
+        help="Fail the scan if the resource cap leaves resources unanalysed",
+    )
+    scan_parser.add_argument(
+        "--expect-account",
+        default=argparse.SUPPRESS,
+        dest="expect_account",
+        metavar="ACCOUNT_ID",
+        help="Abort (exit 4) unless the credentials belong to this AWS account",
+    )
+    scan_parser.add_argument(
+        "--skip-preflight",
+        action="store_true",
+        default=argparse.SUPPRESS,
+        dest="skip_preflight",
+        help="Skip the pre-scan environment checks (recorded in the report)",
+    )
+    scan_parser.add_argument(
+        "--no-progress",
+        action="store_true",
+        default=argparse.SUPPRESS,
+        dest="no_progress",
+        help="Do not show scan progress on stderr (also ARGUS_PROGRESS=off)",
+    )
+
+    # --- argus board ---
+    board_parser = subparsers.add_parser(
+        "board",
+        help="Build the static decision board page from a JSON scan report",
+    )
+    board_parser.add_argument(
+        "--report",
+        required=True,
+        dest="board_report",
+        metavar="PATH",
+        help="Scan report JSON (the .json file next to the board page)",
+    )
+    board_parser.add_argument(
+        "--client-safe",
+        action="store_true",
+        dest="board_client_safe",
+        help=(
+            "Redact for a client: account ids become account-N, ARNs lose "
+            "partition and account, the run cost and caller identity are dropped"
+        ),
+    )
+    board_parser.add_argument(
+        "--hide-tags",
+        default=None,
+        dest="board_hide_tags",
+        metavar="KEYS",
+        help="With --client-safe: comma-separated tag keys to remove, or * for all",
+    )
+    board_parser.add_argument(
+        "--out",
+        default=None,
+        dest="board_out",
+        metavar="PATH",
+        help="Where to write the page (default: <report>.board.html next to it)",
     )
 
     # --- argus chat ---
@@ -385,18 +530,19 @@ def main(argv: list[str] | None = None) -> None:
 
     args = parser.parse_args(argv)
 
-    # Backward compat: argus --run-now --cloud aws → treat as scan
+    # Backward compat: argus --run-now --cloud aws -> treat as scan
     if args.run_now and not args.command:
         args.command = "scan"
+
+    if args.command == "scan":
+        # Options may be given before or after "scan"; fill whatever is still unset.
         if args.ignore_regions is None:
             args.ignore_regions = os.environ.get("IGNORE_REGIONS", "")
         if args.primary_region is None:
             args.primary_region = os.environ.get("PRIMARY_REGION", "us-east-1")
         if args.ai_provider is None:
             args.ai_provider = os.environ.get("AI_PROVIDER", "anthropic")
-        if args.max_resources is None:
-            args.max_resources = int(os.environ.get("MAX_RESOURCES_PER_SCAN", "200"))
-        if args.lookback_days is None:
+        if getattr(args, "lookback_days", None) is None:
             args.lookback_days = int(os.environ.get("METRICS_LOOKBACK_DAYS", "90"))
         if args.llm_budget is None:
             args.llm_budget = float(os.environ.get("LLM_BUDGET_USD", "2.0"))
@@ -404,6 +550,9 @@ def main(argv: list[str] | None = None) -> None:
     if not args.command:
         parser.print_help()
         sys.exit(0)
+
+    if args.command == "board":
+        sys.exit(_run_board(args))
 
     # policies subcommands don't require a cloud provider
     if args.command == "policies":
@@ -447,39 +596,197 @@ def main(argv: list[str] | None = None) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _positive_int(value: str) -> int:
+    try:
+        number = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"{value!r} is not a whole number") from None
+    if number < 1:
+        raise argparse.ArgumentTypeError("must be at least 1")
+    return number
+
+
+def _make_progress(args: argparse.Namespace) -> Progress:
+    """Progress on stderr unless turned off by --no-progress or ARGUS_PROGRESS."""
+    mode = os.environ.get("ARGUS_PROGRESS", "auto").strip().lower()
+    if getattr(args, "no_progress", False) or mode in ("off", "0", "false", "no"):
+        return NullProgress()
+    return StderrProgress(tty=False if mode == "plain" else None)
+
+
+def _invoke_scan_handler(args: argparse.Namespace) -> Any:
+    if args.cloud == "aws":
+        from entrypoints.aws_lambda import handler
+
+        return handler({}, None)
+    if args.cloud == "gcp":
+        from entrypoints.gcp_cloudrun import main as gcp_main
+
+        return gcp_main()
+    if args.cloud == "azure":
+        from entrypoints.azure_function import main as azure_main
+
+        return azure_main(None)
+    print(f"Cloud {args.cloud!r} is not supported.", file=sys.stderr)
+    sys.exit(1)
+
+
 def _run_scan(args: argparse.Namespace) -> None:
     os.environ["IGNORE_REGIONS"] = args.ignore_regions
     os.environ["PRIMARY_REGION"] = args.primary_region
     os.environ["AI_PROVIDER"] = args.ai_provider
-    os.environ["MAX_RESOURCES_PER_SCAN"] = str(args.max_resources)
+    if getattr(args, "max_resources", None) is not None:
+        os.environ["MAX_RESOURCES_PER_SCAN"] = str(args.max_resources)
     os.environ["METRICS_LOOKBACK_DAYS"] = str(args.lookback_days)
     os.environ["LLM_BUDGET_USD"] = str(args.llm_budget)
     if args.dry_run:
         os.environ["DRY_RUN"] = "true"
+    if getattr(args, "strict_coverage", False):
+        os.environ["STRICT_COVERAGE"] = "true"
+    if getattr(args, "skip_preflight", False):
+        os.environ["ARGUS_SKIP_PREFLIGHT"] = "true"
+    if getattr(args, "cost_days", None):
+        os.environ["COST_LOOKBACK_DAYS"] = str(args.cost_days)
+    if getattr(args, "activity_days", None):
+        os.environ["ACTIVITY_LOOKBACK_DAYS"] = str(args.activity_days)
+    if getattr(args, "expect_account", None):
+        os.environ["ARGUS_EXPECT_ACCOUNT"] = args.expect_account
 
     if args.accounts:
         _apply_accounts_config(args.accounts, args.cloud)
 
-    if args.cloud == "aws":
-        from entrypoints.aws_lambda import handler
+    from core.errors import (
+        EXIT_AGENT_NO_SUBMIT,
+        EXIT_BUDGET_EXCEEDED,
+        EXIT_PREFLIGHT_FAILED,
+        AgentDidNotSubmitError,
+        PreflightFailedError,
+        StrictCoverageError,
+    )
 
-        result = handler({}, None)
-    elif args.cloud == "gcp":
-        from entrypoints.gcp_cloudrun import main as gcp_main
-
-        result = gcp_main()  # type: ignore[assignment,func-returns-value]
-    elif args.cloud == "azure":
-        from entrypoints.azure_function import main as azure_main
-
-        result = azure_main(None)  # type: ignore[assignment,func-returns-value]
-    else:
-        print(f"Cloud {args.cloud!r} is not supported.", file=sys.stderr)
+    reporter = _make_progress(args)
+    previous_reporter = set_progress(reporter)
+    started = time.monotonic()
+    try:
+        try:
+            result = _invoke_scan_handler(args)
+        except BaseException:
+            reporter.close()
+            raise
+        reporter.close(f"Total time {format_duration(time.monotonic() - started)}")
+    except AgentDidNotSubmitError as exc:
+        print(f"Scan failed: {exc}", file=sys.stderr)
+        sys.exit(EXIT_AGENT_NO_SUBMIT)
+    except PreflightFailedError as exc:
+        print(f"Preflight failed: {exc}", file=sys.stderr)
+        sys.exit(EXIT_PREFLIGHT_FAILED)
+    except StrictCoverageError as exc:
+        print(f"Scan failed: {exc}", file=sys.stderr)
         sys.exit(1)
+    finally:
+        set_progress(previous_reporter)
 
     if result is not None:
         print(json.dumps(result, indent=2))
+    if isinstance(result, dict) and result.get("preflight"):
+        pre = result["preflight"]
+        if pre.get("skipped"):
+            print(
+                "Preflight was SKIPPED (--skip-preflight); setup problems "
+                "will not be reported.",
+                file=sys.stderr,
+            )
+        for warning in pre.get("warnings", []):
+            print(f"Preflight warning: {warning}", file=sys.stderr)
+    if isinstance(result, dict) and result.get("llm"):
+        llm = result["llm"]
+        budget = (
+            f"${llm['budget_usd']:,.2f} budget"
+            if llm.get("budget_usd")
+            else "no budget cap"
+        )
+        for plan_line in llm.get("plans", []):
+            print(plan_line, file=sys.stderr)
+        print(
+            f"LLM spend: ${llm['spent_usd']:,.2f} of {budget} "
+            f"(estimated ${llm.get('estimate_usd', 0):,.2f} before the run)",
+            file=sys.stderr,
+        )
+    if isinstance(result, dict) and result.get("coverage"):
+        cov = result["coverage"]
+        note = (
+            f" ({cov['dropped']} not analysed, selection={cov['selection']})"
+            if cov.get("truncated")
+            else ""
+        )
+        if cov.get("free_config_skipped"):
+            note += (
+                f" [{cov['free_config_skipped']} free configuration objects skipped]"
+            )
+        if cov.get("metrics_lost_to_throttling"):
+            note += (
+                f" [metrics missing for {cov['metrics_lost_to_throttling']} "
+                "resources: API throttling]"
+            )
+        if cov.get("discovery_complete") is False:
+            note += " [discovery incomplete: provider result limit hit]"
+        print(
+            f"Coverage: analysed {cov['analysed']} of {cov['discovered']} resources"
+            f"{note}",
+            file=sys.stderr,
+        )
     if isinstance(result, dict) and result.get("budget_exceeded"):
-        sys.exit(2)
+        sys.exit(EXIT_BUDGET_EXCEEDED)
+
+
+def _run_board(args: argparse.Namespace) -> int:
+    """Write the self-contained board page for a scan report. No cloud access."""
+    from core.reports.board import build_board_html
+
+    report_path = Path(args.board_report)
+    if not report_path.is_file():
+        print(f"Report not found: {report_path}", file=sys.stderr)
+        return 1
+    try:
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        print(f"Not a valid JSON file: {report_path}", file=sys.stderr)
+        return 1
+    if not isinstance(report, dict) or "findings" not in report:
+        print(
+            f"{report_path} does not look like an Argus scan report "
+            "(no findings list).",
+            file=sys.stderr,
+        )
+        return 1
+
+    out = (
+        Path(args.board_out)
+        if args.board_out
+        else report_path.with_name(f"{report_path.stem}.board.html")
+    )
+    if out.resolve() == report_path.resolve():
+        print(
+            "--out is the same file as the report; choose another path.",
+            file=sys.stderr,
+        )
+        return 1
+    out.parent.mkdir(parents=True, exist_ok=True)
+    profile = None
+    if args.board_client_safe:
+        from core.reports.redact import RedactionProfile
+
+        keys = [k.strip() for k in (args.board_hide_tags or "").split(",") if k.strip()]
+        profile = RedactionProfile(
+            hide_all_tags="*" in keys,
+            hide_tag_keys=frozenset(k for k in keys if k != "*"),
+        )
+    elif args.board_hide_tags:
+        print("--hide-tags needs --client-safe.", file=sys.stderr)
+        return 1
+    out.write_text(build_board_html(report, profile), encoding="utf-8")
+    print(f"Board written to {out}")
+    return 0
 
 
 def _run_chat(args: argparse.Namespace) -> None:

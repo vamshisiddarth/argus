@@ -31,6 +31,9 @@ MAX_RETRIES = 3
 _BASE_DELAY = 1.0
 
 
+_DEFAULT_MODEL_MAX_OUTPUT = 16384  # gpt-4o output limit
+
+
 class AzureOpenAIProvider(AIProvider):
     """
     AI provider backed by Azure OpenAI GPT-4o.
@@ -42,7 +45,6 @@ class AzureOpenAIProvider(AIProvider):
 
     DEFAULT_DEPLOYMENT = "gpt-4o"
     DEFAULT_API_VERSION = "2024-10-21"
-    DEFAULT_MAX_TOKENS = 4096
     DEFAULT_TEMPERATURE = 0.0
 
     def __init__(
@@ -50,7 +52,7 @@ class AzureOpenAIProvider(AIProvider):
         endpoint: str | None = None,
         deployment: str | None = None,
         api_version: str | None = None,
-        max_tokens: int = DEFAULT_MAX_TOKENS,
+        max_tokens: int | None = None,
         api_key: str | None = None,
         temperature: float | None = None,
     ) -> None:
@@ -66,7 +68,11 @@ class AzureOpenAIProvider(AIProvider):
             )
         self._deployment = deployment or cfg.resolved_model("azure_openai")
         self._api_version = api_version or cfg.azure_openai_api_version
-        self._max_tokens = max_tokens
+        self._max_tokens = (
+            max_tokens
+            if max_tokens is not None
+            else min(cfg.max_tokens, _DEFAULT_MODEL_MAX_OUTPUT)
+        )
         self._temperature = temperature if temperature is not None else cfg.temperature
 
         resolved_key = api_key or cfg.azure_openai_api_key

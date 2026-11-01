@@ -37,15 +37,26 @@ Top findings
 
 ---
 
-## 🆕 What's new in v0.6.0
+## What's new in v0.7.0
+
+> **A trust release.** Argus now says what it covered, fails loudly when it cannot do its job, and never presents a guess as a bill.
+
+> **Breaking:** the decision board is now the only HTML report, and PDF export is removed. Scans, local saves and the S3 / GCS / Azure Blob upload write the board, and the Slack "Full report" link opens it. `REPORT_FORMAT=pdf` writes nothing. The JSON report is the stable interface. Exit code 3 and 4 now signal a failed scan or failed preflight.
+
+- **Honest money.** Every dollar is labelled billed, list price or model estimate. With no billed data the headline reads "unverified waste estimate" and says it is not a savings figure. Model estimates are not invoices; billed numbers need resource-level data in the payer account's Cost Explorer settings.
+- **Coverage and preflight.** Reports state resources discovered vs analysed, regions, the real metrics window and what could not be seen. AWS preflight checks Resource Explorer, tags and the scan role before any model spend.
+- **Fewer false alarms.** A missing metric is "could not judge", not idle: NAT gateways, load balancers and similar resources with no traffic data are withheld from the waste total. ElastiCache failover replicas and AMI-backed or retained snapshots are not recommended for deletion.
+- **Decision board.** Findings group into a short list of opportunities with savings ranges, evidence and check-first steps. `argus board --report FILE.json --client-safe` writes a redacted copy to show a client (read it before sending).
+- **Cost control.** Plan line and estimate before the model runs, strict stop before overspend, scan progress on stderr.
+- **Depth differs by cloud.** AWS is the proven path. GCP and Azure run the same pipeline but have no state rules, preflight or tag fallback yet.
+
+[Full changelog →](CHANGELOG.md) · [Project status →](docs/roadmap.md)
+
+### v0.6.0
 
 > **Breaking:** scheduled scans now create Jira tickets only when `REMEDIATION_ENABLED=true` (default `false`). If you ran v0.5.0 with Jira configured, set it to keep tickets flowing. `argus policies apply --confirm` is unaffected.
 
-- **Dry runs never touch Jira** — `DRY_RUN=true` / `--dry-run` previously still created real tickets when Jira was configured.
-- **One summary log line per remediation run**, with `error_type` on failures.
-- **`ARGUS_POLICY_DIR`** is read by both the CLI and scheduled scans (`ARGUS_POLICIES_DIR` still accepted).
-
-[Full changelog →](CHANGELOG.md) · [Project status →](docs/roadmap.md)
+- **Dry runs never touch Jira**, **one summary log line per remediation run**, and **`ARGUS_POLICY_DIR`** is read by the CLI and scheduled scans.
 
 ### v0.5.0
 
@@ -56,7 +67,7 @@ Top findings
 - **Rightsizing recommendations** — `resize` and `reduce_nodes` proposals now include a specific target tier or node count derived from observed CPU% (e.g., "Recommend db.t3.small — observed CPU ~8%").
 - **Acceptance rate monitoring** — `argus policies stats` reads the append-only audit log and prints per-policy proposal counts, Jira new/update splits, and cloud breakdown.
 - **JSONL audit log** — every `apply --confirm` appends a line to `local_reports/audit.jsonl` mapping `proposal_id → jira_key → jira_url`.
-- **1756 tests** — all pass offline, no cloud credentials needed.
+- **2,700+ tests** — all pass offline, no cloud credentials needed.
 
 [Full changelog →](CHANGELOG.md)
 
@@ -69,9 +80,11 @@ Every week (or on demand), Argus:
 1. **Discovers** every resource in your cloud account using AWS Resource Explorer / GCP Asset Inventory / Azure Resource Graph
 2. **Analyzes** each candidate — CloudWatch/Cloud Monitoring/Azure Monitor metrics, Cost Explorer/BigQuery/Cost Management cost data, and CloudTrail/Audit Log/Activity Log last-activity timestamps
 3. **Reasons** about idleness using Claude (via AWS Bedrock, Anthropic API, or Vertex AI) — no hardcoded thresholds
-4. **Reports** a compact digest (Slack, Microsoft Teams, or generic webhook) with top findings and a link to a full self-contained HTML report
+4. **Reports** a compact digest (Slack, Microsoft Teams, or generic webhook) with top findings and a link to the full decision board (a self-contained HTML page)
 
-The **Full report** button links to a self-contained HTML file (S3 / GCS / Azure Blob) with a filterable/sortable table and expandable AI reasoning per finding. Works offline, no login required.
+The **Full report** button links to the decision board, a self-contained HTML file (S3 / GCS / Azure Blob) that groups findings into opportunities with savings ranges, evidence, check-first steps and Approve / Investigate / Keep. Works offline, no login required.
+
+To decide what to do about the findings, `argus board --report <scan>.json` builds a single offline page that groups them into a short list of opportunities, with savings ranges, risk and check-first steps, and Approve / Investigate / Keep buttons. See [`examples/sample-board.html`](examples/sample-board.html) and the [Decision board](docs/concepts/board-report.md) page.
 
 > **See realistic examples:** [`sample-report-aws.json`](examples/sample-report-aws.json) · [`sample-report-gcp.json`](examples/sample-report-gcp.json) · [`sample-report-azure.json`](examples/sample-report-azure.json) — 5 findings each with AI-written reasoning, metrics, and cost data.
 
@@ -189,7 +202,7 @@ docker run --rm \
 
 ```bash
 pip install argus-cloud-optimizer
-argus --version   # argus 0.6.0
+argus --version   # argus 0.7.0
 argus --help
 ```
 
@@ -254,7 +267,7 @@ argus chat                                       # auto-detects cloud
 ```
 
 ```
-Argus v0.6.0 — AI Cloud Detective
+Argus v0.7.0 — AI Cloud Detective
 Cloud: AWS  |  Accounts: prod (123456789012)  |  Budget: $1.00/session
 Tip: end a line with \ to continue on the next line.
 Type your question, or /help for commands.
@@ -306,6 +319,7 @@ Available REPL commands: `/help`, `/scan`, `/cost`, `/clear`, `/summary`, `/quit
 ```
 argus scan [--cloud aws|gcp|azure] [options]    # full batch scan
 argus chat [--cloud aws|gcp|azure] [options]    # interactive Q&A
+argus board --report FILE.json [--out PATH]     # static decision board page (no cloud access)
 argus --run-now --cloud aws [options]           # backward compat
 
   --cloud CLOUD              Cloud provider (auto-detected from env vars if omitted)
@@ -314,10 +328,38 @@ argus --run-now --cloud aws [options]           # backward compat
   --ignore-regions REGIONS   Comma-separated regions to skip (e.g. ap-east-1,me-south-1)
   --ai-provider PROVIDER     anthropic | bedrock | vertexai | azure_openai (default: anthropic)
   --accounts PATH            Path to accounts.yaml for multi-account/project/subscription mode
-  --max-resources N          Maximum resources to analyze per scan (default: 200)
-  --lookback-days DAYS       Metrics lookback window in days (default: 90, use 14 for faster local dev)
+  --max-resources N          Maximum resources to analyze per scan (default: scaled from --llm-budget, 300 at $2.00)
+  --lookback-days DAYS       Metrics lookback window in days, applied to every metrics query and shown in the report (default: 90, use 14 for faster local dev)
   --llm-budget USD           Cost budget per scan/session (default: $2.00 scan, $1.00 chat)
+  --cost-days DAYS           Per-resource cost window in days (default: 14, the most AWS holds)
+  --activity-days DAYS       Last-activity (CloudTrail) window in days (default: 90, the most CloudTrail holds)
+  --expect-account ID        Abort (exit 4) unless the AWS credentials belong to this account
+  --strict-coverage          Fail (exit 1) if the cap or a search limit leaves resources unanalysed
+  --skip-preflight           Skip the AWS pre-scan environment checks (recorded in the report)
+  --no-progress              Do not show scan progress on stderr (also ARGUS_PROGRESS=off)
 ```
+
+### Scan progress
+
+`argus scan` reports its stages on stderr while it runs, so a long scan never looks hung. In a terminal it is one live line that updates in place, and log lines scroll above it. In a log file or a background task it is plain, throttled lines:
+
+```text
+[1/5] Discovering resources: 35 searches
+[1/5] Discovering resources: 18/35 (51%) 00:18 elapsed, about 00:17 left, region eu-central-1
+[1/5] Discovering resources: 127/211 (60%) 01:00 elapsed, about 00:40 left, eu-central-1 / lambda
+[1/5] Discovering resources: done, 211 searches in 01:28, 1,420 resources found
+[2/5] Applying rules: done in 00:09, 83 findings from rules
+[3/5] Collecting evidence: 1,337 resources
+[3/5] Collecting evidence: 340/1,337 (25%) 01:12 elapsed, about 03:36 left
+[3/5] Collecting evidence: done, 1,337 resources in 04:51
+LLM plan: 1254 residual candidates after rules (83). Budget covers all of them (estimated $1.13).
+[4/5] Reviewing with the model: 26 batches
+[4/5] Reviewing with the model: done, 26 batches in 06:30, $1.38 of $2.00
+[5/5] Building reports: done in 00:02
+Total time 12:14
+```
+
+Discovery counts its Resource Explorer searches. When a region returns the 1,000-result limit it is split by service, and those searches are added to the total, so the count can grow while it runs; the percentage always means "of the work known so far". stdout stays the JSON result, so `argus scan | jq` still works. Turn it off with `--no-progress` or `ARGUS_PROGRESS=off`; `ARGUS_PROGRESS=plain` forces the line output even in a terminal. Lambda, Cloud Run and Azure Function runs never show it.
 
 ---
 
@@ -475,6 +517,10 @@ Argus needs **read-only** access. The Lambda execution role requires:
 ```
 resource-explorer-2:Search
 resource-explorer-2:GetView
+resource-explorer-2:GetDefaultView
+resource-explorer-2:ListViews
+resource-explorer-2:ListIndexes
+resource-explorer-2:GetIndex
 cloudwatch:GetMetricData
 ce:GetCostAndUsage
 ce:GetCostAndUsageWithResources
@@ -552,7 +598,7 @@ Before you invest time deploying Argus, know what it **can't** do yet:
 | **Resource discovery** | All three strong | AWS covers 43 resource types via Resource Explorer. GCP covers 31 asset types via Asset Inventory. Azure discovers all types via Resource Graph with 40 having curated metric mappings. All three fall back to dynamic metric auto-discovery for unmapped types. AWS has the deepest per-type metric coverage; GCP and Azure are catching up. |
 | **Cost accuracy** | Best-effort | AWS Cost Explorer charges $0.01/API call — Argus batches aggressively (max 2 calls/scan). GCP requires BigQuery billing export enabled. Azure cost data depends on subscription-level access. Resource-level cost allocation must be enabled in AWS for per-resource costs; without it, costs show $0.00. |
 | **AI non-determinism** | By design | The AI decides what's idle — different runs may produce slightly different findings or reasoning. Set `AI_TEMPERATURE=0.0` (default) for most consistent results. |
-| **LLM cost** | Configurable | A full scan of ~200 resources costs ~$0.05–$0.50 in LLM API fees depending on provider. Use `--llm-budget` to set a hard cap (default: $2.00/scan). Large estates (1000+ resources) will hit the budget limit — increase it or use `--max-resources`. |
+| **LLM cost** | Configurable | One measured run on 1,614 resources cost about $1.4 to $1.55 (Bedrock, Sonnet-class), roughly $0.85 per 1,000 resources; your figure varies. Use `--llm-budget` to set a hard cap (default: $2.00/scan, about 300 resources). The plan line shows what fits before any model call; raise the budget for larger estates. |
 | **AWS Resource Explorer setup** | Manual step | You must enable Resource Explorer with an **aggregator index** (typically in `us-east-1`). Without this, Argus cannot discover resources. This is a one-time setup but is easy to miss. |
 | **Write actions** | None (by design) | Argus is strictly read-only. The policy engine generates Jira tickets with runbooks — a human reviews and executes. Argus never calls the runbook itself. |
 | **Multi-cloud in one scan** | Not yet | Each `argus` invocation scans one cloud. Use the merge report feature (`core/reports/multi_cloud.py`) to combine results after separate runs. |
@@ -622,7 +668,7 @@ argus/
 │   ├── aws/               # CloudFormation templates
 │   ├── gcp/               # Cloud Run + Scheduler deploy script
 │   └── azure/             # Bicep templates
-└── tests/                 # 1756 tests, all pass offline
+└── tests/                 # 2,700+ tests, all pass offline
 ```
 
 ---

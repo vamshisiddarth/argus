@@ -316,7 +316,7 @@ class TestBuildAIProvider:
 
 
 class TestSaveReportsToBlob:
-    @patch("entrypoints.azure_function.build_html_report", return_value="<html></html>")
+    @patch("entrypoints.azure_function.build_board_html", return_value="<html></html>")
     def test_uploads_json_and_html_and_returns_sas_url(self, mock_html, monkeypatch):
         monkeypatch.setenv("REPORT_STORAGE_CONTAINER", "my-container")
         monkeypatch.setenv("REPORT_URL_EXPIRY", "3600")
@@ -395,7 +395,7 @@ class TestSaveReportsToBlob:
         finally:
             sys.modules.update(saved)
 
-    @patch("entrypoints.azure_function.build_html_report", return_value="<html></html>")
+    @patch("entrypoints.azure_function.build_board_html", return_value="<html></html>")
     def test_returns_none_on_azure_error(self, mock_html, monkeypatch):
         monkeypatch.setenv("REPORT_STORAGE_CONTAINER", "my-container")
         monkeypatch.setenv("REPORT_URL_EXPIRY", "3600")
@@ -437,7 +437,7 @@ class TestSaveReportsToBlob:
 
         assert result is None
 
-    @patch("entrypoints.azure_function.build_html_report", return_value="<html></html>")
+    @patch("entrypoints.azure_function.build_board_html", return_value="<html></html>")
     def test_container_already_exists_does_not_fail(  # noqa: E501
         self, mock_html, monkeypatch
     ):
@@ -600,3 +600,52 @@ class TestMultiSubscriptionIntegration:
             {"id": "sub-aaa", "name": "development"},
             {"id": "sub-bbb", "name": "production"},
         ]
+
+
+def test_azure_main_returns_scan_summary_with_coverage(monkeypatch):
+    from contextlib import ExitStack
+    from unittest.mock import MagicMock, patch
+
+    from core.models.coverage import Coverage, TypeCoverage
+
+    monkeypatch.setenv("AZURE_SUBSCRIPTION_IDS", "sub-1")
+    monkeypatch.delenv("ACCOUNTS_MODE", raising=False)
+    with ExitStack() as stack:
+        stack.enter_context(patch("entrypoints.azure_function.notify_all"))
+        stack.enter_context(
+            patch("entrypoints.azure_function.build_slack_payload", return_value={})
+        )
+        stack.enter_context(
+            patch(
+                "entrypoints.azure_function.build_report",
+                return_value={
+                    "scan_id": "s",
+                    "cloud": "azure",
+                    "generated_at": "2026-10-23T00:00:00+00:00",
+                    "accounts_scanned": ["sub-1"],
+                    "findings_count": 0,
+                    "findings": [],
+                    "total_estimated_waste_usd": 0.0,
+                    "executive_summary": "ok",
+                },
+            )
+        )
+        loop_cls = stack.enter_context(patch("entrypoints.azure_function.AgentLoop"))
+        stack.enter_context(patch("entrypoints.azure_function.AzureAdapter"))
+        stack.enter_context(patch("entrypoints.azure_function._build_ai_provider"))
+        loop = MagicMock()
+        loop.run.return_value = ([], "ok")
+        loop.tracker.summary.return_value = {
+            "total_input_tokens": 1,
+            "total_output_tokens": 1,
+        }
+        loop.coverage = Coverage(
+            10, 4, "cost_desc", True, ["r"], {"T": TypeCoverage(10, 4)}
+        )
+        loop_cls.return_value = loop
+        from entrypoints.azure_function import main
+
+        result = main(None)
+
+    assert result["coverage"]["analysed"] == 4
+    assert result["statusCode"] == 200

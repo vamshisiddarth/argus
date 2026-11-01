@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from core.registry import actions_section
 
 # Shared domain knowledge used by both batch scan and chat prompts.
@@ -8,7 +10,8 @@ _RIGHT_SIZING_RULES = """RIGHT-SIZING RULES
 When get_metrics returns an instance_type field, you have the current size and MUST
 recommend a specific target size — not a generic "consider downsizing".
 
-Decision thresholds (90-day average — never judge on a shorter window):
+Decision thresholds (averaged over the scan's metrics window, stated in the
+WINDOW section of your instructions):
 
   EC2 Instance
     CPU < 5% AND NetworkOut < 1 GB/day  → downsize one family tier
@@ -75,10 +78,51 @@ REGIONS
 {regions_note}"""
 
 
+def _window_section(lookback_days: int, activity_days: int = 90) -> str:
+    text = (
+        "WINDOW\n──────\n"
+        f"Metrics cover the past {lookback_days} days. Always cite this window in "
+        "waste_reason (never a different number of days). The last-activity lookup "
+        f"covers the past {activity_days} days."
+    )
+    if lookback_days < 90:
+        text += (
+            f"\n\nSHORT WINDOW: this scan uses a {lookback_days}-day window, shorter "
+            "than a full quarter, so it can miss monthly and quarterly patterns. Say so in "
+            "waste_reason and treat idle conclusions as less certain."
+        )
+    return text
+
+
+_NO_DATA_RULE = """METRIC DATA STATUS
+──────────────────
+Every get_metrics result has a `status`: ok, no_data or error. When it is not ok
+the metrics are unavailable, which is NOT zero usage. For those resources write
+"no metric data" in waste_reason (never "zero" or "idle for N days"), set
+confidence to low, and lower the priority. Set confidence on every finding."""
+
+
+def _rule_findings_section(ids: list[str] | None) -> str:
+    if not ids:
+        return ""
+    shown = ", ".join(ids[:40])
+    more = f" (and {len(ids) - 40} more)" if len(ids) > 40 else ""
+    return f"""
+RULE-BASED FINDINGS
+───────────────────
+{len(ids)} resource(s) were already identified as idle by deterministic rules and
+are reported automatically: {shown}{more}.
+Do not call tools on them and do not include them in submit_findings.
+"""
+
+
 def build_system_prompt(
     cloud: str,
     ignore_regions: list[str],
     accounts: list[dict],
+    lookback_days: int = 90,
+    rule_finding_ids: list[str] | None = None,
+    activity_days: int = 90,
 ) -> str:
     """
     Build the agent system prompt. Injected once per scan — not per iteration.
@@ -105,7 +149,8 @@ YOUR APPROACH
    Resources are sorted by cost descending — focus on the top entries first.
 2. Use the cost_usd values already in the list to prioritize — no need to call
    get_cost again unless you need cost for resources not already in the list.
-3. For each candidate, call get_metrics to check actual usage over the past 90 days.
+3. For each candidate, call get_metrics to check actual usage over the past {lookback_days} days
+   (the window is fixed for this scan; do not pass `days`).
 4. Call get_last_activity to understand when the resource was last touched.
 5. Form a conclusion: is this resource idle, underutilized, or orphaned?
 6. When your analysis is complete, call submit_findings with all findings
@@ -120,6 +165,10 @@ WHAT TO LOOK FOR
 - Over-provisioned resources (large instance, near-zero load) — see RIGHT-SIZING below
 - Duplicate or redundant resources (multiple similar resources, one unused)
 
+{_window_section(lookback_days, activity_days)}
+
+{_NO_DATA_RULE}
+{_rule_findings_section(rule_finding_ids)}
 {_RIGHT_SIZING_RULES}
 
 {_PRIORITY_RULES}
@@ -221,7 +270,7 @@ Never recommend deletion without stating impact and cost savings.
 """
 
 
-def build_tool_schemas() -> list[dict]:
+def build_tool_schemas(lookback_days: int = 90, cost_days: int = 14) -> list[dict]:
     """
     Return the tool definitions used to register tools with the AI provider.
     Kept here alongside the prompt so both evolve together.
@@ -262,9 +311,8 @@ def build_tool_schemas() -> list[dict]:
                 "DB connections, etc.). "
                 "You do not need to specify which metrics — just provide "
                 "the resource ID and type. "
-                "Do NOT pass a days value less than 90 — short windows "
-                "produce false positives "
-                "by missing weekly, monthly, or quarterly usage patterns."
+                f"The lookback window is fixed for this scan at {lookback_days} days; "
+                "any days value you pass is replaced by it."
             ),
             "input_schema": {
                 "type": "object",
@@ -280,11 +328,10 @@ def build_tool_schemas() -> list[dict]:
                     "days": {
                         "type": "integer",
                         "description": (
-                            "Lookback window in days. Default is 90. "
-                            "Never set below 90 — shorter windows miss quarterly patterns "
-                            "and produce false-positive idle findings."
+                            f"Optional. The scan fixes the window at {lookback_days} "
+                            "days regardless of this value."
                         ),
-                        "default": 90,
+                        "default": lookback_days,
                     },
                 },
                 "required": ["resource_id", "resource_type"],
@@ -293,7 +340,8 @@ def build_tool_schemas() -> list[dict]:
         {
             "name": "get_cost",
             "description": (
-                "Get the actual cost in USD for one or more resources over the past N days. "
+                "Get the actual cost in USD for one or more resources over the past "
+                f"{cost_days} days (fixed for this scan). "
                 "ALWAYS batch multiple resource IDs into a single call — never call this "
                 "one resource at a time. Returns a dict mapping resource_id to monthly cost."
             ),
@@ -307,8 +355,11 @@ def build_tool_schemas() -> list[dict]:
                     },
                     "days": {
                         "type": "integer",
-                        "description": "Lookback window in days (default: 30)",
-                        "default": 30,
+                        "description": (
+                            f"Optional. The scan fixes the window at {cost_days} "
+                            "days regardless of this value."
+                        ),
+                        "default": cost_days,
                     },
                 },
                 "required": ["resource_ids"],
@@ -388,6 +439,14 @@ def build_tool_schemas() -> list[dict]:
                                     "type": "string",
                                     "enum": ["high", "medium", "low"],
                                 },
+                                "confidence": {
+                                    "type": "string",
+                                    "enum": ["low", "medium", "high"],
+                                    "description": (
+                                        "How sure you are the resource is wasted. Use "
+                                        "low when metrics were unavailable."
+                                    ),
+                                },
                                 "metrics_summary": {
                                     "type": "object",
                                     "description": "Key metric values that informed this decision",
@@ -408,6 +467,15 @@ def build_tool_schemas() -> list[dict]:
                             "the most impactful finding, and the single most important action to take."
                         ),
                     },
+                    "partial": {
+                        "type": "boolean",
+                        "description": (
+                            "Set true when more submit_findings calls will follow "
+                            "(use batches of at most 8 findings if your output "
+                            "would be too long). Set false or omit on the last call."
+                        ),
+                        "default": False,
+                    },
                 },
                 "required": ["findings", "executive_summary"],
             },
@@ -415,6 +483,118 @@ def build_tool_schemas() -> list[dict]:
     ]
 
 
-def build_chat_tool_schemas() -> list[dict]:
+def build_chat_tool_schemas(lookback_days: int = 90, cost_days: int = 14) -> list[dict]:
     """Chat mode tools — same as batch minus submit_findings."""
-    return [t for t in build_tool_schemas() if t["name"] != "submit_findings"]
+    return [
+        t
+        for t in build_tool_schemas(lookback_days, cost_days)
+        if t["name"] != "submit_findings"
+    ]
+
+
+# ---------------------------------------------------------------------------
+# Evidence-first triage (the default scan engine)
+# ---------------------------------------------------------------------------
+
+REPORT_FINDINGS_TOOL: dict[str, Any] = {
+    "name": "report_findings",
+    "description": (
+        "Report which resources in this batch are wasteful. Call it exactly once "
+        "per batch. Use an empty list when none are."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "findings": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "required": ["i", "waste_reason", "recommendation", "priority"],
+                    "properties": {
+                        "i": {
+                            "type": "integer",
+                            "description": "The resource's `i` from the batch.",
+                        },
+                        "waste_reason": {
+                            "type": "string",
+                            "description": "Why it is wasteful, citing the evidence. "
+                            "Under 200 characters.",
+                        },
+                        "recommendation": {
+                            "type": "string",
+                            "description": "Specific action: delete, downsize, "
+                            "snapshot then delete, tag for review, ...",
+                        },
+                        "priority": {
+                            "type": "string",
+                            "enum": ["high", "medium", "low"],
+                        },
+                        "confidence": {
+                            "type": "string",
+                            "enum": ["low", "medium", "high"],
+                        },
+                        "estimated_monthly_cost": {
+                            "type": "number",
+                            "description": "USD per month. Omit if the line has "
+                            "`cost` (that is the billed figure) or you do not know.",
+                        },
+                    },
+                },
+            }
+        },
+        "required": ["findings"],
+    },
+}
+
+
+def build_triage_prompt(
+    cloud: str,
+    ignore_regions: list[str],
+    accounts: list[dict],
+    lookback_days: int = 90,
+    activity_days: int = 90,
+    rule_finding_ids: list[str] | None = None,
+) -> str:
+    """System prompt for batch triage. Stateless: every batch gets the same prompt."""
+    context = _build_context_header(cloud, ignore_regions, accounts)
+    return f"""You are Argus, an AI Cloud Detective.
+
+MISSION
+───────
+Decide which {cloud.upper()} resources are idle, unused, orphaned or over-provisioned
+and are costing real money. Argus has already gathered the evidence in code: you
+need no tools except report_findings.
+
+{context}
+
+HOW YOU WORK
+────────────
+You receive a batch of resources, one JSON object per line:
+  i     index to cite in your findings
+  id    resource id (short)       t   resource type        r   region
+  name, tags                      cost  billed USD for the cost window (if known)
+  st    current configuration (state, size, attachment, ...) when known
+  m     metric values over the metrics window (a missing metric means no data)
+  ms    metric status when it is not ok: no_data or error
+  la    last activity date, or none_in_window if nothing was recorded
+
+Call report_findings exactly once with a finding for each resource the evidence
+shows is wasteful (empty list if none). Never invent resources or indexes.
+
+EVIDENCE RULES
+──────────────
+- Absence of data is NOT evidence of waste. A resource with ms=no_data and no
+  activity record is "unknown": report it only if its name, tags or type strongly
+  suggest abandonment, and then with confidence low.
+- Cite the numbers you relied on in waste_reason (for example "0 requests in 14d").
+- Prefer fewer, well-supported findings over many guesses.
+
+{_window_section(lookback_days, activity_days)}
+
+{_NO_DATA_RULE}
+{_rule_findings_section(rule_finding_ids)}
+{_RIGHT_SIZING_RULES}
+
+{_PRIORITY_RULES}
+
+{actions_section(cloud)}"""

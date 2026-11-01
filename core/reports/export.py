@@ -1,8 +1,8 @@
 """
-Multi-format report export: PDF and PPTX.
+Report export: PPTX.
 
-Both are optional — the libraries are only imported when the format is requested.
-Install with: pip install weasyprint python-pptx
+Optional: the library is only imported when the format is requested.
+Install with: pip install python-pptx
 """
 
 from __future__ import annotations
@@ -12,6 +12,9 @@ from typing import Any
 
 import structlog
 
+from core.reports.basis import headline_noun
+from core.reports.generator import waste_caveat
+
 logger = structlog.get_logger(__name__)
 
 
@@ -19,24 +22,6 @@ def get_report_formats() -> set[str]:
     from core.config import get_settings
 
     return get_settings().report.formats
-
-
-def export_pdf(report: dict[str, Any], output_path: Path) -> Path:
-    try:
-        from weasyprint import HTML  # type: ignore[import-untyped]
-    except ImportError as exc:
-        raise ImportError(
-            "weasyprint is required for PDF export. "
-            "Install with: pip install weasyprint"
-        ) from exc
-
-    from core.reports.html import build_html_report
-
-    html_content = build_html_report(report)
-    pdf_path = output_path.with_suffix(".pdf")
-    HTML(string=html_content).write_pdf(str(pdf_path))
-    logger.info("pdf_report_saved", path=str(pdf_path))
-    return pdf_path
 
 
 def export_pptx(report: dict[str, Any], output_path: Path) -> Path:
@@ -58,7 +43,9 @@ def export_pptx(report: dict[str, Any], output_path: Path) -> Path:
     slide.shapes.title.text = f"Argus — {report['cloud'].upper()} Waste Report"
     slide.placeholders[1].text = (
         f"Generated: {report['generated_at'][:10]}\n"
-        f"Total estimated waste: ${report['total_estimated_waste_usd']:,.2f}/month\n"
+        f"Total {headline_noun(report)}: "
+        f"${report['total_estimated_waste_usd']:,.2f}/month"
+        f"{_caveat_suffix(report)}\n"
         f"Findings: {report['findings_count']}"
     )
 
@@ -109,3 +96,8 @@ def export_pptx(report: dict[str, Any], output_path: Path) -> Path:
     prs.save(str(pptx_path))
     logger.info("pptx_report_saved", path=str(pptx_path))
     return pptx_path
+
+
+def _caveat_suffix(report: dict[str, Any]) -> str:
+    caveat = waste_caveat(report)
+    return f" ({caveat})" if caveat else ""

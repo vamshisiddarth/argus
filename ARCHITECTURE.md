@@ -70,7 +70,7 @@ It must never share the scan role or run inside the Argus agent loop.
 │  │  ┌──────────────────────┐   ┌───────────────────────────────────┐    │   │
 │  │  │  REPORT GENERATOR    │   │  NOTIFICATIONS                    │    │   │
 │  │  │  core/reports/       │   │  core/reports/delivery.py         │    │   │
-│  │  │  - JSON/HTML/PDF/    │   │  - Slack / Teams / generic webhook│    │   │
+│  │  │  - JSON/board/        │   │  - Slack / Teams / generic webhook│    │   │
 │  │  │    PPTX export       │   │  - ranked by monthly waste ($)    │    │   │
 │  │  └──────────────────────┘   └───────────────────────────────────┘    │   │
 │  └──────────────────────────────────────────────────────────────────────┘   │
@@ -274,6 +274,8 @@ It must never share the scan role or run inside the Argus agent loop.
 
 ## The Agent's ReAct Loop — Step by Step
 
+> **Scope:** this describes the ReAct loop, which powers `argus chat` and `ARGUS_ENGINE=react`. The default scan engine since 0.7.0 is the evidence-first pipeline (discover, rules, evidence, batched triage, guards); see [How it works](docs/concepts/how-it-works.md).
+
 ```
   INPUT: cloud adapter + AI provider + account list + regions
   │
@@ -340,7 +342,7 @@ It must never share the scan role or run inside the Argus agent loop.
   ReportGenerator sorts findings by estimated_monthly_cost desc
         │
         ▼
-  Reports saved to S3 / GCS / Azure Blob (JSON, HTML, PDF, PPTX)
+  Reports saved to S3 / GCS / Azure Blob (JSON, board HTML, PPTX)
         │
         ▼
   Notifications: Slack / Teams / generic webhook — executive summary + top N findings

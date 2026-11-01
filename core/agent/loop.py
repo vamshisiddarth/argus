@@ -10,7 +10,11 @@ import structlog
 from adapters.base import CloudAdapter
 from ai.base import AIProvider, Message, Tool, ToolCall, ToolResult
 from core.agent.prompts import build_system_prompt, build_tool_schemas
+from core.agent.selection import select_candidates
+from core.baseline import BaselineResult, run_baseline
 from core.config import get_settings
+from core.errors import AgentDidNotSubmitError
+from core.models.coverage import Coverage, TypeCoverage
 from core.models.finding import ResourceFinding
 from core.token_tracker import BudgetExceededError, TokenTracker
 
@@ -90,13 +94,22 @@ class AgentLoop:
     def __init__(self, ai_provider: AIProvider, cloud_adapter: CloudAdapter) -> None:
         self._ai = ai_provider
         self._adapter = cloud_adapter
+        self.coverage: Coverage | None = None
+        self.scan_window: dict[str, Any] | None = None
+        self._costs: dict[str, float] = {}
+        self._resource_tags: dict[str, dict[str, str]] = {}
+        self._no_data_ids: set[str] = set()
+        self._baseline = BaselineResult()
+        self._partial_findings: list[dict[str, Any]] = []
         self._tools: list[Tool] = [
             Tool(
                 name=t["name"],
                 description=t["description"],
                 input_schema=t["input_schema"],
             )
-            for t in build_tool_schemas()
+            for t in build_tool_schemas(
+                lookback_days=_lookback_days(), cost_days=_cost_days(cloud_adapter)
+            )
         ]
 
     def run(
@@ -113,9 +126,11 @@ class AgentLoop:
             findings: ResourceFinding list sorted by estimated_monthly_cost desc
             executive_summary: AI-written 3-5 sentence summary for managers
         """
-        system_prompt = build_system_prompt(
-            cloud=cloud, ignore_regions=ignore_regions, accounts=accounts
-        )
+
+        if get_settings().scan.engine == "pipeline":
+            from core.pipeline.runner import run_pipeline
+
+            return run_pipeline(self, cloud, ignore_regions, accounts)
 
         # ------------------------------------------------------------------
         # Phase 0 — pre-filter (outside AI context, no tokens consumed)
@@ -123,6 +138,15 @@ class AgentLoop:
         # to the agent. This keeps context small regardless of account size.
         # ------------------------------------------------------------------
         self._prefilter_resources(ignore_regions)
+
+        system_prompt = build_system_prompt(
+            cloud=cloud,
+            ignore_regions=ignore_regions,
+            accounts=accounts,
+            lookback_days=_lookback_days(),
+            activity_days=get_settings().scan.activity_lookback_days,
+            rule_finding_ids=sorted(self._baseline.finding_ids),
+        )
 
         settings = get_settings()
         self.tracker = TokenTracker(
@@ -135,6 +159,9 @@ class AgentLoop:
             Message(role="user", text="Begin your cloud cost analysis now.")
         ]
 
+        retried = False
+        truncations = 0
+        self._partial_findings = []
         for iteration in range(1, max_iterations + 1):
             logger.info("agent_iteration", iteration=iteration)
 
@@ -147,7 +174,7 @@ class AgentLoop:
                     "budget_exceeded_stopping",
                     **self.tracker.summary(),
                 )
-                return [], (
+                return self._merge_baseline([]), (
                     f"Scan aborted: LLM budget of "
                     f"${self.tracker.budget_usd:.2f} exceeded "
                     f"(${self.tracker.estimated_cost_usd:.4f} spent "
@@ -156,16 +183,62 @@ class AgentLoop:
                 )
 
             if response.stop_reason == "tool_use":
-                # Check first — submit_findings terminates the loop immediately
-                for tc in response.tool_calls:
-                    if tc.name == "submit_findings":
-                        logger.info(
-                            "agent_complete",
-                            findings_count=len(tc.arguments.get("findings", [])),
-                            **self.tracker.summary(),
+                # submit_findings ends the loop unless it is a partial batch
+                submit = next(
+                    (tc for tc in response.tool_calls if tc.name == "submit_findings"),
+                    None,
+                )
+                if submit is not None and submit.arguments.get("partial") is True:
+                    batch = submit.arguments.get("findings", [])
+                    self._partial_findings.extend(batch)
+                    messages.append(
+                        Message(
+                            role="assistant",
+                            text=response.text,
+                            tool_calls=[submit],
                         )
-                        findings, summary = _parse_findings(tc.arguments, cloud=cloud)
-                        return _attach_accounts(findings, accounts), summary
+                    )
+                    messages.append(
+                        Message(
+                            role="user",
+                            tool_results=[
+                                ToolResult(
+                                    tool_call_id=submit.id,
+                                    content=(
+                                        f"Recorded {len(batch)} finding(s). Submit "
+                                        "the remaining findings; set partial=false "
+                                        "on the last call."
+                                    ),
+                                    is_error=False,
+                                )
+                            ],
+                        )
+                    )
+                    continue
+                if submit is not None:
+                    args = {**submit.arguments}
+                    merged = {
+                        f["resource_id"]: f
+                        for f in [*self._partial_findings, *args.get("findings", [])]
+                    }
+                    args["findings"] = list(merged.values())
+                    logger.info(
+                        "agent_complete",
+                        findings_count=len(args["findings"]),
+                        **self.tracker.summary(),
+                    )
+                    findings, summary = _parse_findings(
+                        args,
+                        cloud=cloud,
+                        no_data_ids=self._no_data_ids,
+                        window_days=_lookback_days(),
+                    )
+                    findings = _attach_cost_basis(findings, self._costs)
+                    for f in findings:
+                        f.detected_by = "model"
+                    findings = self._merge_baseline(findings)
+                    findings = _attach_tags(findings, self._resource_tags)
+                    return _attach_accounts(findings, accounts), summary
 
                 # Persist the assistant turn before executing tools
                 messages.append(
@@ -182,20 +255,72 @@ class AgentLoop:
                 messages.append(Message(role="user", tool_results=tool_results))
 
             else:
-                # end_turn or max_tokens without submit_findings — shouldn't happen
-                # if the prompt is working, but handle gracefully
+                # end_turn or max_tokens without submit_findings. Re-prompt once;
+                # a second miss is a failed scan, never a clean empty one.
                 logger.warning(
                     "agent_stopped_without_findings",
                     stop_reason=response.stop_reason,
+                    retried=retried,
                     **self.tracker.summary(),
                 )
-                return [], response.text or ""
+                if response.stop_reason == "max_tokens":
+                    truncations += 1
+                    if truncations > _MAX_TRUNCATIONS:
+                        raise AgentDidNotSubmitError(
+                            "The model's output was cut off by the output limit "
+                            f"{truncations} times. Raise AI_MAX_TOKENS or lower "
+                            "MAX_RESOURCES_PER_SCAN."
+                        )
+                    messages.append(
+                        Message(role="assistant", text=response.text or "...")
+                    )
+                    messages.append(
+                        Message(
+                            role="user",
+                            text=(
+                                "Your last response hit the output limit and was cut "
+                                "off. Call submit_findings in batches of at most 8 "
+                                "findings with short waste_reason text, setting "
+                                "partial=true on every batch except the last "
+                                "(partial=false)."
+                            ),
+                        )
+                    )
+                    continue
+                if retried:
+                    raise AgentDidNotSubmitError(
+                        "The model stopped without calling submit_findings, even "
+                        "after a reminder. Last model output: "
+                        f"{(response.text or '')[:500]}"
+                    )
+                retried = True
+                messages.append(Message(role="assistant", text=response.text or "..."))
+                messages.append(
+                    Message(
+                        role="user",
+                        text=(
+                            "You stopped without calling submit_findings. Call "
+                            "submit_findings now with your findings (an empty "
+                            "list if there are none)."
+                        ),
+                    )
+                )
 
         raise RuntimeError(
             f"Agent loop exceeded {max_iterations} iterations "
             "without submitting findings. "
             "Check the system prompt or increase MAX_AGENT_ITERATIONS."
         )
+
+    def _merge_baseline(
+        self, model_findings: list[ResourceFinding]
+    ) -> list[ResourceFinding]:
+        """Rule findings are authoritative over model findings for the same id."""
+        decided = self._baseline.finding_ids
+        merged = [*self._baseline.findings]
+        merged += [f for f in model_findings if f.resource_id not in decided]
+        merged.sort(key=lambda f: (-f.estimated_monthly_cost, f.resource_id))
+        return merged
 
     def _execute_tool_calls(self, tool_calls: list[ToolCall]) -> list[ToolResult]:
         parallel = [tc for tc in tool_calls if tc.name in _PARALLELIZABLE_TOOLS]
@@ -233,6 +358,41 @@ class AgentLoop:
 
         return results
 
+    def _discover_and_cost(
+        self, ignore_regions: list[str]
+    ) -> tuple[list[Any], dict[str, float]]:
+        """Discover resources, apply exclusion filters and fetch costs in one batch.
+
+        Sets self._costs, self._resource_tags, self.scan_window and, when nothing
+        was found, an empty coverage. Shared by both scan engines.
+        """
+        resources = self._adapter.list_resources(ignore_regions=ignore_regions or None)
+        resources = _apply_exclusion_filters(resources)
+        logger.info("resources_discovered", count=len(resources))
+
+        if not resources:
+            self.coverage = Coverage.empty()
+            self._baseline = BaselineResult()
+            self.scan_window = _scan_window(has_cost=False, adapter=self._adapter)
+            return [], {}
+
+        # Batch cost fetch: one API call for all resource IDs
+        try:
+            costs = self._adapter.get_cost(
+                resource_ids=[r.resource_id for r in resources],
+                days=_cost_days(self._adapter),
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("prefilter_cost_fetch_failed", error=str(exc))
+            costs = {}
+
+        self._costs = costs
+        self._resource_tags = {r.resource_id: dict(r.tags) for r in resources}
+        self.scan_window = _scan_window(
+            has_cost=any(v > 0 for v in costs.values()), adapter=self._adapter
+        )
+        return resources, costs
+
     def _prefilter_resources(self, ignore_regions: list[str]) -> list[dict]:
         """
         Phase 0: enumerate all resources + batch-fetch cost outside the AI loop.
@@ -240,49 +400,69 @@ class AgentLoop:
         Steps:
           1. list_resources — discovers all billable resources
           2. get_cost (one batched call) — fetches USD cost for all of them
-          3. Sort by cost descending, keep top get_settings().scan.max_resources
+          3. Cap at get_settings().scan.max_resources via select_candidates
+             (cost order when cost data exists, per-type round-robin otherwise)
           4. Build the compact payload that will be handed to the AI on its
              first list_resources call
 
         This keeps the AI context bounded regardless of account size:
-          - 10K raw resources → ~3K after non-billable filter → top 200 by cost
-          - The AI never sees zero-cost noise
+          - 10K raw resources → ~3K after non-billable filter → 200 candidates
+          - Every resource type stays represented when the cap truncates
         """
         logger.info("prefilter_start")
 
-        resources = self._adapter.list_resources(ignore_regions=ignore_regions or None)
-        resources = _apply_exclusion_filters(resources)
+        resources, costs = self._discover_and_cost(ignore_regions)
         total_discovered = len(resources)
-        logger.info("resources_discovered", count=total_discovered)
-
         if not resources:
             self._prefiltered_payload = []
             logger.info("prefilter_complete", discovered=0, sent_to_ai=0)
             return []
 
-        # Batch cost fetch — one API call for all resource IDs
-        resource_ids = [r.resource_id for r in resources]
-        try:
-            costs = self._adapter.get_cost(resource_ids=resource_ids)
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("prefilter_cost_fetch_failed", error=str(exc))
-            costs = {}
-
-        # Attach cost to each resource and sort descending
-        resources_with_cost = [(r, costs.get(r.resource_id, 0.0)) for r in resources]
-        resources_with_cost.sort(key=lambda x: x[1], reverse=True)
-
-        # Cap at get_settings().scan.max_resources
-        capped = resources_with_cost[: get_settings().scan.max_resources]
-        dropped = total_discovered - len(capped)
+        scan_cfg = get_settings().scan
+        cap = scan_cfg.max_resources
+        if self.scan_window is None:
+            self.scan_window = {}
+        self.scan_window["max_resources"] = cap
+        self.scan_window["max_resources_source"] = scan_cfg.max_resources_source
+        self._baseline = BaselineResult()
+        if scan_cfg.baseline_rules:
+            self._baseline = run_baseline(
+                self._adapter,
+                resources,
+                costs,
+                _lookback_days(),
+                scan_cfg.adapter_concurrency,
+            )
+        decided = self._baseline.finding_ids
+        pool = [r for r in resources if r.resource_id not in decided]
+        chosen, selection_rule = select_candidates(pool, costs, cap)
+        capped = [(r, costs.get(r.resource_id, 0.0)) for r in chosen]
+        chosen_ids = {r.resource_id for r in chosen}
+        analysed = chosen + [
+            r
+            for r in resources
+            if r.resource_id in self._baseline.evaluated_ids
+            and r.resource_id not in chosen_ids
+        ]
+        dropped = total_discovered - len(analysed)
+        self.coverage = _build_coverage(
+            resources,
+            analysed,
+            costs,
+            selection_rule,
+            total_discovered,
+            getattr(self._adapter, "discovery_complete", None),
+            _free_config_count(self._adapter),
+        )
 
         if dropped > 0:
-            logger.info(
+            logger.warning(
                 "prefilter_capped",
                 discovered=total_discovered,
                 sent_to_ai=len(capped),
-                dropped_zero_cost=dropped,
-                cap=get_settings().scan.max_resources,
+                dropped=dropped,
+                cap=cap,
+                selection=selection_rule,
             )
 
         # Build compact payload — include cost so AI doesn't need to call get_cost
@@ -335,7 +515,12 @@ class AgentLoop:
                     )
 
                 case "get_metrics":
-                    summary = self._adapter.get_metrics(**tc.arguments)
+                    # The scan's window is authoritative, whatever the model asks for.
+                    args = {**tc.arguments, "days": _lookback_days()}
+                    summary = self._adapter.get_metrics(**args)
+                    if summary.status != "ok":
+                        self._no_data_ids.add(summary.resource_id)
+                        self._no_data_ids.add(str(tc.arguments.get("resource_id")))
                     return (
                         json.dumps(
                             summary.to_dict(), default=str, separators=(",", ":")
@@ -344,7 +529,8 @@ class AgentLoop:
                     )
 
                 case "get_cost":
-                    costs = self._adapter.get_cost(**tc.arguments)
+                    args = {**tc.arguments, "days": _cost_days(self._adapter)}
+                    costs = self._adapter.get_cost(**args)
                     return json.dumps(costs, default=str, separators=(",", ":")), False
 
                 case "get_last_activity":
@@ -357,6 +543,9 @@ class AgentLoop:
 
         except Exception as exc:  # noqa: BLE001
             logger.error("tool_error", tool=tc.name, error=str(exc))
+            if tc.name == "get_metrics":
+                # A failed metrics call is missing evidence, not zero usage.
+                self._no_data_ids.add(str(tc.arguments.get("resource_id")))
             return f"Tool error: {exc}", True
 
 
@@ -445,16 +634,91 @@ def _tags_match(resource_tags: dict[str, str], exclude_tags: dict[str, str]) -> 
     return False
 
 
+def _lookback_days() -> int:
+    return get_settings().scan.metrics_lookback_days
+
+
+def _cost_days(adapter: Any) -> int:
+    """Configured cost window, capped by what the adapter's cost data can hold."""
+    days = get_settings().scan.cost_lookback_days
+    limit = getattr(adapter, "max_cost_days", None)
+    return min(days, limit) if isinstance(limit, int) else days
+
+
+def _scan_window(has_cost: bool, adapter: Any = None) -> dict[str, Any]:
+    return {
+        "metrics_lookback_days": _lookback_days(),
+        "cost_lookback_days": _cost_days(adapter),
+        "activity_lookback_days": get_settings().scan.activity_lookback_days,
+        "tags_source": (
+            getattr(adapter, "tags_source", None)
+            if isinstance(getattr(adapter, "tags_source", None), str)
+            else None
+        ),
+        "cost_basis": "billed" if has_cost else "unavailable",
+    }
+
+
+def _attach_tags(
+    findings: list[ResourceFinding], tags_by_id: dict[str, dict[str, str]]
+) -> list[ResourceFinding]:
+    """Tags come from the inventory, not the model: policy excludes rely on them."""
+    for f in findings:
+        if f.resource_id in tags_by_id:
+            f.tags = dict(tags_by_id[f.resource_id])
+    return findings
+
+
+def _attach_cost_basis(
+    findings: list[ResourceFinding], costs: dict[str, float]
+) -> list[ResourceFinding]:
+    for f in findings:
+        f.cost_basis = (
+            "billed" if costs.get(f.resource_id, 0.0) > 0 else "model_estimate"
+        )
+    return findings
+
+
+def _free_config_count(adapter: Any) -> int:
+    skipped = getattr(adapter, "filtered_by_type", None)
+    return sum(skipped.values()) if isinstance(skipped, dict) else 0
+
+
+def _build_coverage(
+    discovered: list[Any],
+    chosen: list[Any],
+    costs: dict[str, float],
+    selection_rule: str,
+    total: int,
+    discovery_complete: bool | None = None,
+    free_config_skipped: int = 0,
+) -> Coverage:
+    types: dict[str, TypeCoverage] = {}
+    for rtype in {r.resource_type for r in discovered}:
+        types[rtype] = TypeCoverage(
+            discovered=sum(1 for r in discovered if r.resource_type == rtype),
+            analysed=sum(1 for r in chosen if r.resource_type == rtype),
+        )
+    return Coverage(
+        discovered=total,
+        analysed=len(chosen),
+        selection=selection_rule,
+        cost_data_available=any(v > 0 for v in costs.values()),
+        regions_covered=sorted({r.region for r in discovered if r.region}),
+        types=types,
+        discovery_complete=discovery_complete,
+        free_config_skipped=free_config_skipped,
+    )
+
+
 def _compress_resource(r: dict) -> dict:
     """
     Return a compact resource dict to minimise tokens sent to the AI.
 
     Strategy:
     - Shorten key names (resource_id → id, resource_type → type)
-    - Truncate long ARNs to their short form for the list view.
-      The full ARN is passed back by the AI when it calls get_metrics /
-      get_cost / get_last_activity, so the adapter always receives the
-      canonical identifier.
+    - Keep resource ids as given (ARNs are not shortened), so the adapter always
+      receives the canonical identifier when the AI calls get_metrics / get_cost.
     - Drop None / empty values entirely
     - Keep tags only if non-empty (they carry owner/env signals)
     """
@@ -508,9 +772,28 @@ def _subscription_from_resource_id(
     return None
 
 
+_MAX_TRUNCATIONS = 3
+_CONFIDENCE_RANK = {"low": 0, "medium": 1, "high": 2}
+
+
+def _resolve_confidence(
+    raw: Any, resource_id: str, no_data_ids: Any, window_days: int
+) -> str:
+    """Model-reported confidence, overridden by what we know about the evidence."""
+    value = str(raw or "").strip().lower()
+    confidence = value if value in _CONFIDENCE_RANK else "medium"
+    if resource_id in no_data_ids:
+        return "low"
+    if window_days < 90 and _CONFIDENCE_RANK[confidence] > 1:
+        return "medium"
+    return confidence
+
+
 def _parse_findings(
     args: dict[str, Any],
     cloud: str,
+    no_data_ids: Any = frozenset(),
+    window_days: int = 90,
 ) -> tuple[list[ResourceFinding], str]:
     """Convert the AI's submit_findings arguments into ResourceFinding objects."""
     scan_time = datetime.now(tz=timezone.utc)
@@ -521,6 +804,11 @@ def _parse_findings(
         ResourceFinding.from_dict({**f, "cloud": f.get("cloud", cloud)}, scan_time)
         for f in raw_findings
     ]
+
+    for f in findings:
+        f.confidence = _resolve_confidence(
+            f.confidence, f.resource_id, no_data_ids, window_days
+        )
 
     # Ensure descending cost order regardless of what the AI returned
     findings.sort(key=lambda f: f.estimated_monthly_cost, reverse=True)

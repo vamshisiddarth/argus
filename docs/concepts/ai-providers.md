@@ -39,10 +39,12 @@ BEDROCK_REGION=us-east-1                        # optional
 - Bedrock must be enabled in `BEDROCK_REGION`
 - Model access must be enabled: Bedrock console → Model catalog → Claude Sonnet → Enable
 - Lambda execution role needs `bedrock:InvokeModel`
+- Some newer Claude models cannot be called with a bare model id. If Bedrock rejects `BEDROCK_MODEL_ID`, set it to the inference profile id or ARN for your region (copy it from the Bedrock console), and allow `bedrock:InvokeModel` on that profile
 - AWS account must have a valid payment method (Bedrock returns `INVALID_PAYMENT_INSTRUMENT` otherwise — see [Troubleshooting](../reference/troubleshooting.md))
 
 **Features:**
 - Exponential backoff on `ThrottlingException` (up to 3 attempts, 1s then 2s)
+- Automatic retry for models that reject `temperature` (for example newer Claude models): Argus retries once without it, remembers this for the rest of the run, and logs a warning. Dropping it does not count against the throttling retries. Other validation errors, including an out-of-range temperature, still fail immediately.
 
 ## Vertex AI (Gemini)
 

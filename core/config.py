@@ -10,7 +10,7 @@ Usage::
     from core.config import get_settings
     cfg = get_settings()
     print(cfg.ai.provider)          # "anthropic"
-    print(cfg.scan.max_resources)   # 200
+    print(cfg.scan.max_resources)   # 300 (scaled from the $2 default budget)
 """
 
 from __future__ import annotations
@@ -33,6 +33,8 @@ class AISettings(BaseSettings):
     provider: str = Field("anthropic", alias="AI_PROVIDER")
     model: str | None = Field(None, alias="AI_MODEL")
     temperature: float = Field(0.0, alias="AI_TEMPERATURE")
+    max_tokens: int = Field(16000, alias="AI_MAX_TOKENS")
+    timeout_seconds: float = Field(600.0, alias="AI_TIMEOUT_SECONDS")
 
     # Anthropic
     anthropic_api_key: str | None = Field(None, alias="ANTHROPIC_API_KEY")
@@ -43,7 +45,7 @@ class AISettings(BaseSettings):
         "anthropic.claude-sonnet-4-6", alias="BEDROCK_MODEL_ID"
     )
     bedrock_region: str = Field("us-east-1", alias="BEDROCK_REGION")
-    bedrock_max_tokens: int = Field(2048, alias="BEDROCK_MAX_TOKENS")
+    bedrock_max_tokens: int | None = Field(None, alias="BEDROCK_MAX_TOKENS")
 
     # Vertex AI
     vertexai_project: str | None = Field(None, alias="VERTEXAI_PROJECT")
@@ -177,16 +179,58 @@ class RemediationSettings(BaseSettings):
 # ---------------------------------------------------------------------------
 
 
+# Measured on a real 200-resource scan: about $0.0033 per resource, so 150 per
+# dollar of budget keeps a default scan near half the budget.
+_RESOURCES_PER_BUDGET_USD = 150
+_MIN_AUTO_CAP = 50
+_MAX_AUTO_CAP = 1000
+_UNLIMITED_BUDGET_CAP = 500
+
+
 class ScanSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="", env_file=".env", extra="ignore")
 
-    max_resources: int = Field(200, alias="MAX_RESOURCES_PER_SCAN")
+    # Explicit cap; when unset the cap is scaled from the LLM budget (see max_resources)
+    max_resources_override: int | None = Field(None, alias="MAX_RESOURCES_PER_SCAN")
     metrics_lookback_days: int = Field(90, alias="METRICS_LOOKBACK_DAYS")
+    # Window for per-resource cost (AWS resource-level data holds at most 14 days)
+    cost_lookback_days: int = Field(14, alias="COST_LOOKBACK_DAYS", ge=1)
+    # Window for "last activity" lookups (AWS CloudTrail holds at most 90 days)
+    activity_lookback_days: int = Field(90, alias="ACTIVITY_LOOKBACK_DAYS", ge=1)
     adapter_concurrency: int = Field(10, alias="ADAPTER_CONCURRENCY")
     max_iterations: int = Field(50, alias="MAX_AGENT_ITERATIONS")
     llm_budget_usd: float = Field(2.0, alias="LLM_BUDGET_USD")
+    strict_coverage: bool = Field(False, alias="STRICT_COVERAGE")
+    baseline_rules: bool = Field(True, alias="ARGUS_BASELINE_RULES")
+    # Evidence gate: "off"; "shadow" counts what it would settle but sends
+    # everything to the model; "on" keeps settled resources away from the model.
+    gate: str = Field("off", alias="ARGUS_GATE", pattern="^(off|shadow|on)$")
+    # "pipeline": evidence gathered in code, batched model triage (default).
+    # "react": the original tool-calling agent loop (also used by chat).
+    engine: str = Field("pipeline", alias="ARGUS_ENGINE", pattern="^(pipeline|react)$")
+    # Last-activity lookups: "auto" only where metrics could not decide
+    triage_batch_items: int = Field(60, alias="ARGUS_TRIAGE_BATCH_ITEMS", ge=1)
+    activity_lookup: str = Field(
+        "auto", alias="ARGUS_ACTIVITY_LOOKUP", pattern="^(auto|all|off)$"
+    )
+    skip_preflight: bool = Field(False, alias="ARGUS_SKIP_PREFLIGHT")
+    expect_account: str | None = Field(None, alias="ARGUS_EXPECT_ACCOUNT")
     exclude_tags: str = Field("", alias="EXCLUDE_TAGS")
     exclude_resource_types: str = Field("", alias="EXCLUDE_RESOURCE_TYPES")
+
+    @property
+    def max_resources(self) -> int:
+        """Resources sent to the AI. Explicit setting wins, else scaled from budget."""
+        if self.max_resources_override is not None:
+            return self.max_resources_override
+        if self.llm_budget_usd <= 0:
+            return _UNLIMITED_BUDGET_CAP
+        scaled = int(self.llm_budget_usd * _RESOURCES_PER_BUDGET_USD)
+        return max(_MIN_AUTO_CAP, min(_MAX_AUTO_CAP, scaled))
+
+    @property
+    def max_resources_source(self) -> str:
+        return "explicit" if self.max_resources_override is not None else "budget"
 
     @property
     def exclude_tags_dict(self) -> dict[str, str]:

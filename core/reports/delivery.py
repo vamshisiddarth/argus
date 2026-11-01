@@ -291,7 +291,7 @@ def save_reports_locally(
     base_dir: str | None = None,
 ) -> str:
     from core.config import get_settings
-    from core.reports.export import export_pdf, export_pptx, get_report_formats
+    from core.reports.export import export_pptx, get_report_formats
 
     resolved_dir = Path(base_dir or get_settings().report.local_report_dir)
     now = datetime.now(tz=timezone.utc)
@@ -311,18 +311,15 @@ def save_reports_locally(
         logger.info("json_report_saved", path=str(json_path))
 
     if "html" in formats:
-        from core.reports.html import build_html_report
+        from core.reports.board import build_board_html
 
         html_path = prefix.with_suffix(".html")
-        html_path.write_text(build_html_report(report), encoding="utf-8")
+        html_path.write_text(build_board_html(report), encoding="utf-8")
         logger.info("html_report_saved", path=str(html_path))
         result_path = str(html_path.resolve())
 
     if "pdf" in formats:
-        try:
-            export_pdf(report, prefix)
-        except ImportError as exc:
-            logger.warning("pdf_export_skipped", reason=str(exc))
+        logger.warning("pdf_format_removed", hint="use html (the decision board)")
 
     if "pptx" in formats:
         try:
