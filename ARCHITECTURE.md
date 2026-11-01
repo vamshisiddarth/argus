@@ -70,7 +70,7 @@ It must never share the scan role or run inside the Argus agent loop.
 │  │  ┌──────────────────────┐   ┌───────────────────────────────────┐    │   │
 │  │  │  REPORT GENERATOR    │   │  NOTIFICATIONS                    │    │   │
 │  │  │  core/reports/       │   │  core/reports/delivery.py         │    │   │
-│  │  │  - JSON/HTML/PDF/    │   │  - Slack / Teams / generic webhook│    │   │
+│  │  │  - JSON/board/        │   │  - Slack / Teams / generic webhook│    │   │
 │  │  │    PPTX export       │   │  - ranked by monthly waste ($)    │    │   │
 │  │  └──────────────────────┘   └───────────────────────────────────┘    │   │
 │  └──────────────────────────────────────────────────────────────────────┘   │
@@ -340,7 +340,7 @@ It must never share the scan role or run inside the Argus agent loop.
   ReportGenerator sorts findings by estimated_monthly_cost desc
         │
         ▼
-  Reports saved to S3 / GCS / Azure Blob (JSON, HTML, PDF, PPTX)
+  Reports saved to S3 / GCS / Azure Blob (JSON, board HTML, PPTX)
         │
         ▼
   Notifications: Slack / Teams / generic webhook — executive summary + top N findings

@@ -7,9 +7,9 @@ The grouping is deterministic. No model is involved, so two runs on the same
 findings always give the same opportunities.
 
 !!! note "Prototype"
-    Opportunities are in the JSON report (`opportunities`, `opportunity_summary`)
-    and in `python -m core.opportunities`. The HTML report, Slack digest and
-    ticket flow do not use them yet.
+    Opportunities are in the JSON report (`opportunities`, `opportunity_summary`),
+    in `python -m core.opportunities` and on the decision board. The Slack digest
+    and ticket flow do not use them yet.
 
 ## How findings are grouped
 

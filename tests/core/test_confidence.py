@@ -123,16 +123,6 @@ def test_prompt_and_schema_describe_confidence_and_no_data_rule():
     assert item["confidence"]["enum"] == ["low", "medium", "high"]
 
 
-def test_confidence_shown_in_html():
-    from core.reports.generator import build_report
-    from core.reports.html import build_html_report
-
-    now = datetime(2026, 1, 1, tzinfo=timezone.utc)
-    f = ResourceFinding.from_dict(_finding("x", "low"), now)
-    html = build_html_report(build_report([f], cloud="aws", executive_summary="s"))
-    assert "confidence: low" in html
-
-
 def test_exception_in_get_metrics_forces_low_confidence():
     class Boom(Adapter):
         def get_metrics(self, resource_id, resource_type, days=90):

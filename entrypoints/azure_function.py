@@ -41,13 +41,13 @@ from core.errors import StrictCoverageError
 from core.log import configure_logging
 from core.progress import get_progress
 from core.registry import get_registry
+from core.reports.board import build_board_html
 from core.reports.comparison import compare_scans
 from core.reports.delivery import (
     notify_all,
     save_reports_locally,
 )
 from core.reports.generator import build_report, build_slack_payload
-from core.reports.html import build_html_report
 from core.secrets import resolve_secrets
 from core.validation import ConfigurationError, validate_environment
 from entrypoints._meta import ScanMeta
@@ -309,7 +309,7 @@ def _save_reports_to_blob(report: dict[str, Any], storage_account: str) -> str |
 
         container_client.upload_blob(
             html_key,
-            build_html_report(report).encode("utf-8"),
+            build_board_html(report).encode("utf-8"),
             content_settings={"content_type": "text/html; charset=utf-8"},
             overwrite=True,
         )

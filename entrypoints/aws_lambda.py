@@ -40,6 +40,7 @@ from core.models.finding import ResourceFinding
 from core.models.preflight import PreflightResult
 from core.progress import get_progress
 from core.registry import get_registry
+from core.reports.board import build_board_html
 from core.reports.comparison import compare_scans
 from core.reports.delivery import (
     notify_all,
@@ -50,7 +51,6 @@ from core.reports.generator import (
     build_slack_payload,
     synthesize_executive_summary,
 )
-from core.reports.html import build_html_report
 from core.secrets import resolve_secrets
 from core.validation import ConfigurationError, validate_environment
 from entrypoints._meta import ScanMeta
@@ -416,7 +416,7 @@ def _save_reports_to_s3(report: dict[str, Any], bucket: str) -> str | None:
         )
         logger.info("json_report_saved", location=f"s3://{bucket}/{json_key}")
 
-        html_body = build_html_report(report).encode("utf-8")
+        html_body = build_board_html(report).encode("utf-8")
         s3.put_object(
             Bucket=bucket,
             Key=html_key,

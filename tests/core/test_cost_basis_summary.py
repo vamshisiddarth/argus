@@ -23,7 +23,6 @@ from core.reports.generator import (
     build_slack_payload,
     waste_caveat,
 )
-from core.reports.html import build_html_report
 from core.reports.multi_cloud import merge_reports
 
 SCAN_TIME = datetime(2026, 10, 30, 9, 0, 0, tzinfo=timezone.utc)
@@ -216,26 +215,6 @@ class TestReportOutputs:
 
         assert "billed waste" in text
         assert "unverified" not in text
-
-    def test_html_label_and_rows_tell_the_bases_apart(self):
-        report = build_report(MIXED, cloud="aws", executive_summary="x")
-
-        out = build_html_report(report)
-
-        assert "unverified waste estimate / month" in out
-        assert "$860.00 model estimate" in out
-        assert ">unpriced<" in out
-        assert "model est." in out
-        assert ">list price<" in out
-
-    def test_a_billed_row_has_no_basis_tag(self):
-        report = build_report(
-            [_finding("a", 10.0, "billed")], cloud="aws", executive_summary="x"
-        )
-
-        out = build_html_report(report)
-
-        assert "model est." not in out and ">unpriced<" not in out
 
     def test_merged_reports_recompute_the_summary_from_all_findings(self):
         a = build_report(

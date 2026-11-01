@@ -40,22 +40,18 @@ Top findings
 [ 📄 Full report (HTML) ]   [ vamshisiddarth/argus ]
 ```
 
-### Full HTML report
+### Decision board
 
-Click **Full report (HTML)** to open the self-contained report in your browser. It includes:
+Click **Full report (HTML)** to open the decision board in your browser. It groups findings into opportunities, each with:
 
-| Column | Description |
-|--------|-------------|
-| **Priority** | `HIGH` / `MEDIUM` / `LOW` — based on cost and confidence of idleness |
-| **Resource** | Name and resource ID |
-| **Type** | EC2 instance, RDS DB, NAT Gateway, etc. |
-| **Region** | Cloud region |
-| **Cost / mo** | Estimated USD/month from Cost Explorer / BigQuery / Cost Management |
-| **Last activity** | Days since last CloudTrail / Audit Log / Activity Log event |
+- a savings range, split by billed, list price and model estimate
+- a risk line, the evidence and check-first steps
+- the member resources, with owner tags
+- Approve / Investigate / Keep, with owner, note and keep-until
 
-Click any row to expand the full AI reasoning: **Why idle** and **Recommendation** (specific action — delete, downsize, snapshot-and-delete, tag for review).
+A "Read before deciding" banner at the top lists anything that limits the scan: failed accounts, preflight warnings, truncated coverage, incomplete discovery and metrics lost to throttling. See [Decision board](../concepts/board-report.md).
 
-The HTML file is filterable by priority and resource type, sortable by cost, and works offline. It is generated after every scan and stored in S3 / GCS / Azure Blob (requires `REPORT_S3_BUCKET` / `REPORT_GCS_BUCKET` / `REPORT_STORAGE_ACCOUNT` to be set).
+The page works offline. It is generated after every scan and stored in S3 / GCS / Azure Blob (requires `REPORT_S3_BUCKET` / `REPORT_GCS_BUCKET` / `REPORT_STORAGE_ACCOUNT` to be set).
 
 ## Priority rules
 

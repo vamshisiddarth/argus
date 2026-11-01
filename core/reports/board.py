@@ -19,6 +19,7 @@ from core.opportunities import build_opportunity_block
 from core.reports.basis import cost_summary, headline_noun
 from core.reports.board_assets import CSS, LOGIC_JS, LOGO_INNER, LOGO_SVG, UI_JS
 from core.reports.generator import review_summary
+from core.reports.redact import RedactionProfile, redact_report
 
 MAX_MEMBER_ROWS = 300
 
@@ -241,6 +242,10 @@ def _run_cost_bar(spend: float, budget: float) -> str:
     )
 
 
+def _run_cost_hidden(report: dict) -> bool:
+    return bool((report.get("redaction") or {}).get("run_cost_hidden"))
+
+
 def _run_cost_panel(rc: dict[str, Any]) -> str:
     spend = rc["spend"]
     if spend is None:
@@ -301,7 +306,12 @@ def _kpis(report: dict, summary: dict, opp_stats: dict, noun: str) -> str:
     share = summary["verified_share"]
     cov = report.get("coverage") or {}
     review_n, review_usd = review_summary(findings)
-    note = "All of it is billed." if share == 1.0 else "Estimate only, not billed."
+    if share == 1.0:
+        note = "All of it is billed."
+    elif not share:
+        note = "None of it is billed: list prices and model guesses only. Not a savings figure."
+    else:
+        note = f"{share:.0%} is billed; the rest is list price or a model guess. Not a savings figure."
     if review_n:
         note += f" {_usd(review_usd)} in {review_n} findings need human review."
     cards = [
@@ -346,7 +356,9 @@ def _kpis(report: dict, summary: dict, opp_stats: dict, noun: str) -> str:
             )
         )
     rc = _run_cost(report, summary)
-    if rc["spend"] is None:
+    if _run_cost_hidden(report):
+        pass
+    elif rc["spend"] is None:
         cards.append(("kpi", "Cost of this run", "n/a", "not recorded in this report"))
     else:
         sub = []
@@ -447,12 +459,38 @@ def _preflight_lines(report: dict) -> list[str]:
     return lines
 
 
+def _coverage_lines(report: dict) -> list[str]:
+    cov = report.get("coverage") or {}
+    lines = []
+    if cov.get("truncated"):
+        lines.append(
+            f"Only {cov.get('analysed')} of {cov.get('discovered')} resources were "
+            f"analysed ({cov.get('dropped')} not analysed, selection: "
+            f"{cov.get('selection', 'unknown')}). Raise MAX_RESOURCES_PER_SCAN to cover more."
+        )
+    if cov.get("discovery_complete") is False:
+        lines.append(
+            "Discovery incomplete: a search hit the provider's result limit, "
+            "so the inventory is understated."
+        )
+    lost = cov.get("metrics_lost_to_throttling") or 0
+    if lost:
+        lines.append(
+            f"Metrics missing for {lost} resources: the cloud API kept throttling, "
+            "so those findings rest on less evidence."
+        )
+    return lines
+
+
 def _warnings_banner(report: dict) -> str:
     errors = [
         f"{e.get('account_id', '')}: {e.get('error', '')}"
         for e in report.get("scan_errors") or []
     ]
-    items = "".join(f"<li>{_e(w)}</li>" for w in _preflight_lines(report) + errors)
+    items = "".join(
+        f"<li>{_e(w)}</li>"
+        for w in _coverage_lines(report) + _preflight_lines(report) + errors
+    )
     if not items:
         return ""
     return (
@@ -529,7 +567,11 @@ def _sri(text: str) -> str:
     return "sha256-" + base64.b64encode(hashlib.sha256(text.encode()).digest()).decode()
 
 
-def build_board_html(report: dict[str, Any]) -> str:
+def build_board_html(
+    report: dict[str, Any], redact: RedactionProfile | None = None
+) -> str:
+    if redact is not None:
+        report = redact_report(report, redact)
     opps, opp_stats = _with_opportunities(report)
     findings = report.get("findings") or []
     by_id = {str(f.get("resource_id")): f for f in findings}
@@ -601,7 +643,7 @@ def build_board_html(report: dict[str, Any]) -> str:
 <div class="kpis">{_kpis(report, summary, opp_stats, noun)}</div>
 <div class="panels">
 <div class="panel"><h3>Where the money is</h3>{_bar(summary)}<hr>{_lanes_panel(opps)}</div>
-{_run_cost_panel(_run_cost(report, summary))}
+{'' if _run_cost_hidden(report) else _run_cost_panel(_run_cost(report, summary))}
 </div>
 </section>
 <section id="board" aria-labelledby="h-board">

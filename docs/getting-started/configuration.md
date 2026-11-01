@@ -88,7 +88,7 @@ You can pass accounts as a JSON env var or via a YAML file:
 | `SLACK_WEBHOOK_URL` | See note | — | Slack incoming webhook URL |
 | `TEAMS_WEBHOOK_URL` | No | — | Microsoft Teams incoming webhook URL |
 | `WEBHOOK_URL` | No | — | Generic webhook — receives full JSON report as POST |
-| `REPORT_FORMAT` | No | `json,html` | Export formats: `json`, `html`, `pdf`, `pptx` |
+| `REPORT_FORMAT` | No | `json,html` | Export formats: `json`, `html` (decision board), `pptx` |
 | `DRY_RUN` | No | `false` | `true` = log a payload preview instead of notifying; remediation makes no Jira calls |
 | `REPORT_URL_EXPIRY` | No | `604800` | Pre-signed / SAS URL expiry in seconds (default: 7 days) |
 | `ADAPTER_CONCURRENCY` | No | `10` | Max parallel metric/activity fetch threads |
@@ -97,7 +97,7 @@ Only the channels listed in `NOTIFICATION_PROVIDER` are used, and each needs its
 
 ### HTML report storage (optional)
 
-When a report bucket is configured, Argus uploads a self-contained HTML report after each scan and includes a **Full report** button in the Slack digest. Without a bucket, the Slack digest is still sent — it just won't have the button.
+When a report bucket is configured, Argus uploads the self-contained decision board after each scan and includes a **Full report** button in the Slack digest. Without a bucket, the Slack digest is still sent — it just won't have the button.
 
 | Cloud | Variable | Description |
 |-------|----------|-------------|

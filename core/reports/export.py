@@ -1,8 +1,8 @@
 """
-Multi-format report export: PDF and PPTX.
+Report export: PPTX.
 
-Both are optional — the libraries are only imported when the format is requested.
-Install with: pip install weasyprint python-pptx
+Optional: the library is only imported when the format is requested.
+Install with: pip install python-pptx
 """
 
 from __future__ import annotations
@@ -22,24 +22,6 @@ def get_report_formats() -> set[str]:
     from core.config import get_settings
 
     return get_settings().report.formats
-
-
-def export_pdf(report: dict[str, Any], output_path: Path) -> Path:
-    try:
-        from weasyprint import HTML  # type: ignore[import-untyped]
-    except ImportError as exc:
-        raise ImportError(
-            "weasyprint is required for PDF export. "
-            "Install with: pip install weasyprint"
-        ) from exc
-
-    from core.reports.html import build_html_report
-
-    html_content = build_html_report(report)
-    pdf_path = output_path.with_suffix(".pdf")
-    HTML(string=html_content).write_pdf(str(pdf_path))
-    logger.info("pdf_report_saved", path=str(pdf_path))
-    return pdf_path
 
 
 def export_pptx(report: dict[str, Any], output_path: Path) -> Path:

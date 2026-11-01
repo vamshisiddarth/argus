@@ -111,7 +111,7 @@ ResourceFinding dataclass list
         ↓
 build_report() → JSON report (+ scan_diff vs previous scan)
         ↓
-build_html_report() → self-contained HTML file
+build_board_html() → self-contained decision board
         ↓ (if REPORT_S3_BUCKET / REPORT_GCS_BUCKET / REPORT_STORAGE_ACCOUNT is set)
 upload to S3 / GCS / Azure Blob → pre-signed / SAS URL
         ↓ (if REMEDIATION_ENABLED=true)

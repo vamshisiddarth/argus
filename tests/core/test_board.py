@@ -733,3 +733,95 @@ class TestOverviewLayout:
 
         assert "Easy" in panel and "Needs an owner" in panel
         assert "Dollars by cost basis" in panel
+
+
+class TestCoverageWarnings:
+    def _banner(self, coverage):
+        report = _report()
+        report["preflight"] = None
+        report["scan_errors"] = []
+        report["coverage"] = coverage
+        out = build_board_html(report)
+        if 'class="banner"' not in out:
+            return ""
+        return out[out.index('class="banner"') : out.index('class="kpis"')]
+
+    def test_truncation_is_stated_with_the_numbers(self):
+        text = self._banner(
+            {
+                "discovered": 880,
+                "analysed": 200,
+                "dropped": 680,
+                "truncated": True,
+                "selection": "stratified_by_type",
+            }
+        )
+
+        assert "Only 200 of 880" in text and "680 not analysed" in text
+        assert "MAX_RESOURCES_PER_SCAN" in text
+
+    def test_incomplete_discovery_is_stated(self):
+        text = self._banner(
+            {"discovered": 5, "analysed": 5, "dropped": 0, "discovery_complete": False}
+        )
+
+        assert "Discovery incomplete" in text
+
+    def test_throttled_metrics_are_stated(self):
+        text = self._banner(
+            {
+                "discovered": 5,
+                "analysed": 5,
+                "dropped": 0,
+                "metrics_lost_to_throttling": 3,
+            }
+        )
+
+        assert "Metrics missing for 3 resources" in text
+
+    def test_a_clean_scan_shows_no_banner(self):
+        text = self._banner(
+            {"discovered": 5, "analysed": 5, "dropped": 0, "discovery_complete": True}
+        )
+
+        assert text == ""
+
+    def test_hostile_selection_text_is_escaped(self):
+        text = self._banner(
+            {
+                "discovered": 2,
+                "analysed": 1,
+                "dropped": 1,
+                "truncated": True,
+                "selection": "<img src=x onerror=alert(1)>",
+            }
+        )
+
+        assert "<img" not in text
+
+
+class TestHeadlineHonesty:
+    def _kpi_text(self, findings):
+        out = build_board_html(_report(findings))
+        start = out.index('class="kpis"')
+        return out[start : start + 600]
+
+    def test_no_billed_dollars_says_so_and_is_not_a_savings_figure(self):
+        text = self._kpi_text(
+            [_f("i-1", "AWS::EC2::Instance", 500.0, "model_estimate")]
+        )
+
+        assert "unverified waste estimate" in text
+        assert "None of it is billed" in text and "Not a savings figure" in text
+
+    def test_part_billed_names_the_billed_share(self):
+        text = self._kpi_text(
+            [_f("v1", cost=100.0, basis="billed"), _f("v2", cost=100.0)]
+        )
+
+        assert "50% is billed" in text
+
+    def test_all_billed_has_no_caveat(self):
+        text = self._kpi_text([_f("v1", cost=100.0, basis="billed")])
+
+        assert "All of it is billed." in text and "Not a savings figure" not in text

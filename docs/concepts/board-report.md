@@ -87,3 +87,24 @@ page was scanned with axe in both themes at five widths.
 - Commitments (Savings Plans, reservations) are not analysed.
 - This static page is deliberately plain. A richer dashboard is planned for the
   product frontend.
+
+## Client-safe copy
+
+```bash
+argus board --report <scan>.json --client-safe --hide-tags cost-centre,team
+argus board --report <scan>.json --client-safe --hide-tags '*'
+```
+
+`--client-safe` writes a redacted copy and leaves the report untouched:
+
+| Hidden | Becomes |
+|--------|---------|
+| Account, project and subscription ids | `account-1`, `account-2`, ... (stable within the report) |
+| AWS ARNs | `service:region:resource` (partition and account removed) |
+| Cost of this run (KPI and panel) | removed |
+| Caller identity check (who ran the scan) | removed |
+| Tag keys named in `--hide-tags`, or all with `*` | removed, owners lane updated |
+
+Resource names, types, regions, amounts and cost bases are kept. Redaction is
+pattern based: a client name typed into a resource name or tag value is not
+detected, so read the page before sending it.

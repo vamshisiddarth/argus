@@ -186,11 +186,11 @@ DRY_RUN=false
 argus scan
 ```
 
-Argus posts a **compact digest** — stats, a short (3–5 sentence) AI executive summary, and the top 5 findings as single lines. The full AI reasoning (why each resource is idle, what to do) lives in a separate HTML report.
+Argus posts a **compact digest** — stats, a short (3–5 sentence) AI executive summary, and the top 5 findings as single lines. The full AI reasoning (why each resource is idle, what to do) lives in the decision board, a separate HTML page.
 
-### Optional: HTML report with "Full report" button
+### Optional: decision board with "Full report" button
 
-To get the **Full report** button in the Slack digest, Argus needs an S3 bucket to upload the HTML report to.
+To get the **Full report** button in the Slack digest, Argus needs an S3 bucket to upload the board to.
 
 - **Lambda deployment** — the SAM template creates the bucket automatically (`argus-reports-{accountId}-{region}`) and sets `REPORT_S3_BUCKET` in the Lambda environment. Nothing to configure.
 - **Local CLI runs** — create a bucket manually and set it in `.env`:

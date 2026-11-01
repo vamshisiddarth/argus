@@ -69,9 +69,9 @@ Every week (or on demand), Argus:
 1. **Discovers** every resource in your cloud account using AWS Resource Explorer / GCP Asset Inventory / Azure Resource Graph
 2. **Analyzes** each candidate — CloudWatch/Cloud Monitoring/Azure Monitor metrics, Cost Explorer/BigQuery/Cost Management cost data, and CloudTrail/Audit Log/Activity Log last-activity timestamps
 3. **Reasons** about idleness using Claude (via AWS Bedrock, Anthropic API, or Vertex AI) — no hardcoded thresholds
-4. **Reports** a compact digest (Slack, Microsoft Teams, or generic webhook) with top findings and a link to a full self-contained HTML report
+4. **Reports** a compact digest (Slack, Microsoft Teams, or generic webhook) with top findings and a link to the full decision board (a self-contained HTML page)
 
-The **Full report** button links to a self-contained HTML file (S3 / GCS / Azure Blob) with a filterable/sortable table and expandable AI reasoning per finding. Works offline, no login required.
+The **Full report** button links to the decision board, a self-contained HTML file (S3 / GCS / Azure Blob) that groups findings into opportunities with savings ranges, evidence, check-first steps and Approve / Investigate / Keep. Works offline, no login required.
 
 To decide what to do about the findings, `argus board --report <scan>.json` builds a single offline page that groups them into a short list of opportunities, with savings ranges, risk and check-first steps, and Approve / Investigate / Keep buttons. See [`examples/sample-board.html`](examples/sample-board.html) and the [Decision board](docs/concepts/board-report.md) page.
 

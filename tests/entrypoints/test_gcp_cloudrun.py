@@ -534,7 +534,7 @@ class TestBuildAIProvider:
 
 
 class TestSaveReportsToGCS:
-    @patch("entrypoints.gcp_cloudrun.build_html_report", return_value="<html></html>")
+    @patch("entrypoints.gcp_cloudrun.build_board_html", return_value="<html></html>")
     @patch(
         "entrypoints.gcp_cloudrun._generate_signed_url",
         return_value="https://storage.example.com/signed",
@@ -598,7 +598,7 @@ class TestSaveReportsToGCS:
         finally:
             sys.modules.update(saved)
 
-    @patch("entrypoints.gcp_cloudrun.build_html_report", return_value="<html></html>")
+    @patch("entrypoints.gcp_cloudrun.build_board_html", return_value="<html></html>")
     def test_returns_none_on_gcs_api_error(self, mock_html, monkeypatch):
         monkeypatch.setenv("REPORT_URL_EXPIRY", "3600")
 

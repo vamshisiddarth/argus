@@ -461,7 +461,23 @@ def main(argv: list[str] | None = None) -> None:
         required=True,
         dest="board_report",
         metavar="PATH",
-        help="Scan report JSON (the .json file next to the HTML report)",
+        help="Scan report JSON (the .json file next to the board page)",
+    )
+    board_parser.add_argument(
+        "--client-safe",
+        action="store_true",
+        dest="board_client_safe",
+        help=(
+            "Redact for a client: account ids become account-N, ARNs lose "
+            "partition and account, the run cost and caller identity are dropped"
+        ),
+    )
+    board_parser.add_argument(
+        "--hide-tags",
+        default=None,
+        dest="board_hide_tags",
+        metavar="KEYS",
+        help="With --client-safe: comma-separated tag keys to remove, or * for all",
     )
     board_parser.add_argument(
         "--out",
@@ -756,7 +772,19 @@ def _run_board(args: argparse.Namespace) -> int:
         )
         return 1
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(build_board_html(report), encoding="utf-8")
+    profile = None
+    if args.board_client_safe:
+        from core.reports.redact import RedactionProfile
+
+        keys = [k.strip() for k in (args.board_hide_tags or "").split(",") if k.strip()]
+        profile = RedactionProfile(
+            hide_all_tags="*" in keys,
+            hide_tag_keys=frozenset(k for k in keys if k != "*"),
+        )
+    elif args.board_hide_tags:
+        print("--hide-tags needs --client-safe.", file=sys.stderr)
+        return 1
+    out.write_text(build_board_html(report, profile), encoding="utf-8")
     print(f"Board written to {out}")
     return 0
 

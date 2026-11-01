@@ -316,7 +316,7 @@ class TestBuildAIProvider:
 
 
 class TestSaveReportsToBlob:
-    @patch("entrypoints.azure_function.build_html_report", return_value="<html></html>")
+    @patch("entrypoints.azure_function.build_board_html", return_value="<html></html>")
     def test_uploads_json_and_html_and_returns_sas_url(self, mock_html, monkeypatch):
         monkeypatch.setenv("REPORT_STORAGE_CONTAINER", "my-container")
         monkeypatch.setenv("REPORT_URL_EXPIRY", "3600")
@@ -395,7 +395,7 @@ class TestSaveReportsToBlob:
         finally:
             sys.modules.update(saved)
 
-    @patch("entrypoints.azure_function.build_html_report", return_value="<html></html>")
+    @patch("entrypoints.azure_function.build_board_html", return_value="<html></html>")
     def test_returns_none_on_azure_error(self, mock_html, monkeypatch):
         monkeypatch.setenv("REPORT_STORAGE_CONTAINER", "my-container")
         monkeypatch.setenv("REPORT_URL_EXPIRY", "3600")
@@ -437,7 +437,7 @@ class TestSaveReportsToBlob:
 
         assert result is None
 
-    @patch("entrypoints.azure_function.build_html_report", return_value="<html></html>")
+    @patch("entrypoints.azure_function.build_board_html", return_value="<html></html>")
     def test_container_already_exists_does_not_fail(  # noqa: E501
         self, mock_html, monkeypatch
     ):

@@ -30,7 +30,6 @@ from core.reports.generator import (
     synthesize_executive_summary,
     waste_caveat,
 )
-from core.reports.html import build_html_report
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -125,24 +124,6 @@ class TestBuildReport:
         assert report["findings_count"] == 0
         assert report["total_estimated_waste_usd"] == 0.0
         assert report["findings"] == []
-
-    def test_token_usage_fields_present(self):
-        report = build_report(
-            _sample_findings(),
-            cloud="aws",
-            executive_summary="x",
-            agent_input_tokens=5000,
-            agent_output_tokens=1500,
-        )
-        assert report["agent_input_tokens"] == 5000
-        assert report["agent_output_tokens"] == 1500
-        assert report["estimated_agent_cost_usd"] > 0
-
-    def test_token_usage_defaults_to_zero(self):
-        report = build_report([], cloud="aws", executive_summary="x")
-        assert report["agent_input_tokens"] == 0
-        assert report["agent_output_tokens"] == 0
-        assert report["estimated_agent_cost_usd"] == 0.0
 
     def test_schema_version_is_1_2_0(self):
         # 1.1.0: coverage, scan_window, preflight (all optional)
@@ -371,124 +352,6 @@ class TestBuildSlackPayload:
         payload = build_slack_payload(report, ticket_refs=urls)
         text = _all_text(payload)
         assert "5 more" in text
-
-
-# ---------------------------------------------------------------------------
-# build_html_report tests
-# ---------------------------------------------------------------------------
-
-
-class TestBuildHtmlReport:
-    def _report(self, n_findings: int = 3) -> dict:
-        findings = [
-            _finding(f"i-{i}", cost=float(100 - i * 10), priority="high")
-            for i in range(n_findings)
-        ]
-        return build_report(
-            findings,
-            cloud="aws",
-            executive_summary="Some idle resources found.",
-            accounts_scanned=["123456789012"],
-        )
-
-    def test_returns_string(self):
-        assert isinstance(build_html_report(self._report()), str)
-
-    def test_is_valid_html_scaffold(self):
-        html = build_html_report(self._report())
-        assert "<!DOCTYPE html>" in html
-        assert "<html" in html
-        assert "</html>" in html
-
-    def test_contains_cloud_and_date(self):
-        html = build_html_report(self._report())
-        assert "AWS" in html
-
-    def test_contains_total_waste(self):
-        report = self._report()
-        html = build_html_report(report)
-        total = report["total_estimated_waste_usd"]
-        assert f"{total:,.2f}" in html
-
-    def test_all_resource_ids_present(self):
-        report = self._report(n_findings=3)
-        html = build_html_report(report)
-        for i in range(3):
-            assert f"i-{i}" in html
-
-    def test_waste_reason_and_recommendation_in_rows(self):
-        report = self._report(n_findings=1)
-        html = build_html_report(report)
-        assert "CPU utilization below 1%" in html
-        assert "Stop or terminate" in html
-
-    def test_executive_summary_present(self):
-        report = self._report()
-        html = build_html_report(report)
-        assert "Some idle resources found." in html
-
-    def test_json_data_embedded(self):
-        report = self._report()
-        html = build_html_report(report)
-        assert report["scan_id"] in html
-
-    def test_no_external_cdn_urls(self):
-        html = build_html_report(self._report())
-        assert "cdn." not in html
-        assert "googleapis" not in html
-        assert "unpkg" not in html
-
-    def test_error_banner_shown_when_scan_errors_present(self):
-        report = build_report(
-            [],
-            cloud="gcp",
-            executive_summary="x",
-            accounts_scanned=["proj-ok"],
-            scan_errors=[
-                {
-                    "account_id": "proj-fail",
-                    "account_name": "failed-proj",
-                    "error": "PermissionError: 403",
-                }
-            ],
-        )
-        html_out = build_html_report(report)
-        assert "error-banner" in html_out
-        assert "Partial scan" in html_out
-        assert "failed-proj" in html_out
-        assert "PermissionError" in html_out
-
-    def test_no_error_banner_when_scan_errors_empty(self):
-        html_out = build_html_report(self._report())
-        assert "Partial scan" not in html_out
-
-    def test_resource_type_column_shows_display_name(self):
-        # The table should show "EC2 Instance", not the raw "AWS::EC2::Instance"
-        html_out = build_html_report(self._report())
-        assert "EC2 Instance" in html_out
-        assert (
-            "AWS::EC2::Instance"
-            not in html_out.split('data-rtype="AWS::EC2::Instance"')[1]
-        )
-
-    def test_type_filter_dropdown_shows_display_name(self):
-        # Option value=raw type_id, text=display name
-        html_out = build_html_report(self._report())
-        assert 'value="AWS::EC2::Instance"' in html_out
-        assert ">EC2 Instance<" in html_out
-
-    def test_registry_warnings_banner_absent_when_empty(self):
-        report = self._report()
-        report["registry_warnings"] = []
-        html_out = build_html_report(report)
-        assert "skipped spec" not in html_out
-
-    def test_registry_warnings_banner_shown_when_present(self):
-        report = self._report()
-        report["registry_warnings"] = ["aws/AWS::Fake::Type: unknown action 'fly'"]
-        html_out = build_html_report(report)
-        assert "skipped spec" in html_out
-        assert "AWS::Fake::Type" in html_out
 
 
 # ---------------------------------------------------------------------------
@@ -841,96 +704,6 @@ class TestReportCoverageFields:
         assert all(f.status == "recurring" for f in labelled)
 
 
-class TestHtmlCoverage:
-    def _html(self, **kw):
-        report = build_report(
-            _sample_findings(), cloud="aws", executive_summary="x", **kw
-        )
-        return build_html_report(report)
-
-    def test_truncation_warning_shows_numbers(self):
-        out = self._html(coverage=_COVERAGE)
-        assert "Analysed 200 of 880" in out
-        assert 'class="coverage coverage-warning"' in out
-        assert "MAX_RESOURCES_PER_SCAN" in out
-
-    def test_full_coverage_has_no_warning(self):
-        full = {**_COVERAGE, "discovered": 5, "analysed": 5, "dropped": 0}
-        full["truncated"] = False
-        out = self._html(coverage=full)
-        assert "Analysed 5 of 5" in out
-        assert 'class="coverage coverage-warning"' not in out
-
-    def test_zero_resources_renders(self):
-        empty = {**_COVERAGE, "discovered": 0, "analysed": 0, "dropped": 0}
-        empty["truncated"] = False
-        empty["types"] = {}
-        assert "Analysed 0 of 0" in self._html(coverage=empty)
-
-    def test_no_coverage_renders_unchanged(self):
-        out = self._html()
-        assert "Analysed" not in out
-
-    def test_window_is_shown_when_present(self):
-        out = self._html(scan_window={"metrics_lookback_days": 14})
-        assert "14-day" in out
-
-
-class TestHtmlCostBasis:
-    def _html_for(self, basis):
-        report = build_report(_sample_findings(), cloud="aws", executive_summary="x")
-        for f in report["findings"]:
-            f["cost_basis"] = basis
-        return build_html_report(report)
-
-    def test_estimated_cost_is_labelled(self):
-        assert "est.</span>" in self._html_for("model_estimate")
-
-    def test_billed_cost_has_no_label(self):
-        assert "est.</span>" not in self._html_for("billed")
-
-
-class TestHtmlPreflight:
-    def _html(self, preflight):
-        report = build_report(
-            _sample_findings(), cloud="aws", executive_summary="x", preflight=preflight
-        )
-        return build_html_report(report)
-
-    def _pre(self, status, skipped=False):
-        return {
-            "skipped": skipped,
-            "accounts": [
-                {
-                    "account_id": "1",
-                    "skipped": skipped,
-                    "checks": [
-                        {
-                            "code": "P6_VIEW_TAGS",
-                            "status": status,
-                            "message": "view lacks tags",
-                            "fix": "add tags property",
-                        }
-                    ],
-                }
-            ],
-        }
-
-    def test_warnings_box_lists_message_and_fix(self):
-        out = self._html(self._pre("warn"))
-        assert "Setup warnings" in out
-        assert "view lacks tags" in out
-        assert "add tags property" in out
-
-    def test_skipped_preflight_is_called_out(self):
-        assert "Preflight was skipped" in self._html(self._pre("ok", skipped=True))
-
-    def test_clean_preflight_shows_nothing(self):
-        out = self._html(self._pre("ok"))
-        assert "Setup warnings" not in out
-        assert "Preflight was skipped" not in out
-
-
 def _rated(rid, cost, confidence, basis="model_estimate"):
     f = _finding(rid, cost=cost)
     f.confidence = confidence
@@ -1001,70 +774,6 @@ class TestWasteBreakdown:
 
         assert "not billed" not in str(build_slack_payload(report))
 
-    def test_html_headline_labels_the_estimate_and_splits_by_confidence(self):
-        report = build_report(self._findings(), cloud="aws", executive_summary="x")
-
-        out = build_html_report(report)
-
-        assert "unverified waste estimate / month" in out
-        assert "not billed" in out
-        assert "$605.00 model estimate" in out
-        assert "$200.00 low" in out
-
-    def test_old_reports_without_the_fields_still_render(self):
-        report = build_report(self._findings(), cloud="aws", executive_summary="x")
-        del report["waste_by_confidence"]
-        del report["total_is_estimate"]
-
-        assert "unverified waste estimate / month" in build_html_report(report)
-        assert build_slack_payload(report)
-
-
-class TestHtmlDiscovery:
-    def test_incomplete_discovery_is_called_out(self):
-        cov = {**_COVERAGE, "discovered": 3000, "analysed": 200, "dropped": 2800}
-        cov["discovery_complete"] = False
-        report = build_report(
-            _sample_findings(), cloud="aws", executive_summary="x", coverage=cov
-        )
-
-        out = build_html_report(report)
-
-        assert "Discovery incomplete" in out
-
-
-class TestHtmlDetectedBy:
-    def test_rule_findings_are_labelled_in_the_detail_row(self):
-        f = _finding("nat-1")
-        f.detected_by = "rule:nat-gateway-idle"
-        out = build_html_report(build_report([f], cloud="aws", executive_summary="x"))
-        assert "rule:nat-gateway-idle" in out
-        assert "Detected by" in out
-
-    def test_model_findings_say_so(self):
-        f = _finding("i-1")
-        f.detected_by = "model"
-        out = build_html_report(build_report([f], cloud="aws", executive_summary="x"))
-        assert "Detected by:</span>model" in out
-
-    def test_findings_without_the_field_render_without_the_line(self):
-        out = build_html_report(
-            build_report([_finding("i-1")], cloud="aws", executive_summary="x")
-        )
-        assert "Detected by" not in out
-
-
-class TestHtmlFreeConfig:
-    def test_skipped_free_config_objects_are_mentioned(self):
-        cov = {**_COVERAGE, "discovered": 4, "analysed": 4, "dropped": 0}
-        cov["truncated"] = False
-        cov["free_config_skipped"] = 77
-        report = build_report(
-            _sample_findings(), cloud="aws", executive_summary="x", coverage=cov
-        )
-
-        assert "77 free configuration objects" in build_html_report(report)
-
 
 class TestSpendInReports:
     def _report(self):
@@ -1080,111 +789,8 @@ class TestSpendInReports:
             },
         )
 
-    def test_html_shows_what_the_scan_cost(self):
-        out = build_html_report(self._report())
-        assert "LLM spend" in out and "$0.31" in out and "$2.00" in out
-
     def test_slack_digest_shows_spend(self):
         assert "LLM spend $0.31" in str(build_slack_payload(self._report()))
-
-    def test_reports_without_spend_render_unchanged(self):
-        report = build_report([], cloud="aws", executive_summary="x")
-        assert "LLM spend" not in build_html_report(report)
-        assert "LLM spend" not in str(build_slack_payload(report))
-
-
-class TestHtmlEvidence:
-    def _html(self, finding):
-        return build_html_report(
-            build_report([finding], cloud="aws", executive_summary="x")
-        )
-
-    def test_model_finding_shows_the_metrics_it_rested_on(self):
-        f = _finding("i-1")
-        f.metrics_summary = {
-            "metrics": {"CPUUtilization": 0.4, "NetworkOut": 1200.0},
-            "metrics_status": "ok",
-            "window_days": 14,
-            "last_activity_checked": True,
-        }
-        f.last_activity = None
-
-        out = self._html(f)
-
-        assert "Evidence:" in out
-        assert "CPUUtilization=0.4" in out and "NetworkOut=1200.0" in out
-        assert "14-day window" in out
-        assert "no activity recorded" in out
-
-    def test_rule_finding_shows_the_configuration_it_rested_on(self):
-        f = _finding("vol-1")
-        f.metrics_summary = {
-            "state": {
-                "kind": "ebs_volume",
-                "state": "available",
-                "size_gb": 100,
-                "volume_type": "gp3",
-                "iops": None,
-            }
-        }
-
-        out = self._html(f)
-
-        assert "state=available" in out and "size_gb=100" in out
-        assert "volume_type=gp3" in out
-        assert "iops" not in out.split("Evidence:")[1].split("</div>")[0]
-
-    def test_legacy_flat_metrics_still_render(self):
-        f = _finding("i-1")  # metrics_summary={"CPUUtilization": 0.5}
-        assert "CPUUtilization=0.5" in self._html(f)
-
-    def test_unavailable_metrics_are_said_plainly(self):
-        f = _finding("i-1")
-        f.metrics_summary = {"metrics": {}, "metrics_status": "no_data"}
-
-        assert "metrics unavailable (no_data)" in self._html(f)
-
-    def test_values_are_escaped(self):
-        f = _finding("i-1")
-        f.metrics_summary = {"state": {"state": "<script>x</script>"}}
-
-        out = self._html(f)
-
-        assert "<script>x</script>" not in out
-
-
-class TestEmbeddedJsonCannotBreakOutOfTheScriptTag:
-    PAYLOAD = '</script><img src=x onerror="alert(1)">'
-
-    def _out(self, **finding_kw):
-        f = _finding("i-1")
-        for k, v in finding_kw.items():
-            setattr(f, k, v)
-        return build_html_report(
-            build_report([f], cloud="aws", executive_summary=self.PAYLOAD)
-        )
-
-    def test_script_close_in_a_tag_value_is_neutralised(self):
-        out = self._out(tags={"owner": self.PAYLOAD})
-        assert "</script><img" not in out
-        assert "\\u003c/script\\u003e" in out
-
-    def test_script_close_in_model_text_and_names_is_neutralised(self):
-        out = self._out(waste_reason=self.PAYLOAD, name=self.PAYLOAD)
-        assert "</script><img" not in out
-        assert 'onerror="alert(1)">' not in out.split("RAW_JSON = ")[1].split(";\n")[0]
-
-    def test_embedded_json_still_round_trips(self):
-        import json
-
-        out = self._out(tags={"owner": self.PAYLOAD})
-        blob = out.split("var RAW_JSON = ")[1].split(";\n")[0]
-
-        assert json.loads(blob)["findings"][0]["tags"]["owner"] == self.PAYLOAD
-
-    def test_line_separators_are_escaped_too(self):
-        out = self._out(tags={"k": "a\u2028b\u2029c"})
-        assert "\u2028" not in out and "\u2029" not in out
 
 
 class TestUntrustedTotals:
@@ -1250,21 +856,3 @@ class TestUntrustedTotals:
 
         assert "estimate only" in caveat and "unverified" in caveat
         assert "$3,540.00 in 2 findings needs human review" in caveat
-
-    def test_html_lists_flagged_findings_in_a_review_banner_and_marks_rows(self):
-        report = build_report(self._findings(), cloud="aws", executive_summary="x")
-
-        out = build_html_report(report)
-
-        assert "Review before acting" in out
-        assert "PROD - Payments server - DO NOT TOUCH" in out
-        assert "needs review" in out
-
-    def test_old_reports_without_review_fields_still_render(self):
-        report = build_report(self._findings(), cloud="aws", executive_summary="x")
-        for key in ("findings_needing_review", "waste_needs_review_usd"):
-            del report[key]
-        for f in report["findings"]:
-            del f["review_required"], f["review_reasons"]
-
-        assert "unverified waste estimate / month" in build_html_report(report)

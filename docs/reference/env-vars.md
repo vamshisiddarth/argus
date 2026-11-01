@@ -56,7 +56,7 @@ Complete reference for all Argus environment variables.
 | `SLACK_WEBHOOK_URL` | — | Slack incoming webhook URL. Checked at startup by every scan unless `DRY_RUN=true`, even if Slack isn't in `NOTIFICATION_PROVIDER`. |
 | `TEAMS_WEBHOOK_URL` | — | Microsoft Teams incoming webhook URL |
 | `WEBHOOK_URL` | — | Generic webhook URL — receives the full JSON report as a POST body |
-| `REPORT_FORMAT` | `json,html` | Comma-separated export formats: `json`, `html`, `pdf`, `pptx`. PDF requires `weasyprint`; PPTX requires `python-pptx` (`pip install argus-cloud-optimizer[export]`). |
+| `REPORT_FORMAT` | `json,html` | Comma-separated export formats: `json`, `html` (the decision board), `pptx`. PDF was removed in 0.7.0. PPTX requires `python-pptx` (`pip install argus-cloud-optimizer[export]`). |
 | `DRY_RUN` | `false` | `true` = log a preview of the notification payload instead of posting; remediation makes no Jira calls |
 | `REPORT_URL_EXPIRY` | `604800` | Pre-signed / SAS URL expiry in seconds (default: 7 days) |
 | `LOCAL_REPORT_DIR` | `local_reports` | Where reports are saved locally (`<dir>/<cloud>/YYYY/MM/DD/<scan-id>.*`) |

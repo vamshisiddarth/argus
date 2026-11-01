@@ -276,7 +276,7 @@ class TestBuildAIProvider:
 
 
 class TestSaveReportsToS3:
-    @patch("entrypoints.aws_lambda.build_html_report", return_value="<html></html>")
+    @patch("entrypoints.aws_lambda.build_board_html", return_value="<html></html>")
     @patch("entrypoints.aws_lambda.boto3")
     def test_uploads_json_and_html(self, mock_boto3, mock_html, monkeypatch):
         mock_s3 = MagicMock()
@@ -307,7 +307,7 @@ class TestSaveReportsToS3:
 
         assert url == "https://s3.example.com/report.html"
 
-    @patch("entrypoints.aws_lambda.build_html_report", return_value="<html></html>")
+    @patch("entrypoints.aws_lambda.build_board_html", return_value="<html></html>")
     @patch("entrypoints.aws_lambda.boto3")
     def test_generates_presigned_url(self, mock_boto3, mock_html, monkeypatch):
         mock_s3 = MagicMock()
