@@ -37,15 +37,26 @@ Top findings
 
 ---
 
-## 🆕 What's new in v0.6.0
+## What's new in v0.7.0
+
+> **A trust release.** Argus now says what it covered, fails loudly when it cannot do its job, and never presents a guess as a bill.
+
+> **Breaking:** the decision board is now the only HTML report, and PDF export is removed. Scans, local saves and the S3 / GCS / Azure Blob upload write the board, and the Slack "Full report" link opens it. `REPORT_FORMAT=pdf` writes nothing. The JSON report is the stable interface. Exit code 3 and 4 now signal a failed scan or failed preflight.
+
+- **Honest money.** Every dollar is labelled billed, list price or model estimate. With no billed data the headline reads "unverified waste estimate" and says it is not a savings figure. Model estimates are not invoices; billed numbers need resource-level data in the payer account's Cost Explorer settings.
+- **Coverage and preflight.** Reports state resources discovered vs analysed, regions, the real metrics window and what could not be seen. AWS preflight checks Resource Explorer, tags and the scan role before any model spend.
+- **Fewer false alarms.** A missing metric is "could not judge", not idle: NAT gateways, load balancers and similar resources with no traffic data are withheld from the waste total. ElastiCache failover replicas and AMI-backed or retained snapshots are not recommended for deletion.
+- **Decision board.** Findings group into a short list of opportunities with savings ranges, evidence and check-first steps. `argus board --report FILE.json --client-safe` writes a redacted copy to show a client (read it before sending).
+- **Cost control.** Plan line and estimate before the model runs, strict stop before overspend, scan progress on stderr.
+- **Depth differs by cloud.** AWS is the proven path. GCP and Azure run the same pipeline but have no state rules, preflight or tag fallback yet.
+
+[Full changelog →](CHANGELOG.md) · [Project status →](docs/roadmap.md)
+
+### v0.6.0
 
 > **Breaking:** scheduled scans now create Jira tickets only when `REMEDIATION_ENABLED=true` (default `false`). If you ran v0.5.0 with Jira configured, set it to keep tickets flowing. `argus policies apply --confirm` is unaffected.
 
-- **Dry runs never touch Jira** — `DRY_RUN=true` / `--dry-run` previously still created real tickets when Jira was configured.
-- **One summary log line per remediation run**, with `error_type` on failures.
-- **`ARGUS_POLICY_DIR`** is read by both the CLI and scheduled scans (`ARGUS_POLICIES_DIR` still accepted).
-
-[Full changelog →](CHANGELOG.md) · [Project status →](docs/roadmap.md)
+- **Dry runs never touch Jira**, **one summary log line per remediation run**, and **`ARGUS_POLICY_DIR`** is read by the CLI and scheduled scans.
 
 ### v0.5.0
 
@@ -56,7 +67,7 @@ Top findings
 - **Rightsizing recommendations** — `resize` and `reduce_nodes` proposals now include a specific target tier or node count derived from observed CPU% (e.g., "Recommend db.t3.small — observed CPU ~8%").
 - **Acceptance rate monitoring** — `argus policies stats` reads the append-only audit log and prints per-policy proposal counts, Jira new/update splits, and cloud breakdown.
 - **JSONL audit log** — every `apply --confirm` appends a line to `local_reports/audit.jsonl` mapping `proposal_id → jira_key → jira_url`.
-- **1756 tests** — all pass offline, no cloud credentials needed.
+- **2,700+ tests** — all pass offline, no cloud credentials needed.
 
 [Full changelog →](CHANGELOG.md)
 
@@ -191,7 +202,7 @@ docker run --rm \
 
 ```bash
 pip install argus-cloud-optimizer
-argus --version   # argus 0.6.0
+argus --version   # argus 0.7.0
 argus --help
 ```
 
@@ -256,7 +267,7 @@ argus chat                                       # auto-detects cloud
 ```
 
 ```
-Argus v0.6.0 — AI Cloud Detective
+Argus v0.7.0 — AI Cloud Detective
 Cloud: AWS  |  Accounts: prod (123456789012)  |  Budget: $1.00/session
 Tip: end a line with \ to continue on the next line.
 Type your question, or /help for commands.
@@ -657,7 +668,7 @@ argus/
 │   ├── aws/               # CloudFormation templates
 │   ├── gcp/               # Cloud Run + Scheduler deploy script
 │   └── azure/             # Bicep templates
-└── tests/                 # 1756 tests, all pass offline
+└── tests/                 # 2,700+ tests, all pass offline
 ```
 
 ---

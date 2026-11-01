@@ -3,50 +3,7 @@
 All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
-## Unreleased
-
-### Changed
-
-- **BREAKING: the decision board is now the only HTML report.** The old table report (`core/reports/html.py`, `build_html_report`) is removed. Scans, `save_reports_locally` and the S3 / GCS / Azure Blob upload now write the board page, and the Slack "Full report" link opens it. The `html` value of `REPORT_FORMAT` and the `.html` file name are unchanged. The board shows the same warnings the old report did (partial scan, preflight, truncated coverage, incomplete discovery, metrics lost to throttling). `argus board --report` still works for older reports.
-- **BREAKING: PDF export is removed.** `REPORT_FORMAT=pdf` now logs `pdf_format_removed` and writes nothing; the `weasyprint` dependency is dropped from the `export` extra. PPTX is unchanged.
-- **Totals now say where the dollars come from.** Headlines call the total "billed waste", "estimated waste" or "unverified waste estimate" depending on how much of it is billed (at least half billed is "estimated"; this threshold is provisional). The caveat under the total, the scan summary, the Slack digest, the board and the pptx export split the dollars into `$ billed`, `$ list price`, `$ model estimate` and a count of unpriced findings, then the existing confidence split. The old caveat showed only the confidence split.
-- **Board rows** tag list-priced amounts "list price" and model guesses "model est."; a finding with no dollar figure shows "unpriced" instead of `$0.00`.
-
-### Added
-
-- **Client-safe board: `argus board --report FILE.json --client-safe [--hide-tags KEYS|*]`.** Renders a redacted copy for showing a client: account, project and subscription ids become `account-N`, ARNs lose partition and account, the agency's own run cost (KPI and panel) and the caller identity check are dropped, and the named tag keys (or all) are removed. Names, types, regions, amounts and bases are kept. The stored report is never changed. See `core/reports/redact.py`.
-- **Board headline says how much is billed.** Under the total: "None of it is billed: list prices and model guesses only. Not a savings figure." or "N% is billed; the rest is list price or a model guess. Not a savings figure."
-- **Scan progress.** `argus scan` now reports its stages on stderr while it runs: discovering resources, applying rules, collecting evidence, reviewing with the model (batches, with spend against the budget), building reports, then the total time. In a terminal it is one live line with a bar, percentage, elapsed time and time left, and log lines scroll above it instead of landing on it. In a log or background task it is plain, throttled lines with a heartbeat for long quiet steps. stdout stays the JSON result. `--no-progress` or `ARGUS_PROGRESS=off` turns it off; `ARGUS_PROGRESS=plain` forces plain lines. Discovery shows its searches (regions first, then the services of any region that hit the 1,000-result limit) and what it is working on. Deployed runs never show it. See "Scan progress" in the README.
-- **Testbed and scoring tool** (`testbed/`, `core/calibration/`). A manifest of 10 labelled waste resources in 8 classes plus 3 look-alike decoys, Terraform that creates them in a sandbox account (validated, never applied by this project yet; provider pinned with digests; refuses to run outside the named sandbox account; costly classes off by default), and `python -m core.calibration score` which reports recall, precision, per-class targets, cost error, verified share, evidence completeness and run cost, and exits 1 when a baseline regresses. CI scores an offline synthetic fixture so the scorer cannot silently break; a real baseline needs a real run (see `testbed/README.md`).
-- **Decision board: `argus board --report FILE.json`.** Builds one self-contained HTML page (no server, no network requests, strict Content Security Policy) from a scan report: full-width layout with a filter rail and a card grid, KPI strip, dollars by cost basis, the Easy and Needs-an-owner lanes, a "cost of this run" panel (model spend against budget and estimate, calls, tokens, cost per 1,000 resources), and per opportunity a risk line, evidence, check-first steps, the member list and Approve / Investigate / Keep with owner, note and keep-until. Decisions are stored in the browser, keyed by the stable opportunity id, and can be exported, imported and written to CSV (formula-safe). Light and dark themes; checked with axe at five widths. Opportunities gained `evidence`, `risk` and `check_first` text from deterministic templates. Works on reports from earlier versions. See `docs/concepts/board-report.md` and `examples/sample-board.html`.
-- **Opportunities (prototype).** Findings are grouped into a short list of decisions by action x resource family x tier (`flagged`, `unsure`, `sure`), deterministically and without a model. Report fields `opportunities` and `opportunity_summary` (schema 1.2.0, additive); groups smaller than 2 collapse into an "other resources" opportunity per action and tier, and a cap of 50 raises that minimum until the list fits. Each opportunity has a stable id, a savings range (billed plus list-priced up to adding model estimates), a lane (`easy` or `doubt`), its owners and every member. `python -m core.opportunities summary --report R` measures a report. Not yet used by the HTML report, Slack digest or tickets. See `docs/concepts/opportunities.md`.
-- **Report schema 1.2.0 (additive): `cost_summary`** with `waste_by_basis`, `findings_by_basis`, `unpriced_findings`, `verified_waste_usd`, `verified_share` and `headline_is_verified`. Multi-cloud merged reports recompute it from all findings. Existing fields and `cost_basis` values are unchanged.
-
-### Fixed (from the customer retest)
-
-- **A missing metric is no longer idle money.** When the model flags a traffic-based resource (NAT gateway, load balancer, WAF web ACL, Client VPN, Transit Gateway attachment, VPC endpoint, VPN, firewall) and its traffic metrics were unavailable or empty, the finding is withheld from the waste total and the board says "Could not judge N resources". Previously it could land as a priced idle finding.
-- **Failover replicas are not called waste.** Cache nodes now carry their replication group, role, automatic failover and Multi-AZ settings. A node in a group with failover or Multi-AZ is withheld; a node whose settings could not be read is withheld too.
-- **Snapshots are checked before delete advice.** Snapshot state includes size, age and whether an AMI uses it. AMI-backed snapshots, snapshots tagged as retained or safety copies, and snapshots whose state could not be read are withheld. Snapshots stay unpriced: their stored size is incremental, so a list price on the full volume size would overstate them.
-- These guards apply to the default `pipeline` engine; the `react` engine and `argus chat` do not have them. The scan role needs `ec2:DescribeSnapshots` and `ec2:DescribeImages` (added to every published role definition); without them snapshots are withheld, not reported.
-- Report field `coverage.withheld` lists each withheld resource with its reason (additive). An idle load balancer that publishes no datapoints is now "could not judge" rather than a finding.
-
-### Known limitations
-
-- **Model-estimated compute prices are not billing-grade.** When a finding's `cost_basis` is `model_estimate`, instance prices come from the model and can be far from the real rate. Treat them as estimates, not savings figures. Billed numbers need resource-level data enabled in the payer account's Cost Explorer settings.
-
-### Upgrade notes (these changes ship with 0.7.0)
-
-- **BREAKING: the report page is now the decision board.** The old table HTML is gone; scans, local saves and the S3 / GCS / Blob upload write the board, and the Slack "Full report" link opens it. Anything that parsed the old page will break; the JSON report is the stable interface.
-- **BREAKING: PDF export is removed.** `REPORT_FORMAT=pdf` logs `pdf_format_removed` and writes no PDF. Teams that email PDFs to clients need another route for now.
-- **A model estimate is not an invoice.** Dollars marked `model_estimate` come from the model, and instance prices in particular can be far off. Billed dollars need resource-level data enabled in the payer account's Cost Explorer settings (preflight check P8). With none, the headline reads "unverified waste estimate" and says it is not a savings figure.
-- **Depth differs by cloud.** AWS is the proven path. GCP and Azure run the same pipeline but have no state rules, no preflight and no tag fallback yet; do not treat them as equal to AWS.
-- **`--client-safe` is pattern based.** It removes account ids, ARN prefixes, run cost, caller identity and chosen tag keys. Client names inside resource names or tag values are not detected: read the page before sending it.
-
-### Fixed
-
-- **Bedrock no longer fails on models that reject `temperature`.** Newer Claude models answer `temperature is deprecated for this model` with a `ValidationException`, which stopped the scan. The Bedrock provider now retries once without `temperature`, remembers it for the rest of the run, and logs a warning. Dropping it does not use up the throttling retries; any other validation error, including an out-of-range temperature, still raises immediately.
-
-## v0.7.0 (2026-10-22)
+## v0.7.0 (2026-11-01)
 
 A trust release. Argus now tells you what it covered, fails loudly when it could not do its job, and stops presenting missing data as evidence. Prompted by a real-user run on v0.6.1; see the upgrade notes for behaviour that changes.
 
@@ -56,6 +13,10 @@ A trust release. Argus now tells you what it covered, fails loudly when it could
 - **AWS preflight can stop a scan** with exit code 4 before any LLM budget is spent: no Resource Explorer aggregator index (a local-only index silently searched one region) or no Search permission. A missing default view is a warning (results carry no tags). `--skip-preflight` / `ARGUS_SKIP_PREFLIGHT=true` bypasses it and is recorded in the report. In multi-account runs one failing account is recorded in `scan_errors` and the others continue.
 - **`--lookback-days` is now actually applied.** The prompt and tool schema used to tell the model never to use less than 90 days, so the model asked for 90 whatever you set. The configured window now overrides every metrics query.
 - **The resource cap no longer drops whole resource types.** With no cost data the old selection was arbitrary; selection is now a deterministic round-robin across types (cost order with a per-type floor when costs exist).
+- **BREAKING: the decision board is now the only HTML report.** The old table report (`core/reports/html.py`, `build_html_report`) is removed. Scans, `save_reports_locally` and the S3 / GCS / Azure Blob upload now write the board page, and the Slack "Full report" link opens it. The `html` value of `REPORT_FORMAT` and the `.html` file name are unchanged. The board shows the same warnings the old report did (partial scan, preflight, truncated coverage, incomplete discovery, metrics lost to throttling). `argus board --report` still works for older reports.
+- **BREAKING: PDF export is removed.** `REPORT_FORMAT=pdf` now logs `pdf_format_removed` and writes nothing; the `weasyprint` dependency is dropped from the `export` extra. PPTX is unchanged.
+- **Totals now say where the dollars come from.** Headlines call the total "billed waste", "estimated waste" or "unverified waste estimate" depending on how much of it is billed (at least half billed is "estimated"; this threshold is provisional). The caveat under the total, the scan summary, the Slack digest, the board and the pptx export split the dollars into `$ billed`, `$ list price`, `$ model estimate` and a count of unpriced findings, then the existing confidence split. The old caveat showed only the confidence split.
+- **Board rows** tag list-priced amounts "list price" and model guesses "model est."; a finding with no dollar figure shows "unpriced" instead of `$0.00`.
 
 ### Added
 
@@ -80,6 +41,7 @@ A trust release. Argus now tells you what it covered, fails loudly when it could
 - Dry runs no longer log `slack_delivered: true`.
 - The AWS template did not expose `RESOURCE_EXPLORER_REGION`.
 - The prefilter log field `dropped_zero_cost` was wrong whenever dropped resources had a cost; it is now `dropped`.
+- **Bedrock no longer fails on models that reject `temperature`.** Newer Claude models answer `temperature is deprecated for this model` with a `ValidationException`, which stopped the scan. The Bedrock provider now retries once without `temperature`, remembers it for the rest of the run, and logs a warning. Dropping it does not use up the throttling retries; any other validation error, including an out-of-range temperature, still raises immediately.
 
 ### Scan engine and correctness (found by reading a real customer inventory)
 
@@ -111,6 +73,21 @@ A trust release. Argus now tells you what it covered, fails loudly when it could
 - Chat mode uses the configured metrics window in its tool descriptions and metric display.
 - The multi-cloud merged report carries `scan_window` and `preflight`.
 - Tests no longer write reports or the audit log into the repository's `local_reports/`.
+- **Client-safe board: `argus board --report FILE.json --client-safe [--hide-tags KEYS|*]`.** Renders a redacted copy for showing a client: account, project and subscription ids become `account-N`, ARNs lose partition and account, the agency's own run cost (KPI and panel) and the caller identity check are dropped, and the named tag keys (or all) are removed. Names, types, regions, amounts and bases are kept. The stored report is never changed. See `core/reports/redact.py`.
+- **Board headline says how much is billed.** Under the total: "None of it is billed: list prices and model guesses only. Not a savings figure." or "N% is billed; the rest is list price or a model guess. Not a savings figure."
+- **Scan progress.** `argus scan` now reports its stages on stderr while it runs: discovering resources, applying rules, collecting evidence, reviewing with the model (batches, with spend against the budget), building reports, then the total time. In a terminal it is one live line with a bar, percentage, elapsed time and time left, and log lines scroll above it instead of landing on it. In a log or background task it is plain, throttled lines with a heartbeat for long quiet steps. stdout stays the JSON result. `--no-progress` or `ARGUS_PROGRESS=off` turns it off; `ARGUS_PROGRESS=plain` forces plain lines. Discovery shows its searches (regions first, then the services of any region that hit the 1,000-result limit) and what it is working on. Deployed runs never show it. See "Scan progress" in the README.
+- **Testbed and scoring tool** (`testbed/`, `core/calibration/`). A manifest of 10 labelled waste resources in 8 classes plus 3 look-alike decoys, Terraform that creates them in a sandbox account (validated, never applied by this project yet; provider pinned with digests; refuses to run outside the named sandbox account; costly classes off by default), and `python -m core.calibration score` which reports recall, precision, per-class targets, cost error, verified share, evidence completeness and run cost, and exits 1 when a baseline regresses. CI scores an offline synthetic fixture so the scorer cannot silently break; a real baseline needs a real run (see `testbed/README.md`).
+- **Decision board: `argus board --report FILE.json`.** Builds one self-contained HTML page (no server, no network requests, strict Content Security Policy) from a scan report: full-width layout with a filter rail and a card grid, KPI strip, dollars by cost basis, the Easy and Needs-an-owner lanes, a "cost of this run" panel (model spend against budget and estimate, calls, tokens, cost per 1,000 resources), and per opportunity a risk line, evidence, check-first steps, the member list and Approve / Investigate / Keep with owner, note and keep-until. Decisions are stored in the browser, keyed by the stable opportunity id, and can be exported, imported and written to CSV (formula-safe). Light and dark themes; checked with axe at five widths. Opportunities gained `evidence`, `risk` and `check_first` text from deterministic templates. Works on reports from earlier versions. See `docs/concepts/board-report.md` and `examples/sample-board.html`.
+- **Opportunities (prototype).** Findings are grouped into a short list of decisions by action x resource family x tier (`flagged`, `unsure`, `sure`), deterministically and without a model. Report fields `opportunities` and `opportunity_summary` (schema 1.2.0, additive); groups smaller than 2 collapse into an "other resources" opportunity per action and tier, and a cap of 50 raises that minimum until the list fits. Each opportunity has a stable id, a savings range (billed plus list-priced up to adding model estimates), a lane (`easy` or `doubt`), its owners and every member. `python -m core.opportunities summary --report R` measures a report. Not yet used by the HTML report, Slack digest or tickets. See `docs/concepts/opportunities.md`.
+- **Report schema 1.2.0 (additive): `cost_summary`** with `waste_by_basis`, `findings_by_basis`, `unpriced_findings`, `verified_waste_usd`, `verified_share` and `headline_is_verified`. Multi-cloud merged reports recompute it from all findings. Existing fields and `cost_basis` values are unchanged.
+
+### Fixed (from the customer retest)
+
+- **A missing metric is no longer idle money.** When the model flags a traffic-based resource (NAT gateway, load balancer, WAF web ACL, Client VPN, Transit Gateway attachment, VPC endpoint, VPN, firewall) and its traffic metrics were unavailable or empty, the finding is withheld from the waste total and the board says "Could not judge N resources". Previously it could land as a priced idle finding.
+- **Failover replicas are not called waste.** Cache nodes now carry their replication group, role, automatic failover and Multi-AZ settings. A node in a group with failover or Multi-AZ is withheld; a node whose settings could not be read is withheld too.
+- **Snapshots are checked before delete advice.** Snapshot state includes size, age and whether an AMI uses it. AMI-backed snapshots, snapshots tagged as retained or safety copies, and snapshots whose state could not be read are withheld. Snapshots stay unpriced: their stored size is incremental, so a list price on the full volume size would overstate them.
+- These guards apply to the default `pipeline` engine; the `react` engine and `argus chat` do not have them. The scan role needs `ec2:DescribeSnapshots` and `ec2:DescribeImages` (added to every published role definition); without them snapshots are withheld, not reported.
+- Report field `coverage.withheld` lists each withheld resource with its reason (additive). An idle load balancer that publishes no datapoints is now "could not judge" rather than a finding.
 
 ### Known limitations
 
@@ -121,9 +98,15 @@ A trust release. Argus now tells you what it covered, fails loudly when it could
 - Output cut-offs: a real cut-off followed by recovery was verified live once on the previous engine; merging several `partial` batches is covered by unit tests only, and a very small `AI_MAX_TOKENS` can still end in exit code 3.
 - Anthropic requests are not streamed; `AI_TIMEOUT_SECONDS` bounds a response.
 - GCP and Azure use the same pipeline but have no state rules, preflight or tag fallback yet.
+- **Model-estimated compute prices are not billing-grade.** When a finding's `cost_basis` is `model_estimate`, instance prices come from the model and can be far from the real rate. Treat them as estimates, not savings figures. Billed numbers need resource-level data enabled in the payer account's Cost Explorer settings.
 
 ### Upgrade notes
 
+- **BREAKING: the report page is now the decision board.** The old table HTML is gone; scans, local saves and the S3 / GCS / Blob upload write the board, and the Slack "Full report" link opens it. Anything that parsed the old page will break; the JSON report is the stable interface.
+- **BREAKING: PDF export is removed.** `REPORT_FORMAT=pdf` logs `pdf_format_removed` and writes no PDF. Teams that email PDFs to clients need another route for now.
+- **A model estimate is not an invoice.** Dollars marked `model_estimate` come from the model, and instance prices in particular can be far off. Billed dollars need resource-level data enabled in the payer account's Cost Explorer settings (preflight check P8). With none, the headline reads "unverified waste estimate" and says it is not a savings figure.
+- **Depth differs by cloud.** AWS is the proven path. GCP and Azure run the same pipeline but have no state rules, no preflight and no tag fallback yet; do not treat them as equal to AWS.
+- **`--client-safe` is pattern based.** It removes account ids, ARN prefixes, run cost, caller identity and chosen tag keys. Client names inside resource names or tag values are not detected: read the page before sending it.
 - Automations that treated exit code 0 as "scan ran" will now see 3 or 4 on the failures above. Handle them or investigate the underlying setup.
 - Preflight is AWS-only in this release; GCP and Azure get coverage, window and no-data handling but no preflight.
 - Known limitation: Resource Explorer `Search` returns at most 1,000 results, so on larger accounts `coverage.discovered` can understate the inventory. Argus now logs `resource_explorer_search_limit` when it hits the limit.
