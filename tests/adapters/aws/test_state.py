@@ -288,3 +288,80 @@ def test_snapshot_state_says_whether_an_ami_uses_it():
     assert out[res[0].resource_id]["ami"] == "ami-9"
     assert out[res[1].resource_id]["ami_backed"] is False
     assert out[res[0].resource_id]["size_gb"] == 500
+
+
+def _rds_client(snapshots=None, clusters=None, error=None):
+    rds = MagicMock()
+
+    def paginator(name):
+        pag = MagicMock()
+        if error:
+            pag.paginate.side_effect = error
+        elif name == "describe_db_snapshots":
+            pag.paginate.return_value = [{"DBSnapshots": snapshots or []}]
+        else:
+            pag.paginate.return_value = [{"DBClusterSnapshots": clusters or []}]
+        return pag
+
+    rds.get_paginator.side_effect = paginator
+    return rds
+
+
+def _rds_session(rds):
+    session = MagicMock()
+    session.client.side_effect = lambda name, region_name=None, **kw: (
+        rds if name == "rds" else MagicMock()
+    )
+    return session
+
+
+def _snap(arn, rtype="rds:snapshot"):
+    return Resource(arn, rtype, "aws", "us-east-1")
+
+
+def test_rds_snapshot_state_carries_type_and_source():
+    auto = "arn:aws:rds:us-east-1:1:snapshot:rds:qa-ephemeral-2026-11-01-03-05"
+    manual = "arn:aws:rds:us-east-1:1:snapshot:old-manual"
+    rds = _rds_client(
+        snapshots=[
+            {
+                "DBSnapshotArn": auto,
+                "SnapshotType": "automated",
+                "DBInstanceIdentifier": "qa-ephemeral",
+                "AllocatedStorage": 20,
+                "Status": "available",
+                "SnapshotCreateTime": datetime(2026, 11, 1, tzinfo=timezone.utc),
+            },
+            {"DBSnapshotArn": manual, "SnapshotType": "manual"},
+        ]
+    )
+
+    out = collect_state(_rds_session(rds), [_snap(auto), _snap(manual)])
+
+    assert out[auto]["snapshot_type"] == "automated"
+    assert out[auto]["source"] == "qa-ephemeral" and out[auto]["size_gb"] == 20
+    assert out[manual]["snapshot_type"] == "manual"
+
+
+def test_rds_cluster_snapshot_state():
+    arn = "arn:aws:rds:us-east-1:1:cluster-snapshot:rds:prod-2026-11-01"
+    rds = _rds_client(
+        clusters=[
+            {
+                "DBClusterSnapshotArn": arn,
+                "SnapshotType": "automated",
+                "DBClusterIdentifier": "prod",
+            }
+        ]
+    )
+
+    out = collect_state(_rds_session(rds), [_snap(arn, "rds:cluster-snapshot")])
+
+    assert out[arn]["snapshot_type"] == "automated" and out[arn]["source"] == "prod"
+
+
+def test_rds_snapshot_state_is_missing_when_describe_is_denied():
+    rds = _rds_client(error=_denied("DescribeDBSnapshots"))
+    arn = "arn:aws:rds:us-east-1:1:snapshot:rds:x"
+
+    assert collect_state(_rds_session(rds), [_snap(arn)]) == {}

@@ -69,6 +69,10 @@ class MetricSummary:
         return out
 
 
+class ActivityUnavailableError(Exception):
+    """Last activity could not be read. Missing evidence, never "no activity"."""
+
+
 class CloudAdapter(ABC):
     """
     Abstract cloud adapter. One implementation per cloud provider.

@@ -43,6 +43,8 @@ A scan runs in five steps. Everything that is a fact is gathered in code; the mo
 - a traffic-based resource (NAT gateway, load balancer, WAF, VPN, Client VPN, Transit Gateway attachment, VPC endpoint) whose traffic metrics were unavailable or empty
 - an ElastiCache node in a replication group with automatic failover or Multi-AZ, or one whose replication settings could not be read
 - an EBS snapshot that an AMI uses, that a tag marks as retained or a safety copy, or whose details could not be read
+- a CloudWatch log group that received log events inside the activity window, or whose last event time could not be read (CloudTrail does not record log ingestion, so Argus reads the newest log stream)
+- an RDS or Aurora automated snapshot, an AWS Backup snapshot or a retained automated backup (managed by retention, not delete candidates), a snapshot a tag marks as retained, or one whose details could not be read
 
 The guards apply to the default `pipeline` engine only. The `react` engine and `argus chat` do not have them.
 

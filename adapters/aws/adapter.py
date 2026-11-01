@@ -5,7 +5,14 @@ from datetime import datetime
 
 import boto3
 
-from adapters.aws import auth, cloudtrail, cloudwatch, cost_explorer, resource_explorer
+from adapters.aws import (
+    auth,
+    cloudtrail,
+    cloudwatch,
+    cost_explorer,
+    logs_activity,
+    resource_explorer,
+)
 from adapters.aws.preflight import run_preflight
 from adapters.aws.state import collect_state
 from adapters.aws.tags import fetch_tags
@@ -108,6 +115,8 @@ class AWSAdapter(CloudAdapter):
         resource_id: str,
         resource_type: str,
     ) -> datetime | None:
+        if logs_activity.is_log_group(resource_type):
+            return logs_activity.get_last_event(self._session, resource_id)
         return cloudtrail.get_last_activity(
             session=self._session,
             resource_id=resource_id,

@@ -185,6 +185,10 @@ Resources:
                   - ec2:DescribeVolumes
                   - ec2:DescribeSnapshots
                   - ec2:DescribeImages
+                  - logs:DescribeLogGroups
+                  - logs:DescribeLogStreams
+                  - rds:DescribeDBSnapshots
+                  - rds:DescribeDBClusterSnapshots
                   - ec2:DescribeAddresses
                   - rds:DescribeDBInstances
                   - rds:DescribeDBClusters

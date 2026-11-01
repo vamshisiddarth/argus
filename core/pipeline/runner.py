@@ -14,9 +14,9 @@ from core.baseline import BaselineResult, run_baseline
 from core.config import get_settings
 from core.errors import StrictCoverageError
 from core.models.finding import ResourceFinding
-from core.pipeline.evidence import Evidence, collect_evidence
+from core.pipeline.evidence import Evidence, collect_evidence, look_up_activity
 from core.pipeline.gate import gate
-from core.pipeline.guards import screen
+from core.pipeline.guards import is_log_group, screen
 from core.pipeline.triage import (
     Flagged,
     TriageResult,
@@ -167,7 +167,16 @@ def run_pipeline(
     window_info["llm_calibration"] = _calibration_summary(triage)
 
     no_data_ids = {e.resource.resource_id for e in evidence if e.metrics_status != "ok"}
-    kept, withheld = screen(triage.flagged)
+    unchecked = [
+        f.evidence
+        for f in triage.flagged
+        if is_log_group(
+            f.evidence.resource.resource_type, f.evidence.resource.native_type
+        )
+        and not f.evidence.activity_checked
+    ]
+    look_up_activity(loop._adapter, unchecked)
+    kept, withheld = screen(triage.flagged, scan.activity_lookback_days)
     if withheld:
         logger.warning("findings_withheld", count=len(withheld))
     model_findings = [

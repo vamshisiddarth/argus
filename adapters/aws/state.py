@@ -28,8 +28,12 @@ INSTANCE = "AWS::EC2::Instance"
 CACHE_CLUSTER = "AWS::ElastiCache::CacheCluster"
 REPLICATION_GROUP = "AWS::ElastiCache::ReplicationGroup"
 SNAPSHOT = "ec2:snapshot"
+RDS_SNAPSHOT = "rds:snapshot"
+RDS_CLUSTER_SNAPSHOT = "rds:cluster-snapshot"
 STATE_TYPES = frozenset({VOLUME, EIP, INSTANCE})
-CONTEXT_TYPES = frozenset({CACHE_CLUSTER, REPLICATION_GROUP, SNAPSHOT})
+CONTEXT_TYPES = frozenset(
+    {CACHE_CLUSTER, REPLICATION_GROUP, SNAPSHOT, RDS_SNAPSHOT, RDS_CLUSTER_SNAPSHOT}
+)
 
 
 def collect_state(
@@ -63,6 +67,8 @@ def collect_state(
                     out[r.resource_id] = state
         if CACHE_CLUSTER in by_type or REPLICATION_GROUP in by_type:
             _cache_state(session, region, by_type, out)
+        if RDS_SNAPSHOT in by_type or RDS_CLUSTER_SNAPSHOT in by_type:
+            _rds_snapshot_state(session, region, by_type, out)
         if SNAPSHOT in by_type:
             snaps = _snapshots(client, region, by_type[SNAPSHOT])
             for r in by_type[SNAPSHOT]:
@@ -273,3 +279,50 @@ def _snapshots(
                 snaps[sid]["ami_backed"] = True
                 snaps[sid]["ami"] = image.get("ImageId")
     return snaps
+
+
+def _rds_snapshot_state(
+    session: boto3.Session,
+    region: str,
+    by_type: dict[str, list[Resource]],
+    out: dict[str, dict[str, Any]],
+) -> None:
+    """Snapshot type (automated or manual), so retention-managed copies are known."""
+    client = session.client("rds", region_name=region, config=BOTO_TIMEOUT_CONFIG)
+    jobs = (
+        (RDS_SNAPSHOT, "describe_db_snapshots", "DBSnapshots", "DBSnapshotArn"),
+        (
+            RDS_CLUSTER_SNAPSHOT,
+            "describe_db_cluster_snapshots",
+            "DBClusterSnapshots",
+            "DBClusterSnapshotArn",
+        ),
+    )
+    for rtype, op, key, arn_key in jobs:
+        wanted = by_type.get(rtype)
+        if not wanted:
+            continue
+        try:
+            found = {
+                sn[arn_key]: sn
+                for page in client.get_paginator(op).paginate()
+                for sn in page.get(key, [])
+                if arn_key in sn
+            }
+        except (ClientError, BotoCoreError) as exc:
+            _warn(op, region, exc)
+            continue
+        for r in wanted:
+            sn = found.get(r.resource_id)
+            if sn is None:
+                continue
+            created = sn.get("SnapshotCreateTime")
+            out[r.resource_id] = {
+                "kind": "rds_snapshot",
+                "snapshot_type": str(sn.get("SnapshotType", "")).lower(),
+                "created": created.isoformat() if created else None,
+                "size_gb": sn.get("AllocatedStorage"),
+                "source": sn.get("DBInstanceIdentifier")
+                or sn.get("DBClusterIdentifier"),
+                "status": sn.get("Status"),
+            }
