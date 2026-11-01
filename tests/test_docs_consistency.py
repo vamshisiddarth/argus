@@ -173,7 +173,14 @@ def test_day_window_settings_are_documented():
 
 @pytest.mark.parametrize("rel", IAM_FILES)
 @pytest.mark.parametrize(
-    "action", ["ec2:DescribeVolumes", "ec2:DescribeAddresses", "tag:GetResources"]
+    "action",
+    [
+        "ec2:DescribeVolumes",
+        "ec2:DescribeAddresses",
+        "tag:GetResources",
+        "ec2:DescribeSnapshots",
+        "ec2:DescribeImages",
+    ],
 )
 def test_state_rule_describe_actions_are_in_every_role_definition(rel, action):
     assert action in _read(rel), f"{action} missing from {rel}"

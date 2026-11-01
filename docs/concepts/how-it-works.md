@@ -38,6 +38,14 @@ A scan runs in five steps. Everything that is a fact is gathered in code; the mo
 4. **Triage.** Resources are ranked (billed cost, high-impact types first) and sent to the model in batches. Each batch is one stateless call, so spend grows linearly with the number of resources. Before the first call Argus estimates the cost; it stops before a batch that would overspend the budget and keeps everything found so far.
 5. **Report.** Findings carry their evidence, `confidence`, `cost_basis` and `detected_by`. The summary is generated from the findings, not by another model call.
 
+**Guards between triage and report.** A model finding is withheld from the waste total, and listed under `coverage.withheld`, when the evidence cannot support it:
+
+- a traffic-based resource (NAT gateway, load balancer, WAF, VPN, Client VPN, Transit Gateway attachment, VPC endpoint) whose traffic metrics were unavailable or empty
+- an ElastiCache node in a replication group with automatic failover or Multi-AZ, or one whose replication settings could not be read
+- an EBS snapshot that an AMI uses, that a tag marks as retained or a safety copy, or whose details could not be read
+
+The guards apply to the default `pipeline` engine only. The `react` engine and `argus chat` do not have them.
+
 `ARGUS_ENGINE=react` switches back to the original tool-calling loop described below, which also powers `argus chat`.
 
 ## :material-recycle: The ReAct loop (chat and the `react` engine)

@@ -43,6 +43,8 @@ resource "aws_iam_role_policy" "argus_scan" {
         "tag:GetResources",
         "ec2:DescribeInstances",
         "ec2:DescribeVolumes",
+        "ec2:DescribeSnapshots",
+        "ec2:DescribeImages",
         "ec2:DescribeAddresses",
         "rds:DescribeDBInstances",
         "rds:DescribeDBClusters",

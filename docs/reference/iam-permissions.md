@@ -33,6 +33,8 @@ the templates creates them for you.
         "tag:GetResources",
         "ec2:DescribeInstances",
         "ec2:DescribeVolumes",
+        "ec2:DescribeSnapshots",
+        "ec2:DescribeImages",
         "ec2:DescribeAddresses",
         "rds:DescribeDBInstances",
         "rds:DescribeDBClusters",
@@ -101,6 +103,9 @@ looks like `Administrator*` or `*FullAccess`.
     AI can only say "consider downsizing." With it, the AI says
     *"RIGHT-SIZE: db.r5.4xlarge → db.r5.2xlarge, saving ~$280/month."*
     All calls are read-only and never modify any resource.
+
+!!! info "Why `ec2:DescribeSnapshots` and `ec2:DescribeImages`?"
+    Before a snapshot is suggested for deletion, Argus checks whether an AMI still uses it. Without these two actions, snapshot details cannot be read and snapshot findings are withheld from the waste total (listed under `coverage.withheld` as `state_unavailable`) rather than reported. `elasticache:DescribeReplicationGroups` and `elasticache:DescribeCacheClusters` play the same role for cache nodes.
 
 `cloudwatch:ListMetrics` powers the dynamic metric discovery used for resource types that
 aren't in the registry.

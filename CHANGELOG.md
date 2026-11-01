@@ -27,6 +27,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 - **A missing metric is no longer idle money.** When the model flags a traffic-based resource (NAT gateway, load balancer, WAF web ACL, Client VPN, Transit Gateway attachment, VPC endpoint, VPN, firewall) and its traffic metrics were unavailable or empty, the finding is withheld from the waste total and the board says "Could not judge N resources". Previously it could land as a priced idle finding.
 - **Failover replicas are not called waste.** Cache nodes now carry their replication group, role, automatic failover and Multi-AZ settings. A node in a group with failover or Multi-AZ is withheld; a node whose settings could not be read is withheld too.
 - **Snapshots are checked before delete advice.** Snapshot state includes size, age and whether an AMI uses it. AMI-backed snapshots, snapshots tagged as retained or safety copies, and snapshots whose state could not be read are withheld. Snapshots stay unpriced: their stored size is incremental, so a list price on the full volume size would overstate them.
+- These guards apply to the default `pipeline` engine; the `react` engine and `argus chat` do not have them. The scan role needs `ec2:DescribeSnapshots` and `ec2:DescribeImages` (added to every published role definition); without them snapshots are withheld, not reported.
 - Report field `coverage.withheld` lists each withheld resource with its reason (additive). An idle load balancer that publishes no datapoints is now "could not judge" rather than a finding.
 
 ### Known limitations
