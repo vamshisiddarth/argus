@@ -1,0 +1,29 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+  - package-ecosystem: pip
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      python-minor-and-patch:
+        update-types: ["minor", "patch"]
+  - package-ecosystem: pip
+    directory: "/requirements"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      python-requirements:
+        update-types: ["minor", "patch"]
+  - package-ecosystem: docker
+    directory: "/"
+    schedule:
+      interval: weekly
