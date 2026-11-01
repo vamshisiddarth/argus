@@ -35,6 +35,10 @@ the templates creates them for you.
         "ec2:DescribeVolumes",
         "ec2:DescribeSnapshots",
         "ec2:DescribeImages",
+        "logs:DescribeLogGroups",
+        "logs:DescribeLogStreams",
+        "rds:DescribeDBSnapshots",
+        "rds:DescribeDBClusterSnapshots",
         "ec2:DescribeAddresses",
         "rds:DescribeDBInstances",
         "rds:DescribeDBClusters",
@@ -106,6 +110,9 @@ looks like `Administrator*` or `*FullAccess`.
 
 !!! info "Why `ec2:DescribeSnapshots` and `ec2:DescribeImages`?"
     Before a snapshot is suggested for deletion, Argus checks whether an AMI still uses it. Without these two actions, snapshot details cannot be read and snapshot findings are withheld from the waste total (listed under `coverage.withheld` as `state_unavailable`) rather than reported. `elasticache:DescribeReplicationGroups` and `elasticache:DescribeCacheClusters` play the same role for cache nodes.
+
+!!! info "Why `logs:DescribeLogStreams` and `rds:DescribeDBSnapshots`?"
+    CloudTrail does not record log ingestion, so Argus reads a log group's newest stream (`logs:DescribeLogStreams`) to know when it last received events. If that call is denied, log-group findings are withheld (`activity_unverified`), never reported as idle. `rds:DescribeDBSnapshots` and `rds:DescribeDBClusterSnapshots` tell automated snapshots from manual ones; without them RDS snapshot findings are withheld (`state_unavailable`).
 
 `cloudwatch:ListMetrics` powers the dynamic metric discovery used for resource types that
 aren't in the registry.

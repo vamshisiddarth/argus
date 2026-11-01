@@ -1,12 +1,23 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+
 from adapters.base import Resource
 from core.pipeline.evidence import Evidence
 from core.pipeline.guards import needs_traffic_metrics, screen
 from core.pipeline.triage import Flagged
 
 
-def _flag(rtype, native=None, status="no_data", state=None, tags=None, rid="r-1"):
+def _flag(
+    rtype,
+    native=None,
+    status="no_data",
+    state=None,
+    tags=None,
+    rid="r-1",
+    last=None,
+    checked=False,
+):
     res = Resource(
         resource_id=rid,
         resource_type=rtype,
@@ -15,7 +26,13 @@ def _flag(rtype, native=None, status="no_data", state=None, tags=None, rid="r-1"
         tags=tags or {},
         native_type=native or rtype,
     )
-    ev = Evidence(resource=res, metrics_status=status, state=state)
+    ev = Evidence(
+        resource=res,
+        metrics_status=status,
+        state=state,
+        last_activity=last,
+        activity_checked=checked,
+    )
     return Flagged(0, ev, "idle", "delete", "high", "high", 38.0)
 
 
@@ -125,3 +142,76 @@ class TestSnapshots:
     def test_plain_orphan_snapshot_is_kept(self):
         state = {"kind": "ebs_snapshot", "ami_backed": False}
         assert _kinds([_flag(self.T, state=state, tags={"Name": "x"})]) == (1, [])
+
+
+def _ago(days):
+    return datetime.now(tz=timezone.utc) - timedelta(days=days)
+
+
+class TestLogGroups:
+    T = "logs:log-group"
+
+    def test_recent_events_withhold_a_no_activity_claim(self):
+        assert _kinds([_flag(self.T, last=_ago(0), checked=True)]) == (
+            0,
+            ["recent_log_activity"],
+        )
+
+    def test_events_inside_the_window_withhold_too(self):
+        assert _kinds([_flag(self.T, last=_ago(60), checked=True)]) == (
+            0,
+            ["recent_log_activity"],
+        )
+
+    def test_events_older_than_the_window_stay_a_candidate(self):
+        assert _kinds([_flag(self.T, last=_ago(200), checked=True)]) == (1, [])
+
+    def test_no_events_at_all_stays_a_candidate(self):
+        assert _kinds([_flag(self.T, last=None, checked=True)]) == (1, [])
+
+    def test_unchecked_activity_is_withheld(self):
+        assert _kinds([_flag(self.T, last=None, checked=False)]) == (
+            0,
+            ["activity_unverified"],
+        )
+
+    def test_window_follows_the_setting(self):
+        flag = _flag(self.T, last=_ago(40), checked=True)
+
+        assert len(screen([flag], activity_days=30)[0]) == 1
+        assert len(screen([flag], activity_days=90)[0]) == 0
+
+
+class TestRdsSnapshots:
+    T = "rds:snapshot"
+
+    def test_automated_snapshot_is_withheld(self):
+        state = {"kind": "rds_snapshot", "snapshot_type": "automated"}
+        assert _kinds([_flag(self.T, state=state)]) == (0, ["automated_snapshot"])
+
+    def test_aws_backup_snapshot_is_withheld(self):
+        state = {"kind": "rds_snapshot", "snapshot_type": "awsbackup"}
+        assert _kinds([_flag(self.T, state=state)]) == (0, ["automated_snapshot"])
+
+    def test_old_manual_snapshot_stays_a_candidate(self):
+        state = {"kind": "rds_snapshot", "snapshot_type": "manual"}
+        assert _kinds([_flag(self.T, state=state)]) == (1, [])
+
+    def test_manual_snapshot_with_a_retention_tag_is_withheld(self):
+        state = {"kind": "rds_snapshot", "snapshot_type": "manual"}
+        tags = {"retention": "7y"}
+        assert _kinds([_flag(self.T, state=state, tags=tags)]) == (
+            0,
+            ["protected_by_tag"],
+        )
+
+    def test_unread_state_is_withheld(self):
+        assert _kinds([_flag(self.T)]) == (0, ["state_unavailable"])
+
+    def test_cluster_snapshots_get_the_same_treatment(self):
+        state = {"kind": "rds_snapshot", "snapshot_type": "automated"}
+        flag = _flag("rds:cluster-snapshot", state=state)
+        assert _kinds([flag]) == (0, ["automated_snapshot"])
+
+    def test_retained_automated_backups_are_always_withheld(self):
+        assert _kinds([_flag("rds:auto-backup")]) == (0, ["automated_snapshot"])

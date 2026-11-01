@@ -180,6 +180,10 @@ def test_day_window_settings_are_documented():
         "tag:GetResources",
         "ec2:DescribeSnapshots",
         "ec2:DescribeImages",
+        "logs:DescribeLogStreams",
+        "logs:DescribeLogGroups",
+        "rds:DescribeDBSnapshots",
+        "rds:DescribeDBClusterSnapshots",
     ],
 )
 def test_state_rule_describe_actions_are_in_every_role_definition(rel, action):

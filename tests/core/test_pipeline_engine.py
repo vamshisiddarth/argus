@@ -619,3 +619,69 @@ def test_a_failover_replica_is_not_called_waste():
 
     assert findings == []
     assert [w["kind"] for w in loop.coverage.withheld] == ["failover_replica"]
+
+
+LOGS = "logs:log-group"
+
+
+class ActivityAdapter(StateAdapter):
+    def __init__(self, resources, activity=None, **kw):
+        super().__init__(resources, **kw)
+        self._activity = activity
+
+    def get_last_activity(self, resource_id, resource_type):
+        if isinstance(self._activity, Exception):
+            raise self._activity
+        return self._activity
+
+
+def _group():
+    return Resource(
+        "arn:aws:logs:us-east-1:1:log-group:/ecs/pips-core-prod",
+        LOGS,
+        "aws",
+        "us-east-1",
+    )
+
+
+def test_a_hot_log_group_is_not_reported_as_idle():
+    from datetime import datetime, timezone
+
+    adapter = ActivityAdapter([_group()], activity=datetime.now(tz=timezone.utc))
+
+    findings, loop = _ask(adapter, "pips-core-prod")
+
+    assert findings == []
+    assert [w["kind"] for w in loop.coverage.withheld] == ["recent_log_activity"]
+
+
+def test_a_log_group_whose_activity_cannot_be_read_is_withheld():
+    from adapters.base import ActivityUnavailableError
+
+    adapter = ActivityAdapter([_group()], activity=ActivityUnavailableError("denied"))
+
+    findings, loop = _ask(adapter, "pips-core-prod")
+
+    assert findings == []
+    assert [w["kind"] for w in loop.coverage.withheld] == ["activity_unverified"]
+
+
+def test_a_log_group_with_no_events_in_the_window_can_still_be_flagged():
+    adapter = ActivityAdapter([_group()], activity=None)
+
+    findings, loop = _ask(adapter, "pips-core-prod")
+
+    assert [f.resource_type for f in findings] == [LOGS]
+    assert loop.coverage.withheld == []
+
+
+def test_an_automated_rds_snapshot_is_not_called_redundant():
+    arn = "arn:aws:rds:us-east-1:1:snapshot:rds:qa-ephemeral-2026-11-01"
+    snap = Resource(arn, "rds:snapshot", "aws", "us-east-1")
+    state = {"kind": "rds_snapshot", "snapshot_type": "automated"}
+    adapter = StateAdapter([snap], states={arn: state})
+
+    findings, loop = _ask(adapter, "qa-ephemeral-2026-11-01")
+
+    assert findings == []
+    assert [w["kind"] for w in loop.coverage.withheld] == ["automated_snapshot"]

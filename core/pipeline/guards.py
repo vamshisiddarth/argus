@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 
 from core.pipeline.triage import Flagged
 
@@ -69,11 +70,13 @@ class Withheld:
         }
 
 
-def screen(flagged: list[Flagged]) -> tuple[list[Flagged], list[Withheld]]:
+def screen(
+    flagged: list[Flagged], activity_days: int = 90
+) -> tuple[list[Flagged], list[Withheld]]:
     kept: list[Flagged] = []
     withheld: list[Withheld] = []
     for flag in flagged:
-        hit = _check(flag)
+        hit = _check(flag, activity_days)
         if hit is None:
             kept.append(flag)
         else:
@@ -86,7 +89,7 @@ def needs_traffic_metrics(resource_type: str, native_type: str | None) -> bool:
     return any(token in text for token in _TRAFFIC_TYPES)
 
 
-def _check(flag: Flagged) -> Withheld | None:
+def _check(flag: Flagged, activity_days: int = 90) -> Withheld | None:
     ev = flag.evidence
     r = ev.resource
 
@@ -105,6 +108,17 @@ def _check(flag: Flagged) -> Withheld | None:
         return _check_cache(flag, hold)
     if r.resource_type == _SNAPSHOT_TYPE:
         return _check_snapshot(flag, hold)
+    if is_log_group(r.resource_type, r.native_type):
+        return _check_log_group(flag, hold, activity_days)
+    rds = _rds_kind(r.resource_type, r.native_type)
+    if rds == "auto_backup":
+        return hold(
+            "automated_snapshot",
+            "An automated backup is managed by AWS retention; it is not a delete "
+            "candidate.",
+        )
+    if rds == "snapshot":
+        return _check_rds_snapshot(flag, hold)
     return None
 
 
@@ -147,6 +161,65 @@ def _check_snapshot(flag: Flagged, hold: _Hold) -> Withheld | None:
         )
     tags = " ".join(f"{k} {v}" for k, v in ev.resource.tags.items())
     squashed = _squash(tags)
+    if any(word in squashed for word in _PROTECT_WORDS):
+        return hold(
+            "protected_by_tag",
+            "A tag marks this snapshot as a retained or safety copy.",
+        )
+    return None
+
+
+def is_log_group(resource_type: str, native_type: str | None = None) -> bool:
+    return "loggroup" in _squash(f"{resource_type} {native_type or ''}")
+
+
+def _rds_kind(resource_type: str, native_type: str | None) -> str | None:
+    text = _squash(f"{resource_type} {native_type or ''}")
+    if "rdsautobackup" in text:
+        return "auto_backup"
+    if any(t in text for t in ("rdssnapshot", "rdsclustersnapshot", "dbsnapshot")):
+        return "snapshot"
+    return None
+
+
+def _check_log_group(flag: Flagged, hold: _Hold, activity_days: int) -> Withheld | None:
+    ev = flag.evidence
+    if not ev.activity_checked:
+        return hold(
+            "activity_unverified",
+            "Log activity could not be read, so a claim of no recent activity "
+            "cannot be made.",
+        )
+    last = ev.last_activity
+    if last is not None:
+        if last.tzinfo is None:
+            last = last.replace(tzinfo=timezone.utc)
+        if datetime.now(tz=timezone.utc) - last <= timedelta(days=activity_days):
+            return hold(
+                "recent_log_activity",
+                f"The group received log events on {last.date().isoformat()}, "
+                f"within the last {activity_days} days.",
+            )
+    return None
+
+
+def _check_rds_snapshot(flag: Flagged, hold: _Hold) -> Withheld | None:
+    ev = flag.evidence
+    state = ev.state
+    if state is None:
+        return hold(
+            "state_unavailable",
+            "Snapshot details could not be read, so an automated snapshot cannot "
+            "be ruled out.",
+        )
+    kind = str(state.get("snapshot_type") or "").lower()
+    if kind in ("automated", "awsbackup"):
+        return hold(
+            "automated_snapshot",
+            "An AWS-managed snapshot (type "
+            f"{kind}) is subject to retention; it is not a delete candidate.",
+        )
+    squashed = _squash(" ".join(f"{k} {v}" for k, v in ev.resource.tags.items()))
     if any(word in squashed for word in _PROTECT_WORDS):
         return hold(
             "protected_by_tag",

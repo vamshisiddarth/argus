@@ -134,7 +134,7 @@ def collect_evidence(
             e for e in evidence if activity_mode == "all" or e.metrics_status != "ok"
         ][:activity_cap]
         progress.extend(len(wanted))
-        _look_up_activity(adapter, wanted)
+        look_up_activity(adapter, wanted)
     progress.finish()
     logger.info(
         "evidence_collected",
@@ -145,7 +145,7 @@ def collect_evidence(
     return evidence
 
 
-def _look_up_activity(adapter: CloudAdapter, items: list[Evidence]) -> None:
+def look_up_activity(adapter: CloudAdapter, items: list[Evidence]) -> None:
     progress = get_progress()
 
     def look(ev: Evidence) -> None:
